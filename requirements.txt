@@ -1,0 +1,20 @@
+# ASTRA prototype - Python dependencies
+#
+# Phase 1 (data interface) only needs the BlueSky simulator package itself,
+# for its networking client (bluesky.network.client.Client) and stack
+# command helper (bluesky.stack.stack). No GUI extras are required since
+# ASTRA never uses BlueSky's own QtGL/pygame interface - BlueSky is always
+# run headless as a separate process, and ASTRA connects to it as a plain
+# network client.
+#
+# Later phases will extend this file:
+#   Phase 3 (hotspot clustering)   -> numpy, scikit-learn
+#   Phase 4/5 (complexity/predict) -> numpy
+#   Phase 7 (dashboard)            -> a dashboard framework (e.g. dash/plotly
+#                                      or streamlit) + pandas
+#
+# Install with:
+#   pip install -r requirements.txt --break-system-packages   (Linux, externally-managed envs)
+#   pip install -r requirements.txt                            (most other setups)
+
+bluesky-simulator
