@@ -17,11 +17,19 @@ open-source Air Traffic Simulator.
 |---|---|---|
 | **1** | Data interface (BlueSky adapter, state model, history buffer) | ✅ Complete |
 | **2** | Kinematic trajectory prediction (5/10/15/30/60 min horizons) | ✅ Complete |
-| 3 | DBSCAN hotspot detection (15 NM / 1 000 ft) | ⬜ Next |
-| 4 | Per-hotspot complexity scoring (density, MTCA, heading diversity …) | ⬜ Planned |
-| 5 | Hotspot lifecycle prediction (start/end time, confidence, priority) | ⬜ Planned |
-| 6 | AI resolution framework (speed / FL / direct-to clearances, ranked) | ⬜ Planned |
-| 7 | Live dashboard (traffic map, heatmap, hotspot table, resolutions) | ⬜ Planned |
+| 3 | Cluster detection (DBSCAN, 15 NM / 1 000 ft, stateless) | ⬜ Next |
+| 4 | Complexity assessment (density, MTCA, heading/altitude diversity) | ⬜ Planned |
+| 5 | 4DARHAC detection — tracking (stateful, persists across cycles) | ⬜ Planned |
+| 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, priority) | ⬜ Planned |
+| 7 | AI resolution framework (speed / FL / direct-to clearances, ranked) | ⬜ Planned |
+| 8 | Live dashboard (traffic map, heatmap, hotspot table, resolutions) | ⬜ Planned |
+
+> Phases 3–8 were reorganized by an architecture review (July 2026): the
+> original single "Phase 3 — hotspot detection" conflated stateless spatial
+> clustering with the stateful problem of tracking a 4DARHAC's identity
+> across prediction horizons and poll cycles. See
+> [`docs/architecture.md §6`](docs/architecture.md#6-4darhac-domain-model-and-revised-pipeline-proposed--pending-approval)
+> for the domain model and rationale.
 
 ---
 
@@ -78,11 +86,11 @@ IC scenarios/phase1_demo.scn
 astra/
     interface/    Phase 1 ✅  BlueSky adapter + simulator-agnostic data model
     trajectory/   Phase 2 ✅  Kinematic trajectory prediction
-    hotspot/      Phase 3 ⬜  DBSCAN clustering
-    complexity/   Phase 4 ⬜  Complexity scoring
-    prediction/   Phase 5 ⬜  Hotspot lifecycle prediction
-    resolution/   Phase 6 ⬜  AI clearance generation
-    dashboard/    Phase 7 ⬜  Live visualisation
+    hotspot/      Phase 3 ⬜  Cluster detection (proposed rename/split — see docs/architecture.md §6)
+    complexity/   Phase 4 ⬜  Complexity assessment
+    prediction/   Phase 5–6 ⬜  4DARHAC detection (tracking) + forecast
+    resolution/   Phase 7 ⬜  AI clearance generation
+    dashboard/    Phase 8 ⬜  Live visualisation
     utils/              Config, unit conversion, geodesy, logging
 
 docs/architecture.md    System architecture + Mermaid diagrams
@@ -99,7 +107,7 @@ PROJECT_STATUS.md       Overall milestone status (Phase 1 & 2)
 ## Architecture overview
 
 ```
-BlueSky (external)  →  BlueSkyConnector  →  StateReader  →  [Phase 2–7 pipeline]
+BlueSky (external)  →  BlueSkyConnector  →  StateReader  →  [Phase 2–8 pipeline]
                         (or MockConnector)
 ```
 

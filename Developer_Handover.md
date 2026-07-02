@@ -41,11 +41,11 @@ astra_project/
 │   │   ├── models.py              PredictedSnapshot, PredictionResult
 │   │   └── engine.py              TrajectoryEngine (constant-velocity)
 │   │
-│   ├── hotspot/               Phase 3 TODO — DBSCAN clustering
-│   ├── complexity/            Phase 4 TODO — per-hotspot complexity scoring
-│   ├── prediction/            Phase 5 TODO — hotspot lifecycle prediction
-│   ├── resolution/            Phase 6 TODO — clearance generation + ranking
-│   └── dashboard/             Phase 7 TODO — live visualisation
+│   ├── hotspot/               Phase 3 TODO — cluster detection (proposed rename; see §"Architecture review")
+│   ├── complexity/            Phase 4 TODO — per-cluster complexity assessment
+│   ├── prediction/            Phase 5–6 TODO — 4DARHAC detection (tracking) + forecast
+│   ├── resolution/            Phase 7 TODO — clearance generation + ranking
+│   └── dashboard/             Phase 8 TODO — live visualisation
 │
 ├── docs/
 │   └── architecture.md        Mermaid diagrams (full system + dep graph)
@@ -81,8 +81,8 @@ pip install -r requirements.txt
 ```
 
 `requirements.txt` currently lists only `bluesky-simulator`. Later phases
-will add `numpy`, `scikit-learn` (Phase 3 DBSCAN), and a dashboard
-framework (Phase 7).
+will add `numpy`, `scikit-learn` (Phase 3 cluster detection), and a
+dashboard framework (Phase 8).
 
 ---
 
@@ -257,9 +257,37 @@ Run `python demo_trajectory.py` for a worked example.
 
 ---
 
-## What Phase 3 needs from Phase 2
+## Architecture review (July 2026) — 4DARHAC domain model
 
-Phase 3 (DBSCAN hotspot detection) will import:
+A design review determined that the original "Phase 3 — hotspot detection"
+conflated two operations of different natures: **spatial clustering**
+(DBSCAN over one snapshot — stateless, pure) and **temporal linkage**
+(deciding whether a cluster at one horizon/poll-cycle is the same physical
+area as a cluster seen earlier — stateful, an association/tracking
+problem). A 4DARHAC (4D Area of Relatively High ATC Complexity — ASTRA's
+core detection target) is by definition a *persistent* spatiotemporal
+object, not an independent snapshot re-derived from scratch every horizon
+and every poll cycle. Running DBSCAN independently at each horizon produces
+disconnected 3D clusters, not one 4D area.
+
+The remaining milestones were reorganized accordingly. Full rationale,
+domain model (`Cluster`, `ComplexityRegion`, `FourDArhac`), and revised
+pipeline diagram live in
+[`docs/architecture.md §6`](docs/architecture.md#6-4darhac-domain-model-and-revised-pipeline-proposed--pending-approval).
+This section is **design only** — nothing below has been implemented yet.
+
+| # | Milestone | Nature | Depends on |
+|---|---|---|---|
+| 3 | Cluster detection | pure / stateless | Trajectory prediction (Phase 2) |
+| 4 | Complexity assessment | pure / stateless | Cluster detection |
+| 5 | 4DARHAC detection (tracking) | **stateful** | Cluster detection (+ complexity) |
+| 6 | 4DARHAC forecast | stateful, layered on 5 | 4DARHAC detection |
+| 7 | Resolution | stateless given a 4DARHAC | 4DARHAC forecast |
+| 8 | Dashboard | presentation | everything above |
+
+## What Milestone 3 (Cluster detection) needs from Phase 2
+
+Milestone 3 will import:
 
 ```python
 from astra.trajectory.engine import TrajectoryEngine
@@ -274,6 +302,12 @@ parameter and `separation_vertical_ft` (1 000 ft) as an additional vertical
 gate. Because `PredictedSnapshot` exposes the same iteration/accessor API as
 `TrafficSnapshot`, the clustering code should not need to special-case
 predicted vs. observed input.
+
+Deliberately **out of scope** for Milestone 3: linking clusters across
+horizons or poll cycles into a persistent identity. That is Milestone 5
+(4DARHAC detection / tracking), scoped separately so the two problems —
+one mechanical, one genuinely novel — get independent design attention
+instead of being silently bundled together.
 
 ---
 

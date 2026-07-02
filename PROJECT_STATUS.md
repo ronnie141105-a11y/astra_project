@@ -12,11 +12,20 @@ for design decisions and conventions.
 |---|---|---|---|
 | 1 | Phase 1 | Data interface — BlueSky adapter, state model, history buffer, DI, verification | ✅ Complete |
 | 2 | Phase 2 | Trajectory prediction — constant-velocity kinematic engine | ✅ Complete |
-| 3 | Phase 3 | DBSCAN hotspot detection (15 NM / 1 000 ft) | ⬜ Next |
-| 4 | Phase 4 | Per-hotspot complexity scoring | ⬜ Planned |
-| 5 | Phase 5 | Hotspot lifecycle prediction | ⬜ Planned |
-| 6 | Phase 6 | AI resolution framework | ⬜ Planned |
-| 7 | Phase 7 | Live dashboard | ⬜ Planned |
+| 3 | Phase 3 | Cluster detection (DBSCAN, 15 NM / 1 000 ft, stateless) | ⬜ Next |
+| 4 | Phase 4 | Complexity assessment (density, MTCA, heading/altitude diversity) | ⬜ Planned |
+| 5 | Phase 5 | 4DARHAC detection — tracking (stateful, persists across cycles) | ⬜ Planned |
+| 6 | Phase 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, priority) | ⬜ Planned |
+| 7 | Phase 7 | AI resolution framework | ⬜ Planned |
+| 8 | Phase 8 | Live dashboard | ⬜ Planned |
+
+> **Reorganized by architecture review, July 2026.** The original Phase 3
+> ("hotspot detection") conflated stateless spatial clustering with the
+> stateful problem of tracking a 4DARHAC's identity across prediction
+> horizons and poll cycles. It has been split into Phases 3–6. See
+> `docs/architecture.md §6` for the domain model
+> (`Cluster` / `ComplexityRegion` / `FourDArhac`) and full rationale. This
+> is a documentation-only change — no code has been restructured yet.
 
 ---
 
@@ -62,6 +71,10 @@ for design decisions and conventions.
 
 ## Next milestone
 
-Milestone 3 — DBSCAN hotspot detection (`astra/hotspot/`), operating on both
-observed `TrafficSnapshot` and predicted `PredictedSnapshot` objects
-produced by `TrajectoryEngine`. Not started.
+Milestone 3 — Cluster detection (proposed home: `astra/hotspot/`, pending
+the rename/split discussed in the architecture review). A stateless DBSCAN
+pass over each `TrafficSnapshot` / `PredictedSnapshot` (observed + all five
+horizons), producing `Cluster` objects as defined in
+`docs/architecture.md §6`. Deliberately excludes cross-horizon /
+cross-cycle tracking, which is scoped as its own milestone (5 — 4DARHAC
+detection) given its different (stateful) nature. Not started.

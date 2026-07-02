@@ -7,14 +7,18 @@
 # run headless as a separate process, and ASTRA connects to it as a plain
 # network client.
 #
-# Later phases will extend this file:
-#   Phase 3 (hotspot clustering)   -> numpy, scikit-learn
-#   Phase 4/5 (complexity/predict) -> numpy
-#   Phase 7 (dashboard)            -> a dashboard framework (e.g. dash/plotly
-#                                      or streamlit) + pandas
+# Later phases will extend this file further:
+#   Phase 4/5 (complexity/4DARHAC tracking) -> numpy (already present below)
+#   Phase 8 (dashboard)                     -> a dashboard framework (e.g. dash/plotly
+#                                               or streamlit) + pandas
 #
 # Install with:
 #   pip install -r requirements.txt --break-system-packages   (Linux, externally-managed envs)
 #   pip install -r requirements.txt                            (most other setups)
 
 bluesky-simulator
+
+# Phase 3 (cluster detection, astra.hotspot) -- DBSCAN + the precomputed
+# horizontal/vertical distance matrix it runs against.
+numpy
+scikit-learn
