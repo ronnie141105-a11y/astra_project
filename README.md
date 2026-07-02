@@ -16,8 +16,8 @@ open-source Air Traffic Simulator.
 | Phase | Description | Status |
 |---|---|---|
 | **1** | Data interface (BlueSky adapter, state model, history buffer) | ✅ Complete |
-| 2 | Kinematic trajectory prediction (5/10/20/30/60 min horizons) | ⬜ Next |
-| 3 | DBSCAN hotspot detection (15 NM / 1 000 ft) | ⬜ Planned |
+| **2** | Kinematic trajectory prediction (5/10/15/30/60 min horizons) | ✅ Complete |
+| 3 | DBSCAN hotspot detection (15 NM / 1 000 ft) | ⬜ Next |
 | 4 | Per-hotspot complexity scoring (density, MTCA, heading diversity …) | ⬜ Planned |
 | 5 | Hotspot lifecycle prediction (start/end time, confidence, priority) | ⬜ Planned |
 | 6 | AI resolution framework (speed / FL / direct-to clearances, ranked) | ⬜ Planned |
@@ -36,6 +36,14 @@ python demo_phase1.py
 
 Creates 5 aircraft in Swiss upper airspace, polls 5 times (= 5 simulated
 minutes), and prints a formatted TrafficSnapshot with separations.
+
+```bash
+python demo_trajectory.py
+```
+
+Creates 5 aircraft, takes one observed `TrafficSnapshot`, and prints
+predicted-position tables at each configured horizon (5, 10, 15, 30, 60
+minutes) using the constant-velocity `TrajectoryEngine`.
 
 ### Main loop — mock mode
 
@@ -69,7 +77,7 @@ IC scenarios/phase1_demo.scn
 ```
 astra/
     interface/    Phase 1 ✅  BlueSky adapter + simulator-agnostic data model
-    trajectory/   Phase 2 ⬜  Kinematic trajectory prediction
+    trajectory/   Phase 2 ✅  Kinematic trajectory prediction
     hotspot/      Phase 3 ⬜  DBSCAN clustering
     complexity/   Phase 4 ⬜  Complexity scoring
     prediction/   Phase 5 ⬜  Hotspot lifecycle prediction
@@ -79,9 +87,11 @@ astra/
 
 docs/architecture.md    System architecture + Mermaid diagrams
 demo_phase1.py          Phase 1 offline demonstration
+demo_trajectory.py      Phase 2 offline demonstration — trajectory prediction
 main.py                 Entry point  (python main.py [--mock])
 Developer_Handover.md   Full developer guide, design decisions, conventions
-PHASE1_CHECKLIST.md     Requirement traceability + verification results
+PHASE1_CHECKLIST.md     Phase 1 requirement traceability + verification results
+PROJECT_STATUS.md       Overall milestone status (Phase 1 & 2)
 ```
 
 ---
@@ -112,7 +122,7 @@ Defaults:
 | `history_length` | `3600` | Snapshots retained (~1 hour at 1 Hz) |
 | `separation_horizontal_nm` | `15.0` | DBSCAN ε / MTCA horizontal threshold |
 | `separation_vertical_ft` | `1000.0` | Vertical separation gate |
-| `prediction_horizons_min` | `[5,10,20,30,60]` | Trajectory prediction horizons |
+| `prediction_horizons_min` | `[5,10,15,30,60]` | Trajectory prediction horizons |
 
 ---
 
@@ -124,3 +134,4 @@ Defaults:
 | `Developer_Handover.md` | Full developer guide, design decisions, conventions |
 | `docs/architecture.md` | Mermaid system architecture diagrams |
 | `PHASE1_CHECKLIST.md` | Phase 1 requirement traceability and verification results |
+| `PROJECT_STATUS.md` | Overall milestone status across Phase 1 and Phase 2 |

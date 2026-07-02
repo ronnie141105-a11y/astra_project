@@ -11,8 +11,9 @@ process. All prediction, detection, complexity, AI and visualisation logic
 lives in this repository. The two processes communicate over ZeroMQ using
 BlueSky's built-in network API.
 
-**Current status:** Phase 1 (data interface) is **complete and verified**.
-Phases 2–7 are scaffolded as documented placeholder packages.
+**Current status:** Phase 1 (data interface) and Phase 2 (trajectory
+prediction) are **complete and verified**. Phases 3–7 are scaffolded as
+documented placeholder packages.
 
 ---
 
@@ -36,7 +37,10 @@ astra_project/
 │   │   ├── geodesy.py             Haversine, bearing, dead-reckoning
 │   │   └── logger.py              Shared logging setup
 │   │
-│   ├── trajectory/            Phase 2 TODO — kinematic trajectory prediction
+│   ├── trajectory/            Phase 2 ✅ — kinematic trajectory prediction
+│   │   ├── models.py              PredictedSnapshot, PredictionResult
+│   │   └── engine.py              TrajectoryEngine (constant-velocity)
+│   │
 │   ├── hotspot/               Phase 3 TODO — DBSCAN clustering
 │   ├── complexity/            Phase 4 TODO — per-hotspot complexity scoring
 │   ├── prediction/            Phase 5 TODO — hotspot lifecycle prediction
@@ -50,10 +54,12 @@ astra_project/
 │   └── phase1_demo.scn        BlueSky scenario file (4 aircraft, live mode)
 │
 ├── demo_phase1.py             Offline demo: 5 aircraft, full snapshot print
+├── demo_trajectory.py         Offline demo: trajectory prediction tables
 ├── main.py                    Entry point (--mock flag or live BlueSky)
 ├── requirements.txt           pip install -r requirements.txt
 ├── README.md                  User-facing setup and usage guide
-├── PHASE1_CHECKLIST.md        Requirement traceability + verification results
+├── PHASE1_CHECKLIST.md        Phase 1 requirement traceability + verification
+├── PROJECT_STATUS.md          Overall milestone status (Phase 1 & 2)
 └── Developer_Handover.md      This file
 ```
 
@@ -220,23 +226,54 @@ dependency from `hotspot` on `trajectory`.
 
 ---
 
-## What Phase 2 needs from Phase 1
+## Phase 2 — trajectory prediction (complete)
 
-Phase 2 (trajectory prediction) will import:
+Phase 2 is implemented in `astra/trajectory/`:
 
 ```python
-from astra.interface.state_reader import StateReader
-from astra.interface.traffic_state import TrafficSnapshot, AircraftState
-from astra.utils.config import ASTRAConfig
-from astra.utils.geodesy import move_position
+from astra.trajectory.engine import TrajectoryEngine
+from astra.trajectory.models import PredictedSnapshot, PredictionResult
 ```
 
-It receives a `TrafficSnapshot` from `StateReader.current()` and produces
-a list of `PredictedSnapshot` objects (to be defined in `astra/trajectory/`),
-one per horizon in `ASTRAConfig.prediction_horizons_min` (5, 10, 20, 30, 60).
+`TrajectoryEngine(config)` takes a `TrafficSnapshot` (from
+`StateReader.current()` / `.poll()`) and returns a `PredictionResult`
+containing one `PredictedSnapshot` per horizon in
+`ASTRAConfig.prediction_horizons_min` (default: 5, 10, 15, 30, 60 minutes).
 
-The kinematic model in `MockConnector._propagate_positions()` is a direct
-reference implementation of the approach Phase 2 should generalise.
+The model is deterministic constant-velocity dead-reckoning: horizontal
+displacement reuses `astra.utils.geodesy.move_position()` — the same
+function `MockConnector.poll()` uses — and vertical displacement is linear
+extrapolation from `vertical_speed_fpm`. This means a prediction at horizon
+H minutes is mathematically reproducible against H×60/`sim_step_s`
+`MockConnector.poll()` calls, which is how the engine was numerically
+verified.
+
+`PredictedSnapshot` mirrors the `TrafficSnapshot` accessor API (`get()`,
+`as_list()`, `callsigns()`, `__len__`, `__iter__`) by design, so Phase 3
+(DBSCAN clustering) can consume predicted and observed snapshots through
+identical code paths.
+
+Run `python demo_trajectory.py` for a worked example.
+
+---
+
+## What Phase 3 needs from Phase 2
+
+Phase 3 (DBSCAN hotspot detection) will import:
+
+```python
+from astra.trajectory.engine import TrajectoryEngine
+from astra.trajectory.models import PredictedSnapshot, PredictionResult
+from astra.utils.geodesy import haversine_distance_nm
+```
+
+It will run DBSCAN independently over each `PredictedSnapshot` returned by
+`TrajectoryEngine.predict()` (as well as the current observed
+`TrafficSnapshot`), using `separation_horizontal_nm` (15 NM) as the ε
+parameter and `separation_vertical_ft` (1 000 ft) as an additional vertical
+gate. Because `PredictedSnapshot` exposes the same iteration/accessor API as
+`TrafficSnapshot`, the clustering code should not need to special-case
+predicted vs. observed input.
 
 ---
 
@@ -255,13 +292,14 @@ reference implementation of the approach Phase 2 should generalise.
 
 ---
 
-## Known limitations (Phase 1)
+## Known limitations (Phase 1 & 2)
 
 | Limitation | Impact | Mitigation path |
 |---|---|---|
-| `trk` used as heading (no wind correction) | Heading accuracy degrades with strong crosswinds | Phase 2 can add wind data when available |
-| Aircraft type `"UNKNOWN"` for scenario-loaded aircraft | Complexity metrics relying on type mix will be approximate | Phase 2/3 can use a manual type table loaded from config |
-| No ADS-C / EPP data | Trajectory prediction uses flight plan only | Out of scope for TRL-2 per reference FRD |
+| `trk` used as heading (no wind correction) | Heading accuracy degrades with strong crosswinds; carried into Phase 2 predictions | Future work — wind-corrected model noted as an extension |
+| Aircraft type `"UNKNOWN"` for scenario-loaded aircraft | Complexity metrics relying on type mix will be approximate | Phase 3/4 can use a manual type table loaded from config |
+| No ADS-C / EPP data | Trajectory prediction (Phase 2) uses constant-velocity dead-reckoning from flight plan only, not intent data | Out of scope for TRL-2 per reference FRD |
+| Constant-velocity assumption (Phase 2) | No acceleration/turn modelling; accuracy degrades for manoeuvring aircraft over longer horizons | Documented simplifying assumption; intent-based model is future work |
 | `history_length=3600` in default config | ~1 hour at 1 Hz; no persistence across restarts | Phase 7 can add a file-backed replay store |
 | `sim_step_s` fixed per session | Cannot accelerate only specific segments | Acceptable for thesis prototype |
 
