@@ -108,6 +108,49 @@ class ASTRAConfig:
     ltca_distance_nm: float = 7.9
     ltca_time_min: float = 15.0
 
+    #: Reference (saturation) values used to normalise each raw complexity
+    #: component onto a common 0-100 scale before combination. A raw value
+    #: at or above its reference saturates its normalised score at 100.
+    #:
+    #: The full reference ASTRA system calibrates these from a
+    #: percentile-of-history-per-sector distribution (see
+    #: `framework_for_predict_and_resolve_hotspot.md` Sec 2.4.2). That
+    #: calibration needs a multi-year historical dataset this thesis-scale
+    #: prototype does not have, so fixed literature-informed reference
+    #: values are used instead. This is a documented simplification (see
+    #: "Known limitations" in `Developer_Handover.md`), not a claim of
+    #: operational calibration.
+    complexity_density_reference_ac_per_nm2: float = 0.05
+    complexity_mtca_reference_count: int = 3
+    complexity_ltca_reference_count: int = 5
+    complexity_heading_div_reference_deg: float = 60.0
+    complexity_alt_div_reference_ft: float = 2000.0
+    complexity_type_mix_reference_count: int = 4
+
+    #: Minimum cluster horizontal extent (NM) used as a floor when
+    #: computing density, to avoid division by (near-)zero for
+    #: near-coincident aircraft. See `astra.complexity.engine`.
+    complexity_min_extent_nm: float = 0.5
+
+    #: Weights combining the five normalised (0-100) sub-scores into the
+    #: single `ComplexityRegion.complexity_score`. Must sum to 1.0 (checked
+    #: in `__post_init__`). Density and conflicts (MTCA/LTCA combined) are
+    #: weighted highest, mirroring both reference documents treating
+    #: traffic count and conflict potential as the dominant complexity
+    #: drivers, with heading/altitude diversity and aircraft-type mixture
+    #: as secondary contributors.
+    complexity_weight_density: float = 0.30
+    complexity_weight_conflict: float = 0.30
+    complexity_weight_heading_div: float = 0.15
+    complexity_weight_alt_div: float = 0.15
+    complexity_weight_type_mix: float = 0.10
+
+    #: Within the combined "conflict" sub-score, the relative contribution
+    #: of MTCA (near-term, higher urgency) vs. LTCA (longer-term) conflict
+    #: counts. Must sum to 1.0 (checked in `__post_init__`).
+    complexity_mtca_weight_in_conflict: float = 0.7
+    complexity_ltca_weight_in_conflict: float = 0.3
+
     def __post_init__(self) -> None:
         """Fail fast on internally-inconsistent configuration.
 
@@ -123,6 +166,29 @@ class ASTRAConfig:
             raise ValueError("poll_interval_s must be positive")
         if self.history_length <= 0:
             raise ValueError("history_length must be positive")
+
+        complexity_weights = (
+            self.complexity_weight_density,
+            self.complexity_weight_conflict,
+            self.complexity_weight_heading_div,
+            self.complexity_weight_alt_div,
+            self.complexity_weight_type_mix,
+        )
+        if abs(sum(complexity_weights) - 1.0) > 1e-6:
+            raise ValueError(
+                "complexity_weight_* fields must sum to 1.0, got "
+                f"{sum(complexity_weights):.6f}"
+            )
+        conflict_weights_sum = (
+            self.complexity_mtca_weight_in_conflict
+            + self.complexity_ltca_weight_in_conflict
+        )
+        if abs(conflict_weights_sum - 1.0) > 1e-6:
+            raise ValueError(
+                "complexity_mtca_weight_in_conflict + "
+                "complexity_ltca_weight_in_conflict must sum to 1.0, got "
+                f"{conflict_weights_sum:.6f}"
+            )
 
 
 #: Module-level default configuration instance. Most entry points (main.py,
