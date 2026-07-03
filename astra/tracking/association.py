@@ -58,6 +58,66 @@ def centroid_extent_overlap(cluster_a: Cluster, cluster_b: Cluster) -> bool:
     )
 
 
+def best_cluster_match(
+    reference_cluster: Cluster,
+    candidate_clusters: List[Cluster],
+    jaccard_threshold: float,
+) -> Optional[Cluster]:
+    """Find the best-matching cluster in ``candidate_clusters`` for ``reference_cluster``.
+
+    Orientation-agnostic core of the association heuristic.
+    ``best_track_match`` (Milestone 5) builds on this to match a newly
+    detected cluster against open tracks. ``astra.forecast.horizon_series``
+    (Milestone 6) builds on it the other way round, to match one track's
+    most recent cluster against a horizon's candidate predicted regions.
+    See docs/milestone_5_tracking.md and docs/milestone_6_forecast.md.
+
+    Primary signal: Jaccard similarity of ``member_callsigns``; a
+    candidate must meet ``jaccard_threshold`` to be eligible. Among
+    candidates that clear the threshold, the highest Jaccard similarity
+    wins (ties broken by smaller centroid distance).
+
+    Fallback: if no candidate clears the Jaccard threshold, centroid/
+    extent circle overlap is used instead (smallest centroid distance
+    wins among overlapping candidates).
+
+    Args:
+        reference_cluster: The cluster to find a match for.
+        candidate_clusters: Clusters eligible for matching.
+        jaccard_threshold: Minimum Jaccard similarity to accept a
+            primary match (``ASTRAConfig.tracking_jaccard_threshold``).
+
+    Returns:
+        The best-matching ``Cluster``, or ``None`` if no candidate
+        clears either the primary or fallback signal.
+    """
+    scored: List[Tuple[Cluster, float, float, bool]] = []
+    for candidate in candidate_clusters:
+        jaccard = jaccard_similarity(
+            reference_cluster.member_callsigns, candidate.member_callsigns
+        )
+        distance_nm = haversine_distance_nm(
+            reference_cluster.centroid_lat,
+            reference_cluster.centroid_lon,
+            candidate.centroid_lat,
+            candidate.centroid_lon,
+        )
+        overlaps = centroid_extent_overlap(reference_cluster, candidate)
+        scored.append((candidate, jaccard, distance_nm, overlaps))
+
+    primary = [entry for entry in scored if entry[1] >= jaccard_threshold]
+    if primary:
+        primary.sort(key=lambda entry: (-entry[1], entry[2]))
+        return primary[0][0]
+
+    fallback = [entry for entry in scored if entry[3]]
+    if fallback:
+        fallback.sort(key=lambda entry: entry[2])
+        return fallback[0][0]
+
+    return None
+
+
 def best_track_match(
     new_cluster: Cluster,
     candidate_tracks: List[FourDArhac],
@@ -65,15 +125,9 @@ def best_track_match(
 ) -> Optional[FourDArhac]:
     """Find the best-matching open track for a newly detected cluster.
 
-    Primary signal: Jaccard similarity of ``member_callsigns`` against
-    each candidate track's most recent entry; a candidate must meet
-    ``jaccard_threshold`` to be eligible. Among candidates that clear the
-    threshold, the highest Jaccard similarity wins (ties broken by
-    smaller centroid distance).
-
-    Fallback: if no candidate clears the Jaccard threshold, centroid/
-    extent circle overlap is used instead (smallest centroid distance
-    wins among overlapping candidates).
+    Thin wrapper around ``best_cluster_match``: extracts each candidate
+    track's most recent cluster, matches, and maps the winning cluster
+    back to its owning track.
 
     Args:
         new_cluster: The freshly detected ``Cluster`` to associate.
@@ -87,31 +141,16 @@ def best_track_match(
         The best-matching ``FourDArhac``, or ``None`` if no candidate
         clears either the primary or fallback signal.
     """
-    scored: List[Tuple[FourDArhac, float, float, bool]] = []
+    track_by_last_cluster = {}
+    candidate_clusters: List[Cluster] = []
     for track in candidate_tracks:
         if not track.track:
             continue
         last_cluster = track.track[-1].cluster
-        jaccard = jaccard_similarity(
-            new_cluster.member_callsigns, last_cluster.member_callsigns
-        )
-        distance_nm = haversine_distance_nm(
-            new_cluster.centroid_lat,
-            new_cluster.centroid_lon,
-            last_cluster.centroid_lat,
-            last_cluster.centroid_lon,
-        )
-        overlaps = centroid_extent_overlap(new_cluster, last_cluster)
-        scored.append((track, jaccard, distance_nm, overlaps))
+        candidate_clusters.append(last_cluster)
+        track_by_last_cluster[last_cluster] = track
 
-    primary = [entry for entry in scored if entry[1] >= jaccard_threshold]
-    if primary:
-        primary.sort(key=lambda entry: (-entry[1], entry[2]))
-        return primary[0][0]
-
-    fallback = [entry for entry in scored if entry[3]]
-    if fallback:
-        fallback.sort(key=lambda entry: entry[2])
-        return fallback[0][0]
-
-    return None
+    matched_cluster = best_cluster_match(new_cluster, candidate_clusters, jaccard_threshold)
+    if matched_cluster is None:
+        return None
+    return track_by_last_cluster[matched_cluster]

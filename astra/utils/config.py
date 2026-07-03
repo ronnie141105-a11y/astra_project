@@ -155,6 +155,32 @@ class ASTRAConfig:
     #: than flat, for GROWING/PEAK/DISSIPATING trend classification.
     tracking_trend_tolerance: float = 1.0
 
+    # ------------------------------------------------------------------
+    # Phase 6 - 4DARHAC forecast (astra.forecast)
+    # See docs/milestone_6_forecast.md for the design review these
+    # thresholds were approved from.
+    # ------------------------------------------------------------------
+    #: complexity_score above which an ARHAC counts as "active" for
+    #: onset-forecasting purposes.
+    forecast_onset_threshold: float = 50.0
+
+    #: complexity_score below which an ARHAC counts as dissipated.
+    #: Deliberately lower than forecast_onset_threshold (hysteresis),
+    #: avoiding onset/dissipation flapping right at one boundary value.
+    forecast_dissipation_threshold: float = 30.0
+
+    #: Minimum number of matched predicted horizons this cycle before
+    #: ForecastEngine attempts onset/dissipation/peak interpolation;
+    #: below this, forecast fields stay None rather than guessing from
+    #: too little data.
+    forecast_min_matched_horizons: int = 2
+
+    #: Time constant (seconds) for the confidence decay term -- longer
+    #: estimated lead times are discounted more, reflecting the
+    #: constant-velocity trajectory model's known accuracy degradation
+    #: over longer horizons.
+    forecast_confidence_decay_s: float = 1800.0
+
     def __post_init__(self) -> None:
         """Fail fast on internally-inconsistent configuration.
 
@@ -205,6 +231,28 @@ class ASTRAConfig:
             raise ValueError("tracking_confirm_cycles must be >= 1")
         if self.tracking_trend_tolerance < 0:
             raise ValueError("tracking_trend_tolerance must be >= 0")
+
+        if not (0.0 <= self.forecast_dissipation_threshold <= 100.0):
+            raise ValueError(
+                "forecast_dissipation_threshold must be in [0, 100], got "
+                f"{self.forecast_dissipation_threshold}"
+            )
+        if not (0.0 <= self.forecast_onset_threshold <= 100.0):
+            raise ValueError(
+                "forecast_onset_threshold must be in [0, 100], got "
+                f"{self.forecast_onset_threshold}"
+            )
+        if self.forecast_dissipation_threshold >= self.forecast_onset_threshold:
+            raise ValueError(
+                "forecast_dissipation_threshold must be strictly less than "
+                "forecast_onset_threshold (hysteresis), got "
+                f"{self.forecast_dissipation_threshold} >= "
+                f"{self.forecast_onset_threshold}"
+            )
+        if self.forecast_min_matched_horizons < 1:
+            raise ValueError("forecast_min_matched_horizons must be >= 1")
+        if self.forecast_confidence_decay_s <= 0:
+            raise ValueError("forecast_confidence_decay_s must be > 0")
 
 
 #: Module-level default configuration instance. Most entry points (main.py,
