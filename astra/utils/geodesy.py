@@ -12,9 +12,8 @@ Three separate later phases all need geographic arithmetic:
 * Phase 1 (mock connector): `MockConnector.poll()` propagates synthetic
   aircraft positions by dead-reckoning — so it needs `move_position` *right
   now*, before any later phase exists.
-* Phase 4 (complexity assessment): pairwise closest-point-of-approach (CPA)
-  computation for MTCA/LTCA conflict counting needs a local, Euclidean
-  (East/North) coordinate frame — see `local_tangent_plane_nm` below.
+* Phase 4 (complexity assessment): CPA conflict counting needs a local
+  East/North frame — see `local_tangent_plane_nm` below.
 
 Defining these functions here, in `utils`, keeps them a zero-dependency
 foundation that any later package can import without creating a circular
@@ -159,34 +158,19 @@ def local_tangent_plane_nm(
     lat_deg: float,
     lon_deg: float,
 ) -> Tuple[float, float]:
-    """Project a point onto a local East/North tangent plane, in NM.
+    """Equirectangular projection onto a local East/North tangent plane, in NM.
 
-    Used by Phase 4 (complexity assessment) to compute pairwise
-    closest-point-of-approach (CPA) between aircraft using plain vector
-    arithmetic. Great-circle geometry has no simple closed-form CPA
-    solution for two moving points; projecting onto a local flat-Earth
-    tangent plane anchored at ``(lat0_deg, lon0_deg)`` (conventionally the
-    cluster centroid) does, and the approximation error is negligible at
-    the scale this system operates on -- clusters span at most a few tens
-    of NM (`ASTRAConfig.separation_horizontal_nm` = 15 NM base neighbourhood,
-    with chained DBSCAN groups larger but still regional, not global).
-
-    This is an equirectangular projection: longitude is scaled by
-    ``cos(lat0_deg)`` to account for meridian convergence, matching the
-    same small-angle approximation already used implicitly by
-    `haversine_distance_nm` at these distances.
+    Used for CPA computation (Milestone 4); valid at cluster scale
+    (<< 100 NM). See docs/milestone_4_complexity.md.
 
     Args:
-        lat0_deg: Latitude of the projection origin, decimal degrees
-            (typically a cluster centroid).
-        lon0_deg: Longitude of the projection origin, decimal degrees.
-        lat_deg: Latitude of the point to project, decimal degrees.
-        lon_deg: Longitude of the point to project, decimal degrees.
+        lat0_deg: Projection origin latitude, decimal degrees.
+        lon0_deg: Projection origin longitude, decimal degrees.
+        lat_deg: Latitude of the point to project.
+        lon_deg: Longitude of the point to project.
 
     Returns:
-        An ``(x_nm, y_nm)`` tuple: ``x_nm`` is the East displacement from
-        the origin, ``y_nm`` is the North displacement, both in nautical
-        miles.
+        ``(x_nm, y_nm)``: East/North displacement from the origin, NM.
     """
     lat0 = math.radians(lat0_deg)
     x_nm = math.radians(lon_deg - lon0_deg) * math.cos(lat0) * _EARTH_RADIUS_NM

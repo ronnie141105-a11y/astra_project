@@ -1,61 +1,32 @@
 """
-Small, pure statistics helpers for cluster complexity assessment (Milestone 4).
+Circular/linear statistics helpers for complexity assessment (Milestone 4).
 
-Two functions live here because they have different-enough mathematics
-from `astra.utils.geodesy` (position/distance arithmetic) that bundling
-them there would blur that module's purpose. Both are pure and
-dependency-free (only the standard library `math` module), and both are
-directly unit-testable against hand-computable cases -- see
-`tests/test_complexity.py`.
+See docs/milestone_4_complexity.md for the circular-statistics rationale.
 """
 
 import math
 from typing import Sequence
 
-#: Ceiling applied to `circular_std_dev_deg`. The raw formula
-#: `sqrt(-2 * ln(R))` diverges to infinity as the mean resultant length R
-#: approaches zero (headings uniformly spread around the compass), which
-#: is not a usable score. Values are physically meaningless as *specific*
-#: degrees once every possible heading value is equally interpretable,
-#: they only need to say "maximally diverse" -- so anything beyond a
-#: near-uniform distribution is capped at 180 degrees, the maximum
-#: meaningful angular spread.
+#: Cap for circular_std_dev_deg -- the raw formula diverges as headings
+#: approach a uniform spread; capped at the max meaningful angular spread.
 _CIRCULAR_STD_DEV_CAP_DEG = 180.0
 
-#: Floor applied to the mean resultant length R before taking its
-#: logarithm, to keep the `sqrt(-2 * ln(R))` computation finite for
-#: perfectly (or near-perfectly) uniform heading distributions.
+#: Floor on mean resultant length to keep log() finite for near-uniform data.
 _MIN_RESULTANT_LENGTH = 1.0e-9
 
 
 def circular_std_dev_deg(headings_deg: Sequence[float]) -> float:
-    """Circular standard deviation of a set of compass headings.
+    """Circular standard deviation of compass headings, in degrees.
 
-    Ordinary (linear) standard deviation is unsuitable for headings
-    because it does not understand wrap-around -- headings of 350 deg and
-    10 deg are 20 deg apart on a compass but ~340 apart arithmetically.
-    This uses the standard circular-statistics definition (Mardia &
-    Jupp, *Directional Statistics*, 2000): headings are treated as unit
-    vectors, averaged, and the length of the resulting mean vector (the
-    "mean resultant length" R, in [0, 1]) is converted to an angular
-    spread via ``sqrt(-2 * ln(R))``. R close to 1 means the headings are
-    tightly clustered (small spread); R close to 0 means they are spread
-    around the full compass (large spread, capped -- see
-    `_CIRCULAR_STD_DEV_CAP_DEG`).
-
-    This is the metric the literature calls ``sigma_hdg`` /
-    ``HDGSTDDEV`` in both reference ASTRA documents, used there as one of
-    the complexity indicators distinguishing parallel traffic flows (low
-    heading diversity, lower complexity) from converging/crossing flows
-    (high heading diversity, higher complexity).
+    Handles wrap-around correctly (350 deg and 10 deg are "close").
+    Equivalent to the ``HDGSTDDEV`` / ``sigma_hdg`` metric in the
+    reference ASTRA documents.
 
     Args:
-        headings_deg: Compass headings in degrees, each in [0, 360). Order
-            does not matter. An empty sequence is defined as zero spread.
+        headings_deg: Compass headings in degrees, order-independent.
 
     Returns:
-        The circular standard deviation in degrees, in
-        ``[0, _CIRCULAR_STD_DEV_CAP_DEG]``.
+        Spread in ``[0, _CIRCULAR_STD_DEV_CAP_DEG]``; 0 for an empty input.
     """
     n = len(headings_deg)
     if n == 0:
@@ -72,21 +43,13 @@ def circular_std_dev_deg(headings_deg: Sequence[float]) -> float:
 
 
 def population_std_dev(values: Sequence[float]) -> float:
-    """Population standard deviation of a sequence of numbers.
-
-    Ordinary linear standard deviation, used here for altitude spread
-    within a cluster (`alt_div`). "Population" (dividing by N rather than
-    N-1) is used rather than the sample estimator because a `Cluster`'s
-    members are the complete, exact set of aircraft in that group at that
-    instant -- not a sample drawn from a larger population.
+    """Population standard deviation (used here for altitude spread).
 
     Args:
-        values: Numeric values (e.g. altitudes in feet). Order does not
-            matter. A sequence of 0 or 1 values is defined as zero spread
-            (no variation possible).
+        values: Numeric values, order-independent.
 
     Returns:
-        The population standard deviation, in the same units as ``values``.
+        Standard deviation; 0 for 0 or 1 values.
     """
     n = len(values)
     if n <= 1:

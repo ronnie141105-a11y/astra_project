@@ -1,7 +1,6 @@
 # ASTRA Project Status
 
-Overall milestone status for the ASTRA prototype. See `PHASE1_CHECKLIST.md`
-for detailed Phase 1 requirement traceability, and `Developer_Handover.md`
+Overall milestone status for the ASTRA prototype. See `Developer_Handover.md`
 for design decisions and conventions.
 
 ---
@@ -12,9 +11,9 @@ for design decisions and conventions.
 |---|---|---|---|
 | 1 | Phase 1 | Data interface — BlueSky adapter, state model, history buffer, DI, verification | ✅ Complete |
 | 2 | Phase 2 | Trajectory prediction — constant-velocity kinematic engine | ✅ Complete |
-| 3 | Phase 3 | Cluster detection (DBSCAN, 15 NM / 1 000 ft, stateless) | ⬜ Next |
-| 4 | Phase 4 | Complexity assessment (density, MTCA, heading/altitude diversity) | ⬜ Planned |
-| 5 | Phase 5 | 4DARHAC detection — tracking (stateful, persists across cycles) | ⬜ Planned |
+| 3 | Phase 3 | Cluster detection (DBSCAN, 15 NM / 1 000 ft, stateless) | ✅ Complete |
+| 4 | Phase 4 | Complexity assessment (density, MTCA/LTCA, heading/altitude diversity, type mix) | ✅ Complete |
+| 5 | Phase 5 | 4DARHAC detection — tracking (stateful, persists across cycles) | ⬜ Next (design ready, not built) |
 | 6 | Phase 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, priority) | ⬜ Planned |
 | 7 | Phase 7 | AI resolution framework | ⬜ Planned |
 | 8 | Phase 8 | Live dashboard | ⬜ Planned |
@@ -24,8 +23,7 @@ for design decisions and conventions.
 > stateful problem of tracking a 4DARHAC's identity across prediction
 > horizons and poll cycles. It has been split into Phases 3–6. See
 > `docs/architecture.md §6` for the domain model
-> (`Cluster` / `ComplexityRegion` / `FourDArhac`) and full rationale. This
-> is a documentation-only change — no code has been restructured yet.
+> (`Cluster` / `ComplexityRegion` / `FourDArhac`) and full rationale.
 
 ---
 
@@ -37,44 +35,61 @@ for design decisions and conventions.
 - `TrafficSnapshot`, `AircraftState` — simulator-agnostic data model
 - `astra/utils/geodesy.py` — haversine distance, bearing, dead-reckoning
 - Dependency injection via `ConnectorProtocol`
-- Verification: syntax, imports, dependency graph, BlueSky compatibility,
-  MockConnector/StateReader/BlueSkyConnector functional tests, geodesy unit
-  tests (see `PHASE1_CHECKLIST.md` for the full breakdown)
 - `demo_phase1.py` — offline Phase 1 demonstration
 
 ## Milestone 2 — Trajectory Prediction ✅ Complete
 
 - `astra/trajectory/models.py` — `PredictedSnapshot`, `PredictionResult`
-  (frozen dataclasses; `PredictedSnapshot` mirrors the `TrafficSnapshot`
-  accessor API for drop-in compatibility with later phases)
 - `astra/trajectory/engine.py` — `TrajectoryEngine`, deterministic
-  constant-velocity trajectory prediction (great-circle dead-reckoning
-  horizontally via `move_position()`, linear extrapolation vertically)
+  constant-velocity trajectory prediction
 - Prediction horizons: 5, 10, 15, 30, 60 minutes
-  (`ASTRAConfig.prediction_horizons_min = [5, 10, 15, 30, 60]`)
-- Verification: syntax, imports, dependency graph, numerical verification
-  (predictions cross-checked against equivalent `MockConnector.poll()`
-  sequences)
-- `demo_trajectory.py` — offline Phase 2 demonstration: five aircraft, one
-  observed `TrafficSnapshot`, predicted-position tables at every configured
-  horizon
+- `demo_trajectory.py` — offline Phase 2 demonstration
+
+## Milestone 3 — Cluster Detection ✅ Complete
+
+- `astra/hotspot/distance.py` — precomputed horizontal+vertical-gated
+  distance matrix for DBSCAN
+- `astra/hotspot/models.py` — `Cluster` (frozen, per-instant, no
+  cross-cycle identity)
+- `astra/hotspot/engine.py` — `ClusterEngine.detect()` /`.detect_all()`
+- Design rationale: `docs/milestone_3_hotspot.md`
+- Verification: `tests/test_hotspot.py` — 24/24 checks pass
+- `demo_hotspot.py` — persistent + transient cluster scenarios across
+  the observed snapshot and every predicted horizon
+
+## Milestone 4 — Complexity Assessment ✅ Complete
+
+- `astra/complexity/stats.py` — circular/linear standard deviation
+- `astra/complexity/conflict.py` — CPA-based MTCA/LTCA pairwise counting
+- `astra/complexity/models.py` — `ComplexityRegion` (composes `Cluster`)
+- `astra/complexity/engine.py` — `ComplexityEngine.assess()` /
+  `.assess_many()`, 0–100 weighted-combination scoring
+- `astra.utils.geodesy.local_tangent_plane_nm` — CPA projection helper
+- `ASTRAConfig` — MTCA/LTCA thresholds, normalisation references,
+  combination weights (validated to sum to 1.0)
+- Design rationale: `docs/milestone_4_complexity.md`
+- Verification: `tests/test_complexity.py` — 42/42 checks pass
+- `demo_complexity.py` — high- vs. low-complexity scenario across the
+  observed snapshot and every predicted horizon
 
 ---
 
 ## Remaining work (this milestone)
 
-- [x] `demo_trajectory.py`
-- [x] Update `README.md`
-- [x] Update `Developer_Handover.md`
-- [x] Update `PROJECT_STATUS.md` (this file)
-- [x] Final verification
+- [x] `demo_hotspot.py`, `demo_complexity.py`
+- [x] `tests/test_hotspot.py`, `tests/test_complexity.py`
+- [x] `docs/milestone_3_hotspot.md`, `docs/milestone_4_complexity.md`
+- [x] Update `README.md`, `docs/architecture.md`, `Developer_Handover.md`,
+      `PROJECT_STATUS.md` (this file)
+- [x] Final verification (66/66 checks across both suites)
 
 ## Next milestone
 
-Milestone 3 — Cluster detection (proposed home: `astra/hotspot/`, pending
-the rename/split discussed in the architecture review). A stateless DBSCAN
-pass over each `TrafficSnapshot` / `PredictedSnapshot` (observed + all five
-horizons), producing `Cluster` objects as defined in
-`docs/architecture.md §6`. Deliberately excludes cross-horizon /
-cross-cycle tracking, which is scoped as its own milestone (5 — 4DARHAC
-detection) given its different (stateful) nature. Not started.
+**Milestone 5 — 4DARHAC detection (tracking).** Design scoped in
+`docs/architecture.md §6` and `Developer_Handover.md`; not yet built.
+Links `ComplexityRegion`s across poll cycles into a persistent `FourDArhac`
+using centroid-overlap association, assigns a stable ID, and tracks
+onset/peak/dissipation state. Explicitly stateful — the first stateful
+component in the pipeline, isolated behind its own module
+(`astra/prediction/` or `astra/tracking/`, naming TBD) so Milestones 1–4
+remain pure and independently testable.

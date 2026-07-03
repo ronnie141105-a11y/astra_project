@@ -9,7 +9,7 @@ flowchart TD
     subgraph ASTRA["ASTRA Python Application  (this repository)"]
         direction TB
 
-        subgraph IF["astra/interface  ── Phase 1 COMPLETE"]
+        subgraph IF["astra/interface  ── Milestone 1 COMPLETE"]
             CB["ConnectorProtocol\n(typing.Protocol)"]
             BSC["BlueSkyConnector\n· subclasses bluesky.network.client.Client\n· subscribes to ACDATA topic\n· converts SI units → ATM units\n· maintains TypeRegistry for aircraft type"]
             MC["MockConnector\n· pure-Python, no BlueSky needed\n· dead-reckoning propagation\n· parses CRE/DEL/SPD/ALT/HDG/VS/OP/HOLD"]
@@ -19,28 +19,32 @@ flowchart TD
             AS["AircraftState  (frozen dataclass)\n· callsign, lat, lon\n· altitude_ft, ground_speed_kt\n· heading_deg, vertical_speed_fpm\n· aircraft_type, timestamp_s"]
         end
 
-        subgraph TP["astra/trajectory  ── Phase 2 TODO"]
-            PRED["TrajectoryPredictor\n· kinematic dead-reckoning\n· horizons: 5/10/20/30/60 min\n· consumes TrafficSnapshot\n· produces PredictedSnapshot list"]
+        subgraph TP["astra/trajectory  ── Milestone 2 COMPLETE"]
+            PRED["TrajectoryEngine\n· constant-velocity dead-reckoning\n· horizons: 5/10/15/30/60 min\n· consumes TrafficSnapshot\n· produces PredictionResult"]
         end
 
-        subgraph HS["astra/hotspot  ── SUPERSEDED, see §6 below"]
-            DBSCAN["HotspotDetector\n· DBSCAN (haversine metric)\n· ε = 15 NM horizontal\n· vertical gate = 1 000 ft\n· cluster tracking across time steps"]
+        subgraph HS["astra/hotspot  ── Milestone 3 COMPLETE"]
+            DBSCAN["ClusterEngine\n· DBSCAN, precomputed horiz+vert metric\n· ε = 15 NM horizontal, gate = 1 000 ft\n· stateless — one Cluster list per snapshot\n· detect() / detect_all()"]
         end
 
-        subgraph CM["astra/complexity  ── Phase 4 TODO"]
-            CX["ComplexityAssessor\n· density · MTCA conflicts\n· heading diversity\n· altitude diversity\n· type mixture\n· → score 0–100 (modular, extensible)"]
+        subgraph CM["astra/complexity  ── Milestone 4 COMPLETE"]
+            CX["ComplexityEngine\n· density · MTCA/LTCA conflicts (CPA)\n· heading diversity (circular std dev)\n· altitude diversity · type mixture\n· → ComplexityRegion, score 0–100"]
         end
 
-        subgraph PD["astra/prediction  ── Phase 5 TODO"]
-            HP["HotspotPredictor\n· start/end time estimation\n· confidence scoring\n· priority ranking\n· 60-minute lookahead"]
+        subgraph TRK["astra/tracking (name TBD)  ── Milestone 5 NEXT"]
+            HP["4DARHAC tracker\n· links ComplexityRegions across polls\n· stateful — the first stateful stage\n· stable arhac_id, status lifecycle\n· see docs/architecture.md §6"]
         end
 
-        subgraph RS["astra/resolution  ── Phase 6 TODO"]
+        subgraph FC["astra/forecast  ── Milestone 6 PLANNED"]
+            FCB["4DARHAC forecast\n· onset / peak / dissipation estimation\n· confidence scoring · priority ranking"]
+        end
+
+        subgraph RS["astra/resolution  ── Milestone 7 PLANNED"]
             RES["ResolutionEngine\n· candidate generation\n  (speed / FL / direct-to / heading)\n· multi-objective scoring\n  (complexity Δ · conflict Δ · fuel · deviation)\n· ranked solution list"]
         end
 
-        subgraph DB["astra/dashboard  ── Phase 7 TODO"]
-            DASH["Dashboard\n· live traffic map\n· predicted trajectories\n· hotspot heatmap\n· hotspot table + timeline\n· AI resolution suggestions\n· ghost trajectories"]
+        subgraph DB["astra/dashboard  ── Milestone 8 PLANNED"]
+            DASH["Dashboard\n· live traffic map\n· predicted trajectories\n· 4DARHAC heatmap + table + timeline\n· AI resolution suggestions"]
         end
     end
 
@@ -55,8 +59,10 @@ flowchart TD
     SR --> TP
     PRED --> HS
     DBSCAN --> CM
-    CX --> PD
-    HP --> RS
+    CX --> TRK
+    TRK -- "prior open tracks\nfeed back next poll" --> TRK
+    TRK --> FC
+    FCB --> RS
     RES --> DB
     DB -- "Clearances\n(SPD / ALT / DCT)" --> SR
 ```
@@ -168,12 +174,14 @@ ATM units.
 
 ---
 
-## 6. 4DARHAC Domain Model and Revised Pipeline (proposed — pending approval)
+## 6. 4DARHAC Domain Model and Revised Pipeline
 
-> **Status:** design decision recorded by the July 2026 architecture review.
-> Not yet implemented. Supersedes the single `astra/hotspot` box in §1's
-> diagram and the "Phase 3 TODO" framing above. See the review conversation
-> for full rationale.
+> **Status:** design decision recorded by the July 2026 architecture
+> review. `Cluster` (Milestone 3) and `ComplexityRegion` (Milestone 4) are
+> implemented — see `docs/milestone_3_hotspot.md` and
+> `docs/milestone_4_complexity.md` for their as-built details.
+> `FourDArhac` (Milestone 5) is designed below but **not yet implemented**
+> — see §6.5 for the concrete build plan.
 
 ### 6.1 Why the old Phase 3 ("hotspot detection") was under-specified
 
@@ -198,30 +206,36 @@ component instead of an implicit assumption.
 @dataclass(frozen=True)
 class Cluster:
     """Purely spatial grouping at one instant. Stateless, ephemeral —
-    identity is only meaningful within a single detection pass."""
-    cluster_id: str                  # ephemeral, e.g. f"{horizon_min}:{dbscan_label}"
+    identity is only meaningful within a single detection pass.
+    IMPLEMENTED as astra.hotspot.models.Cluster (Milestone 3)."""
+    cluster_id: str                  # ephemeral, e.g. f"{source}:{horizon_min}:{dbscan_label}"
     source: Literal["observed", "predicted"]
     horizon_min: int                 # 0 = observed/current, else 5/10/15/30/60
     valid_at_s: float                 # ABSOLUTE sim time (timestamp_s + horizon_min*60)
     member_callsigns: FrozenSet[str]
-    centroid: tuple[float, float, float]    # lat, lon, alt_ft
-    horizontal_extent_nm: float       # or convex hull, for overlap testing
+    centroid_lat: float               # as-built: 3 scalar fields, not a tuple
+    centroid_lon: float
+    centroid_alt_ft: float
+    horizontal_extent_nm: float
 
 
 @dataclass(frozen=True)
 class ComplexityRegion:
     """A Cluster plus its instantaneous complexity assessment.
-    Still stateless / per-instant — composition, not inheritance."""
+    Still stateless / per-instant — composition, not inheritance.
+    IMPLEMENTED as astra.complexity.models.ComplexityRegion (Milestone 4)."""
     cluster: Cluster
     complexity_score: float           # 0-100
-    components: dict[str, float]      # density, mtca_count, heading_div, alt_div, type_mix
+    components: dict[str, float]      # density, mtca_count, ltca_count,
+                                       # heading_div_deg, alt_div_ft, type_mix_count
     computed_at_s: float
 
 
 @dataclass
 class FourDArhac:
     """The persistent 4D object. Mutable / stateful — survives across
-    horizons AND across poll cycles."""
+    horizons AND across poll cycles. NOT YET IMPLEMENTED — Milestone 5,
+    build plan in §6.5."""
     arhac_id: str                     # stable UUID, assigned at first detection
     status: Literal["CANDIDATE", "CONFIRMED", "GROWING",
                      "PEAK", "DISSIPATING", "CLOSED"]
@@ -246,14 +260,14 @@ meaningful.
 
 ### 6.3 Revised milestone breakdown
 
-| # | Milestone | Nature | Depends on |
-|---|---|---|---|
-| 3 | Cluster detection | pure / stateless | Trajectory prediction (Phase 2) |
-| 4 | Complexity assessment | pure / stateless | Cluster detection |
-| 5 | 4DARHAC detection (tracking) | **stateful** | Cluster detection (+ complexity, to carry scores onto tracks) |
-| 6 | 4DARHAC forecast | stateful, layered on 5 | 4DARHAC detection |
-| 7 | Resolution | stateless given a 4DARHAC | 4DARHAC forecast |
-| 8 | Dashboard | presentation | everything above |
+| # | Milestone | Nature | Depends on | Status |
+|---|---|---|---|---|
+| 3 | Cluster detection | pure / stateless | Trajectory prediction (Milestone 2) | ✅ Complete |
+| 4 | Complexity assessment | pure / stateless | Cluster detection | ✅ Complete |
+| 5 | 4DARHAC detection (tracking) | **stateful** | Cluster detection (+ complexity, to carry scores onto tracks) | ⬜ Next — design below, not built |
+| 6 | 4DARHAC forecast | stateful, layered on 5 | 4DARHAC detection | ⬜ Planned |
+| 7 | Resolution | stateless given a 4DARHAC | 4DARHAC forecast | ⬜ Planned |
+| 8 | Dashboard | presentation | everything above | ⬜ Planned |
 
 ### 6.4 Revised data flow
 
@@ -276,3 +290,59 @@ not a pure function of its immediate input — it must be seeded each poll
 cycle with the set of currently-open `FourDArhac` tracks from the previous
 cycle, which is the mechanism that gives an ARHAC a stable identity over
 wall-clock time rather than being rediscovered from scratch every second.
+
+### 6.5 Milestone 5 build plan (design-ready, not implemented)
+
+Prepared ahead of implementation so the next session can start directly.
+No code for this milestone exists yet.
+
+**Proposed module:** `astra/tracking/` (name TBD — `astra/prediction/`
+collides in intent with `astra/trajectory/`; `tracking` matches its
+actual job: associating and persisting `ComplexityRegion`s over time).
+
+**Files:**
+- `astra/tracking/models.py` — `FourDArhac` (mutable, per §6.2), plus a
+  small `ArhacStatus` literal/enum for the lifecycle values.
+- `astra/tracking/association.py` — pure functions: Jaccard similarity of
+  `member_callsigns` between a new `Cluster`/`ComplexityRegion` and each
+  open track's most recent entry; centroid/extent overlap as a fallback
+  for longer-horizon predictions where membership drifts more. Mirrors
+  `astra.hotspot.distance`'s pattern of a small, independently-testable
+  pure-math module feeding the stateful engine.
+- `astra/tracking/engine.py` — `TrackerEngine`, the one genuinely
+  *stateful* component in the pipeline. Holds the current set of open
+  `FourDArhac` tracks across calls (unlike every earlier engine, which is
+  stateless after construction). Public API sketch:
+  `update(regions_by_horizon: Dict[int, List[ComplexityRegion]]) ->
+  List[FourDArhac]` — called once per poll cycle with that cycle's fresh
+  `ComplexityRegion`s at every horizon, returns the current set of open
+  tracks (new, updated, and freshly closed).
+
+**Config additions (`ASTRAConfig`, Phase 5 section):**
+- `tracking_jaccard_threshold` — minimum member-callsign overlap ratio to
+  associate a new `Cluster` with an existing track.
+- `tracking_stale_cycles` — number of poll cycles a track may go
+  un-refreshed before being closed (`status = "CLOSED"`).
+- `tracking_confirm_cycles` — consecutive detections required before a
+  `"CANDIDATE"` track is promoted to `"CONFIRMED"`, damping single-cycle
+  DBSCAN noise from generating spurious tracks.
+
+**Status lifecycle** (`CANDIDATE → CONFIRMED → GROWING → PEAK →
+DISSIPATING → CLOSED`): derived mechanically from the trend of
+`complexity_score` across the track's most recent entries (rising →
+`GROWING`, local max → `PEAK`, falling → `DISSIPATING`) plus the
+staleness check above for `CLOSED`. No forecasting model yet — trend
+classification only. Onset/peak/dissipation *time prediction* and
+confidence scoring belong to Milestone 6, layered on top of this track.
+
+**Verification plan:** `tests/test_tracking.py` following the
+Milestone 3/4 pattern — Jaccard/overlap association on hand-built
+`Cluster` pairs; a multi-poll-cycle scripted scenario asserting a track's
+`status` transitions in the expected order; stale-track closing; and a
+config-validation check for the new thresholds. `demo_tracking.py`
+driving `MockConnector` through several manual `poll()` cycles to show a
+`FourDArhac` being opened, updated, and closed.
+
+**Explicit non-goals for Milestone 5:** no onset/peak/dissipation *time*
+prediction (Milestone 6), no confidence modelling beyond a placeholder
+field, no resolution suggestions, no dashboard/HMI changes.

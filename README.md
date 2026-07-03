@@ -13,45 +13,51 @@ open-source Air Traffic Simulator.
 
 ## Status
 
-| Phase | Description | Status |
+| Milestone | Description | Status |
 |---|---|---|
 | **1** | Data interface (BlueSky adapter, state model, history buffer) | ✅ Complete |
 | **2** | Kinematic trajectory prediction (5/10/15/30/60 min horizons) | ✅ Complete |
-| 3 | Cluster detection (DBSCAN, 15 NM / 1 000 ft, stateless) | ⬜ Next |
-| 4 | Complexity assessment (density, MTCA, heading/altitude diversity) | ⬜ Planned |
-| 5 | 4DARHAC detection — tracking (stateful, persists across cycles) | ⬜ Planned |
+| **3** | Cluster detection (DBSCAN, 15 NM / 1 000 ft, stateless) | ✅ Complete |
+| **4** | Complexity assessment (density, MTCA/LTCA, heading/altitude diversity, type mix) | ✅ Complete |
+| 5 | 4DARHAC detection — tracking (stateful, persists across cycles) | ⬜ Next (design ready) |
 | 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, priority) | ⬜ Planned |
 | 7 | AI resolution framework (speed / FL / direct-to clearances, ranked) | ⬜ Planned |
 | 8 | Live dashboard (traffic map, heatmap, hotspot table, resolutions) | ⬜ Planned |
 
-> Phases 3–8 were reorganized by an architecture review (July 2026): the
-> original single "Phase 3 — hotspot detection" conflated stateless spatial
+> Milestones 3–8 were reorganized by an architecture review (July 2026): the
+> original single "hotspot detection" phase conflated stateless spatial
 > clustering with the stateful problem of tracking a 4DARHAC's identity
 > across prediction horizons and poll cycles. See
-> [`docs/architecture.md §6`](docs/architecture.md#6-4darhac-domain-model-and-revised-pipeline-proposed--pending-approval)
-> for the domain model and rationale.
+> [`docs/architecture.md §6`](docs/architecture.md#6-4darhac-domain-model-and-revised-pipeline)
+> for the domain model and rationale, and `docs/milestone_3_hotspot.md` /
+> `docs/milestone_4_complexity.md` for the as-built design of Milestones 3–4.
 
 ---
 
 ## Quick start
 
-### Offline demo (no BlueSky needed)
+### Offline demos (no BlueSky needed)
 
 ```bash
 pip install -r requirements.txt
-python demo_phase1.py
+python demo_phase1.py         # Milestone 1 — state interface
+python demo_trajectory.py     # Milestone 2 — trajectory prediction
+python demo_hotspot.py        # Milestone 3 — cluster detection
+python demo_complexity.py     # Milestone 4 — complexity assessment
 ```
 
-Creates 5 aircraft in Swiss upper airspace, polls 5 times (= 5 simulated
-minutes), and prints a formatted TrafficSnapshot with separations.
+Each script is self-contained: it creates a small synthetic traffic
+scenario with `MockConnector`, runs that milestone's pipeline stage (and
+every stage before it), and prints formatted results to the console.
+
+### Regression tests
 
 ```bash
-python demo_trajectory.py
+python tests/test_hotspot.py      # Milestone 3 — 24 checks
+python tests/test_complexity.py   # Milestone 4 — 42 checks
 ```
 
-Creates 5 aircraft, takes one observed `TrafficSnapshot`, and prints
-predicted-position tables at each configured horizon (5, 10, 15, 30, 60
-minutes) using the constant-velocity `TrajectoryEngine`.
+No BlueSky process or third-party test framework required.
 
 ### Main loop — mock mode
 
@@ -84,22 +90,27 @@ IC scenarios/phase1_demo.scn
 
 ```
 astra/
-    interface/    Phase 1 ✅  BlueSky adapter + simulator-agnostic data model
-    trajectory/   Phase 2 ✅  Kinematic trajectory prediction
-    hotspot/      Phase 3 ⬜  Cluster detection (proposed rename/split — see docs/architecture.md §6)
-    complexity/   Phase 4 ⬜  Complexity assessment
-    prediction/   Phase 5–6 ⬜  4DARHAC detection (tracking) + forecast
-    resolution/   Phase 7 ⬜  AI clearance generation
-    dashboard/    Phase 8 ⬜  Live visualisation
+    interface/    Milestone 1 ✅  BlueSky adapter + simulator-agnostic data model
+    trajectory/   Milestone 2 ✅  Kinematic trajectory prediction
+    hotspot/      Milestone 3 ✅  Cluster detection (DBSCAN)
+    complexity/   Milestone 4 ✅  Complexity assessment (density, conflicts, diversity)
+    tracking/     Milestone 5 ⬜  4DARHAC detection (tracking) — design ready, not built
+    (forecast/)   Milestone 6 ⬜  4DARHAC forecast — planned
+    resolution/   Milestone 7 ⬜  AI clearance generation — planned
+    dashboard/    Milestone 8 ⬜  Live visualisation — planned
     utils/              Config, unit conversion, geodesy, logging
 
-docs/architecture.md    System architecture + Mermaid diagrams
-demo_phase1.py          Phase 1 offline demonstration
-demo_trajectory.py      Phase 2 offline demonstration — trajectory prediction
-main.py                 Entry point  (python main.py [--mock])
-Developer_Handover.md   Full developer guide, design decisions, conventions
-PHASE1_CHECKLIST.md     Phase 1 requirement traceability + verification results
-PROJECT_STATUS.md       Overall milestone status (Phase 1 & 2)
+docs/architecture.md            System architecture + Mermaid diagrams
+docs/milestone_3_hotspot.md     Milestone 3 design rationale
+docs/milestone_4_complexity.md  Milestone 4 design rationale
+tests/                          Regression tests (Milestones 3–4)
+demo_phase1.py                  Milestone 1 offline demonstration
+demo_trajectory.py              Milestone 2 offline demonstration
+demo_hotspot.py                 Milestone 3 offline demonstration
+demo_complexity.py              Milestone 4 offline demonstration
+main.py                         Entry point  (python main.py [--mock])
+Developer_Handover.md           Full developer guide, design decisions, conventions
+PROJECT_STATUS.md               Overall milestone status
 ```
 
 ---
@@ -107,30 +118,34 @@ PROJECT_STATUS.md       Overall milestone status (Phase 1 & 2)
 ## Architecture overview
 
 ```
-BlueSky (external)  →  BlueSkyConnector  →  StateReader  →  [Phase 2–8 pipeline]
+BlueSky (external)  →  BlueSkyConnector  →  StateReader  →  [Milestone 2–8 pipeline]
                         (or MockConnector)
 ```
 
 See [`docs/architecture.md`](docs/architecture.md) for full Mermaid diagrams
-(data flow, package dependency graph, poll-cycle sequence).
+(data flow, package dependency graph, poll-cycle sequence, domain model).
 
 ---
 
 ## Configuration
 
 All tunable constants live in `astra/utils/config.py` (`ASTRAConfig`).
-Defaults:
+Selected defaults:
 
 | Parameter | Default | Description |
 |---|---|---|
 | `bluesky_host` | `"localhost"` | BlueSky server host |
-| `bluesky_recv_port` | `11000` | ZMQ receive port |
-| `bluesky_send_port` | `11001` | ZMQ send port |
 | `poll_interval_s` | `1.0` | Main loop poll frequency |
 | `history_length` | `3600` | Snapshots retained (~1 hour at 1 Hz) |
 | `separation_horizontal_nm` | `15.0` | DBSCAN ε / MTCA horizontal threshold |
 | `separation_vertical_ft` | `1000.0` | Vertical separation gate |
 | `prediction_horizons_min` | `[5,10,15,30,60]` | Trajectory prediction horizons |
+| `mtca_distance_nm` / `mtca_time_min` | `5.5` / `2.5` | MTCA conflict thresholds |
+| `ltca_distance_nm` / `ltca_time_min` | `7.9` / `15.0` | LTCA conflict thresholds |
+| `complexity_weight_*` | sums to `1.0` | Complexity sub-score combination weights |
+
+See `astra/utils/config.py` for the full field list (validated in
+`ASTRAConfig.__post_init__`).
 
 ---
 
@@ -140,6 +155,7 @@ Defaults:
 |---|---|
 | `README.md` | This file — setup and usage |
 | `Developer_Handover.md` | Full developer guide, design decisions, conventions |
-| `docs/architecture.md` | Mermaid system architecture diagrams |
-| `PHASE1_CHECKLIST.md` | Phase 1 requirement traceability and verification results |
-| `PROJECT_STATUS.md` | Overall milestone status across Phase 1 and Phase 2 |
+| `docs/architecture.md` | Mermaid system architecture diagrams + domain model |
+| `docs/milestone_3_hotspot.md` | Milestone 3 (cluster detection) design rationale |
+| `docs/milestone_4_complexity.md` | Milestone 4 (complexity assessment) design rationale |
+| `PROJECT_STATUS.md` | Overall milestone status |
