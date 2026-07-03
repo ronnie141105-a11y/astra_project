@@ -71,8 +71,8 @@ class FourDArhac:
             above the threshold (onset already happened), if the trend
             never crosses it within the available horizons, or if fewer
             than ``forecast_min_matched_horizons`` horizons matched this
-            cycle (insufficient data -- see docs/milestone_6_forecast.md
-            OQ-5). Always ``None`` for ``CANDIDATE`` tracks (not
+            cycle (insufficient data -- see docs/milestone_6_forecast.md).
+            Always ``None`` for ``CANDIDATE``/``CLOSED`` tracks (not
             forecast at all).
         peak_complexity: Highest ``complexity_score`` observed *or*
             predicted so far -- ``ForecastEngine`` may raise this (and
@@ -97,12 +97,20 @@ class FourDArhac:
             placeholder (Milestone 5); ``ForecastEngine`` (Milestone 6)
             multiplies that by horizon coverage and a horizon-distance
             decay term. A documented heuristic, not a statistically
-            calibrated probability -- see docs/milestone_6_forecast.md
-            §6.
+            calibrated probability -- see docs/milestone_6_forecast.md.
         priority: FMP triage rank among currently open tracks (1 =
             highest ``peak_complexity``). Owned by ``TrackerEngine``,
             recomputed every ``update()`` call. Unchanged by
-            ``ForecastEngine`` -- see docs/milestone_6_forecast.md OQ-4.
+            ``ForecastEngine`` -- severity-only ranking is kept separate
+            from forecast urgency, see docs/milestone_6_forecast.md.
+        forecast_urgency_rank: FMP triage rank by soonest
+            ``predicted_onset_s`` among tracks forecast this cycle (1 =
+            soonest onset). Owned by ``ForecastEngine``, recomputed every
+            ``forecast_many()`` call; ``None`` for tracks with no
+            predicted onset this cycle (already active, no crossing
+            found, or insufficient matched horizons) and for tracks not
+            forecast at all. Deliberately separate from ``priority`` --
+            see docs/milestone_6_forecast.md.
         last_updated_cycle_s: ``valid_at_s`` of the most recent
             extending observation; compared against
             ``tracking_stale_cycles`` to detect staleness.
@@ -120,6 +128,7 @@ class FourDArhac:
     predicted_peak_time_s: Optional[float] = None
     confidence: float = 0.0
     priority: int = 0
+    forecast_urgency_rank: Optional[int] = None
     last_updated_cycle_s: float = 0.0
 
     def __len__(self) -> int:
