@@ -16,7 +16,7 @@
 #   pip install -r requirements.txt --break-system-packages   (Linux, externally-managed envs)
 #   pip install -r requirements.txt                            (most other setups)
 
-bluesky-simulator
+bluesky-simulator[full]
 
 # Phase 3 (cluster detection, astra.hotspot) -- DBSCAN + the precomputed
 # horizontal/vertical distance matrix it runs against.
