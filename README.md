@@ -40,11 +40,14 @@ open-source Air Traffic Simulator.
 
 ```bash
 pip install -r requirements.txt
-python demo_phase1.py         # Milestone 1 — state interface
-python demo_trajectory.py     # Milestone 2 — trajectory prediction
-python demo_hotspot.py        # Milestone 3 — cluster detection
-python demo_complexity.py     # Milestone 4 — complexity assessment
+python tests/demo_phase1.py         # Milestone 1 — state interface
+python tests/demo_trajectory.py     # Milestone 2 — trajectory prediction
+python tests/demo_hotspot.py        # Milestone 3 — cluster detection
+python tests/demo_complexity.py     # Milestone 4 — complexity assessment
 ```
+
+Run each from the project root (all demo scripts add the project root to
+`sys.path` themselves).
 
 Each script is self-contained: it creates a small synthetic traffic
 scenario with `MockConnector`, runs that milestone's pipeline stage (and
@@ -103,11 +106,11 @@ astra/
 docs/architecture.md            System architecture + Mermaid diagrams
 docs/milestone_3_hotspot.md     Milestone 3 design rationale
 docs/milestone_4_complexity.md  Milestone 4 design rationale
-tests/                          Regression tests (Milestones 3–4)
-demo_phase1.py                  Milestone 1 offline demonstration
-demo_trajectory.py              Milestone 2 offline demonstration
-demo_hotspot.py                 Milestone 3 offline demonstration
-demo_complexity.py              Milestone 4 offline demonstration
+tests/                          Regression tests + offline demos (Milestones 1–4)
+tests/demo_phase1.py            Milestone 1 offline demonstration
+tests/demo_trajectory.py        Milestone 2 offline demonstration
+tests/demo_hotspot.py           Milestone 3 offline demonstration
+tests/demo_complexity.py        Milestone 4 offline demonstration
 main.py                         Entry point  (python main.py [--mock])
 Developer_Handover.md           Full developer guide, design decisions, conventions
 PROJECT_STATUS.md               Overall milestone status

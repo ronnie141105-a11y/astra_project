@@ -11,9 +11,12 @@ process. All prediction, detection, complexity, AI and visualisation logic
 lives in this repository. The two processes communicate over ZeroMQ using
 BlueSky's built-in network API.
 
-**Current status:** Phase 1 (data interface) and Phase 2 (trajectory
-prediction) are **complete and verified**. Phases 3–7 are scaffolded as
-documented placeholder packages.
+**Current status:** Milestones 1–4 — data interface, trajectory
+prediction, cluster detection, and complexity assessment — are
+**complete and verified** (130/130 checks from Milestones 1–2, plus
+24/24 and 42/42 from Milestones 3–4 — 196/196 total). Milestone 5
+(4DARHAC detection / tracking) is design-ready but not yet built; see
+`docs/architecture.md §6`. Milestones 6–8 remain planned.
 
 ---
 
@@ -37,30 +40,47 @@ astra_project/
 │   │   ├── geodesy.py             Haversine, bearing, dead-reckoning
 │   │   └── logger.py              Shared logging setup
 │   │
-│   ├── trajectory/            Phase 2 ✅ — kinematic trajectory prediction
+│   ├── trajectory/            Milestone 2 ✅ — kinematic trajectory prediction
 │   │   ├── models.py              PredictedSnapshot, PredictionResult
 │   │   └── engine.py              TrajectoryEngine (constant-velocity)
 │   │
-│   ├── hotspot/               Phase 3 TODO — cluster detection (proposed rename; see §"Architecture review")
-│   ├── complexity/            Phase 4 TODO — per-cluster complexity assessment
-│   ├── prediction/            Phase 5–6 TODO — 4DARHAC detection (tracking) + forecast
-│   ├── resolution/            Phase 7 TODO — clearance generation + ranking
-│   └── dashboard/             Phase 8 TODO — live visualisation
+│   ├── hotspot/                Milestone 3 ✅ — cluster detection
+│   │   ├── distance.py            Precomputed horiz+vert-gated distance matrix
+│   │   ├── models.py              Cluster (frozen, per-instant)
+│   │   └── engine.py              ClusterEngine (detect() / detect_all())
+│   │
+│   ├── complexity/            Milestone 4 ✅ — per-cluster complexity assessment
+│   │   ├── stats.py               Circular/linear standard deviation
+│   │   ├── conflict.py            CPA-based MTCA/LTCA pairwise counting
+│   │   ├── models.py              ComplexityRegion (composes Cluster)
+│   │   └── engine.py              ComplexityEngine (assess() / assess_many())
+│   │
+│   ├── tracking/                Milestone 5 ⬜ — 4DARHAC detection (tracking); design ready, not built
+│   ├── forecast/                 Milestone 6 ⬜ — 4DARHAC forecast; planned
+│   ├── resolution/              Milestone 7 ⬜ — clearance generation + ranking; planned
+│   └── dashboard/                Milestone 8 ⬜ — live visualisation; planned
 │
 ├── docs/
-│   └── architecture.md        Mermaid diagrams (full system + dep graph)
+│   ├── architecture.md            Mermaid diagrams (full system + dep graph + domain model)
+│   ├── milestone_3_hotspot.md     Milestone 3 design rationale
+│   ├── milestone_4_complexity.md  Milestone 4 design rationale
+│   ├── PROJECT_STATUS.md          Overall milestone status
+│   └── Developer_Handover.md      This file
 │
 ├── scenarios/
 │   └── phase1_demo.scn        BlueSky scenario file (4 aircraft, live mode)
 │
-├── demo_phase1.py             Offline demo: 5 aircraft, full snapshot print
-├── demo_trajectory.py         Offline demo: trajectory prediction tables
+├── tests/
+│   ├── demo_phase1.py             Offline demo: 5 aircraft, full snapshot print
+│   ├── demo_trajectory.py         Offline demo: trajectory prediction tables
+│   ├── demo_hotspot.py            Offline demo: cluster detection
+│   ├── demo_complexity.py         Offline demo: complexity assessment
+│   ├── test_hotspot.py            Milestone 3 regression suite (24 checks)
+│   └── test_complexity.py         Milestone 4 regression suite (42 checks)
+│
 ├── main.py                    Entry point (--mock flag or live BlueSky)
 ├── requirements.txt           pip install -r requirements.txt
-├── README.md                  User-facing setup and usage guide
-├── PHASE1_CHECKLIST.md        Phase 1 requirement traceability + verification
-├── PROJECT_STATUS.md          Overall milestone status (Phase 1 & 2)
-└── Developer_Handover.md      This file
+└── README.md                  User-facing setup and usage guide
 ```
 
 ---
@@ -118,16 +138,21 @@ BlueSky console or a third terminal:
 IC scenarios/phase1_demo.scn
 ```
 
-### Option C — Phase 1 demonstration script
+### Option C — offline demonstration scripts
 
 ```bash
-python demo_phase1.py
+python tests/demo_phase1.py       # Milestone 1 — state interface
+python tests/demo_trajectory.py   # Milestone 2 — trajectory prediction
+python tests/demo_hotspot.py      # Milestone 3 — cluster detection
+python tests/demo_complexity.py   # Milestone 4 — complexity assessment
 ```
 
-Creates 5 aircraft across Swiss/German upper airspace, polls five times
-(each tick = 60 simulated seconds), and prints a formatted TrafficSnapshot
-with inter-aircraft separations. No BlueSky required. Expected to complete
-in under one second.
+`demo_phase1.py` creates 5 aircraft across Swiss/German upper airspace,
+polls five times (each tick = 60 simulated seconds), and prints a
+formatted `TrafficSnapshot` with inter-aircraft separations. The
+Milestone 3/4 demos each run a high- and low-complexity scenario across
+the observed snapshot and every predicted horizon. None require BlueSky;
+each completes in under one second.
 
 ---
 
@@ -161,7 +186,7 @@ print('V2 OK')
 # V6: geodesy
 
 # Quick combined run (all currently pass):
-python demo_phase1.py   # implicit V5a+V5b integration test
+python tests/demo_phase1.py   # implicit V5a+V5b integration test
 ```
 
 Full automated suite results as of Phase 1 completion:
@@ -175,6 +200,16 @@ Full automated suite results as of Phase 1 completion:
 - V6 Geodesy: **10/10 checks PASS**
 
 **Total: 130/130 checks pass.**
+
+Milestones 3–4 have their own self-contained regression suites (no
+shell-timeout splitting needed — each runs in well under a second):
+
+```bash
+python tests/test_hotspot.py      # Milestone 3 — 24/24 checks PASS
+python tests/test_complexity.py   # Milestone 4 — 42/42 checks PASS
+```
+
+**Grand total across all four milestones: 196/196 checks pass.**
 
 ---
 
@@ -249,11 +284,11 @@ H minutes is mathematically reproducible against H×60/`sim_step_s`
 verified.
 
 `PredictedSnapshot` mirrors the `TrafficSnapshot` accessor API (`get()`,
-`as_list()`, `callsigns()`, `__len__`, `__iter__`) by design, so Phase 3
-(DBSCAN clustering) can consume predicted and observed snapshots through
-identical code paths.
+`as_list()`, `callsigns()`, `__len__`, `__iter__`) by design, so Milestone 3
+(DBSCAN clustering) consumes predicted and observed snapshots through
+identical code paths — confirmed by `test_hotspot.py`'s API-parity check.
 
-Run `python demo_trajectory.py` for a worked example.
+Run `python tests/demo_trajectory.py` for a worked example.
 
 ---
 

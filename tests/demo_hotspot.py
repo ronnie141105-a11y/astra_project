@@ -12,7 +12,7 @@ Run with:
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from astra.hotspot.engine import ClusterEngine
 from astra.interface.state_reader import StateReader

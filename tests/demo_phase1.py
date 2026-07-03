@@ -24,7 +24,7 @@ import sys
 import os
 
 # Allow running from any directory
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from astra.interface.state_reader import StateReader
 from astra.interface.traffic_state import TrafficSnapshot, AircraftState
