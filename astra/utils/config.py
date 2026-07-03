@@ -132,6 +132,29 @@ class ASTRAConfig:
     complexity_mtca_weight_in_conflict: float = 0.7
     complexity_ltca_weight_in_conflict: float = 0.3
 
+    # ------------------------------------------------------------------
+    # Phase 5 - 4DARHAC detection / tracking (astra.tracking)
+    # See docs/architecture.md §6.5 and docs/milestone_5_tracking.md for
+    # the association heuristic and lifecycle these thresholds drive.
+    # ------------------------------------------------------------------
+    #: Minimum Jaccard similarity of member_callsigns (new Cluster vs. a
+    #: track's most recent entry) to accept a primary association match.
+    tracking_jaccard_threshold: float = 0.5
+
+    #: Consecutive poll cycles a track may go un-refreshed before it is
+    #: closed (status -> "CLOSED") and evicted from the open-track set.
+    tracking_stale_cycles: int = 3
+
+    #: Consecutive detections required before a "CANDIDATE" track is
+    #: promoted to "CONFIRMED", damping single-cycle DBSCAN noise from
+    #: generating spurious tracks.
+    tracking_confirm_cycles: int = 2
+
+    #: Minimum change (0-100 scale) in complexity_score between
+    #: consecutive track entries to count as "rising"/"falling" rather
+    #: than flat, for GROWING/PEAK/DISSIPATING trend classification.
+    tracking_trend_tolerance: float = 1.0
+
     def __post_init__(self) -> None:
         """Fail fast on internally-inconsistent configuration.
 
@@ -170,6 +193,18 @@ class ASTRAConfig:
                 "complexity_ltca_weight_in_conflict must sum to 1.0, got "
                 f"{conflict_weights_sum:.6f}"
             )
+
+        if not (0.0 < self.tracking_jaccard_threshold <= 1.0):
+            raise ValueError(
+                "tracking_jaccard_threshold must be in (0.0, 1.0], got "
+                f"{self.tracking_jaccard_threshold}"
+            )
+        if self.tracking_stale_cycles < 1:
+            raise ValueError("tracking_stale_cycles must be >= 1")
+        if self.tracking_confirm_cycles < 1:
+            raise ValueError("tracking_confirm_cycles must be >= 1")
+        if self.tracking_trend_tolerance < 0:
+            raise ValueError("tracking_trend_tolerance must be >= 0")
 
 
 #: Module-level default configuration instance. Most entry points (main.py,
