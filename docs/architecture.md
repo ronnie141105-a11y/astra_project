@@ -31,12 +31,12 @@ flowchart TD
             CX["ComplexityEngine\n· density · MTCA/LTCA conflicts (CPA)\n· heading diversity (circular std dev)\n· altitude diversity · type mixture\n· → ComplexityRegion, score 0–100"]
         end
 
-        subgraph TRK["astra/tracking (name TBD)  ── Milestone 5 NEXT"]
+        subgraph TRK["astra/tracking  ── Milestone 5 COMPLETE"]
             HP["4DARHAC tracker\n· links ComplexityRegions across polls\n· stateful — the first stateful stage\n· stable arhac_id, status lifecycle\n· see docs/architecture.md §6"]
         end
 
-        subgraph FC["astra/forecast  ── Milestone 6 PLANNED"]
-            FCB["4DARHAC forecast\n· onset / peak / dissipation estimation\n· confidence scoring · priority ranking"]
+        subgraph FC["astra/forecast  ── Milestone 6 COMPLETE"]
+            FCB["4DARHAC forecast\n· onset / peak / dissipation estimation\n· confidence scoring · urgency ranking\n· stateless — reads tracks, does not own them"]
         end
 
         subgraph RS["astra/resolution  ── Milestone 7 PLANNED"]
@@ -177,12 +177,13 @@ ATM units.
 ## 6. 4DARHAC Domain Model and Revised Pipeline
 
 > **Status:** design decision recorded by the July 2026 architecture
-> review. `Cluster` (Milestone 3), `ComplexityRegion` (Milestone 4), and
-> `FourDArhac` (Milestone 5) are all implemented — see
-> `docs/milestone_3_hotspot.md`, `docs/milestone_4_complexity.md`, and
-> `docs/milestone_5_tracking.md` for their as-built details. Milestone 6
-> (4DARHAC forecast) has an engineering design review pending approval —
-> see `docs/milestone_6_forecast_design_review.md`.
+> review. `Cluster` (Milestone 3), `ComplexityRegion` (Milestone 4),
+> `FourDArhac` (Milestone 5), and `ForecastEngine` (Milestone 6) are all
+> implemented — see `docs/milestone_3_hotspot.md`,
+> `docs/milestone_4_complexity.md`, `docs/milestone_5_tracking.md`, and
+> `docs/milestone_6_forecast.md` for their as-built details.
+> `docs/milestone_6_forecast_design_review.md` is retained as the
+> original, since-approved design review.
 
 ### 6.1 Why the old Phase 3 ("hotspot detection") was under-specified
 
@@ -235,20 +236,24 @@ class ComplexityRegion:
 @dataclass
 class FourDArhac:
     """The persistent 4D object. Mutable / stateful — survives across
-    horizons AND across poll cycles. NOT YET IMPLEMENTED — Milestone 5,
-    build plan in §6.5."""
+    horizons AND across poll cycles. IMPLEMENTED as
+    astra.tracking.models.FourDArhac; identity/status fields owned by
+    TrackerEngine (Milestone 5), forecast fields owned by ForecastEngine
+    (Milestone 6, see §6.6)."""
     arhac_id: str                     # stable UUID, assigned at first detection
     status: Literal["CANDIDATE", "CONFIRMED", "GROWING",
                      "PEAK", "DISSIPATING", "CLOSED"]
     track: list[ComplexityRegion]     # ordered by valid_at_s
     member_aircraft: FrozenSet[str]   # union of callsigns across the track
     first_detected_cycle_s: float
-    predicted_onset_s: float | None
-    peak_complexity: float
+    predicted_onset_s: float | None           # set by ForecastEngine (M6)
+    peak_complexity: float                    # observed-or-predicted max (M6 may raise it)
     peak_time_s: float | None
-    predicted_dissipation_s: float | None
+    predicted_dissipation_s: float | None     # set by ForecastEngine (M6)
+    predicted_peak_time_s: float | None       # set by ForecastEngine (M6) — added, §6.6 OQ-2
     confidence: float                 # 0-1, can strengthen across repeated cycles
-    priority: int                     # FMP triage ranking
+    priority: int                     # FMP triage ranking (severity only, TrackerEngine)
+    forecast_urgency_rank: int | None         # set by ForecastEngine (M6) — added, §6.6 OQ-4
     last_updated_cycle_s: float       # for closing stale tracks not re-observed
 ```
 

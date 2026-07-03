@@ -31,10 +31,8 @@ from astra.complexity.models import ComplexityRegion
 #: track's most recent entries (see
 #: ``astra.tracking.engine.TrackerEngine._next_status``) plus the
 #: staleness check for CLOSED. No time-based forecasting -- trend
-#: classification only; onset/peak/dissipation *time* prediction and a
-#: composite confidence are produced by
-#: ``astra.forecast.engine.ForecastEngine`` (Milestone 6), layered on
-#: top of this.
+#: classification only; onset/peak/dissipation *time* prediction and
+#: calibrated confidence belong to Milestone 6, layered on top of this.
 ArhacStatus = Literal[
     "CANDIDATE", "CONFIRMED", "GROWING", "PEAK", "DISSIPATING", "CLOSED"
 ]
