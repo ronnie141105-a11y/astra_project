@@ -74,14 +74,9 @@ for design decisions and conventions.
 
 ---
 
-## Remaining work (this milestone) (need update)
+## Remaining work (this milestone)
 
-- [x] `demo_hotspot.py`, `demo_complexity.py`
-- [x] `tests/test_hotspot.py`, `tests/test_complexity.py`
-- [x] `docs/milestone_3_hotspot.md`, `docs/milestone_4_complexity.md`
-- [x] Update `README.md`, `docs/architecture.md`, `Developer_Handover.md`,
-      `PROJECT_STATUS.md` (this file)
-- [x] Final verification (66/66 checks across both suites)
+- [x] Update `PROJECT_STATUS.md` (this file)
 
 ## Next milestone
 
