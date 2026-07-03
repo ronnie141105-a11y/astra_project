@@ -100,9 +100,9 @@ source .venv/bin/activate        # Linux / macOS
 pip install -r requirements.txt
 ```
 
-`requirements.txt` currently lists only `bluesky-simulator`. Later phases
-will add `numpy`, `scikit-learn` (Phase 3 cluster detection), and a
-dashboard framework (Phase 8).
+`requirements.txt` lists `bluesky-simulator` plus `numpy` and
+`scikit-learn` (added for Milestone 3's DBSCAN clustering). Milestone 8
+(dashboard) will add a dashboard framework.
 
 ---
 
@@ -308,41 +308,58 @@ disconnected 3D clusters, not one 4D area.
 The remaining milestones were reorganized accordingly. Full rationale,
 domain model (`Cluster`, `ComplexityRegion`, `FourDArhac`), and revised
 pipeline diagram live in
-[`docs/architecture.md §6`](docs/architecture.md#6-4darhac-domain-model-and-revised-pipeline-proposed--pending-approval).
-This section is **design only** — nothing below has been implemented yet.
+[`docs/architecture.md §6`](docs/architecture.md#6-4darhac-domain-model-and-revised-pipeline).
+`Cluster` (Milestone 3) and `ComplexityRegion` (Milestone 4) are now
+implemented; `FourDArhac` (Milestone 5) remains design-only.
 
-| # | Milestone | Nature | Depends on |
-|---|---|---|---|
-| 3 | Cluster detection | pure / stateless | Trajectory prediction (Phase 2) |
-| 4 | Complexity assessment | pure / stateless | Cluster detection |
-| 5 | 4DARHAC detection (tracking) | **stateful** | Cluster detection (+ complexity) |
-| 6 | 4DARHAC forecast | stateful, layered on 5 | 4DARHAC detection |
-| 7 | Resolution | stateless given a 4DARHAC | 4DARHAC forecast |
-| 8 | Dashboard | presentation | everything above |
+| # | Milestone | Nature | Depends on | Status |
+|---|---|---|---|---|
+| 3 | Cluster detection | pure / stateless | Trajectory prediction (Milestone 2) | ✅ Complete |
+| 4 | Complexity assessment | pure / stateless | Cluster detection | ✅ Complete |
+| 5 | 4DARHAC detection (tracking) | **stateful** | Cluster detection (+ complexity) | ⬜ Next |
+| 6 | 4DARHAC forecast | stateful, layered on 5 | 4DARHAC detection | ⬜ Planned |
+| 7 | Resolution | stateless given a 4DARHAC | 4DARHAC forecast | ⬜ Planned |
+| 8 | Dashboard | presentation | everything above | ⬜ Planned |
 
-## What Milestone 3 (Cluster detection) needs from Phase 2
+## Milestone 3 (Cluster detection) — as built
 
-Milestone 3 will import:
+Implemented in `astra/hotspot/`:
 
 ```python
-from astra.trajectory.engine import TrajectoryEngine
-from astra.trajectory.models import PredictedSnapshot, PredictionResult
-from astra.utils.geodesy import haversine_distance_nm
+from astra.hotspot.engine import ClusterEngine
+from astra.hotspot.models import Cluster
 ```
 
-It will run DBSCAN independently over each `PredictedSnapshot` returned by
-`TrajectoryEngine.predict()` (as well as the current observed
-`TrafficSnapshot`), using `separation_horizontal_nm` (15 NM) as the ε
-parameter and `separation_vertical_ft` (1 000 ft) as an additional vertical
-gate. Because `PredictedSnapshot` exposes the same iteration/accessor API as
-`TrafficSnapshot`, the clustering code should not need to special-case
-predicted vs. observed input.
+`ClusterEngine.detect()` / `.detect_all()` run DBSCAN independently over
+each `PredictedSnapshot` returned by `TrajectoryEngine.predict()` (and
+the current observed `TrafficSnapshot`), using `separation_horizontal_nm`
+(15 NM) as the ε parameter and `separation_vertical_ft` (1 000 ft) as an
+additional vertical gate via a precomputed distance matrix. Full design
+rationale: `docs/milestone_3_hotspot.md`. Verification:
+`tests/test_hotspot.py`, 24/24 checks pass.
 
 Deliberately **out of scope** for Milestone 3: linking clusters across
 horizons or poll cycles into a persistent identity. That is Milestone 5
 (4DARHAC detection / tracking), scoped separately so the two problems —
 one mechanical, one genuinely novel — get independent design attention
 instead of being silently bundled together.
+
+## Milestone 4 (Complexity assessment) — as built
+
+Implemented in `astra/complexity/`:
+
+```python
+from astra.complexity.engine import ComplexityEngine
+from astra.complexity.models import ComplexityRegion
+```
+
+`ComplexityEngine.assess()` / `.assess_many()` take each `Cluster` from
+Milestone 3 and compute a 0–100 `complexity_score` from density,
+CPA-based MTCA/LTCA conflict counts, circular heading diversity,
+altitude diversity, and aircraft-type mixture, combined with
+configurable weights (`ASTRAConfig.complexity_weight_*`, validated to
+sum to 1.0). Full design rationale: `docs/milestone_4_complexity.md`.
+Verification: `tests/test_complexity.py`, 42/42 checks pass.
 
 ---
 
@@ -361,23 +378,22 @@ instead of being silently bundled together.
 
 ---
 
-## Known limitations (Phase 1 & 2)
+## Known limitations (Milestones 1–4)
 
 | Limitation | Impact | Mitigation path |
 |---|---|---|
-| `trk` used as heading (no wind correction) | Heading accuracy degrades with strong crosswinds; carried into Phase 2 predictions | Future work — wind-corrected model noted as an extension |
-| Aircraft type `"UNKNOWN"` for scenario-loaded aircraft | Complexity metrics relying on type mix will be approximate | Phase 3/4 can use a manual type table loaded from config |
-| No ADS-C / EPP data | Trajectory prediction (Phase 2) uses constant-velocity dead-reckoning from flight plan only, not intent data | Out of scope for TRL-2 per reference FRD |
-| Constant-velocity assumption (Phase 2) | No acceleration/turn modelling; accuracy degrades for manoeuvring aircraft over longer horizons | Documented simplifying assumption; intent-based model is future work |
-| `history_length=3600` in default config | ~1 hour at 1 Hz; no persistence across restarts | Phase 7 can add a file-backed replay store |
+| `trk` used as heading (no wind correction) | Heading accuracy degrades with strong crosswinds; carried into Milestone 2 predictions | Future work — wind-corrected model noted as an extension |
+| Aircraft type `"UNKNOWN"` for scenario-loaded aircraft | `type_mix_count` (Milestone 4) is approximate for such aircraft | A manual type table loaded from config would resolve this |
+| No ADS-C / EPP data | Trajectory prediction (Milestone 2) uses constant-velocity dead-reckoning from flight plan only, not intent data | Out of scope for TRL-2 per reference FRD |
+| Constant-velocity assumption (Milestone 2) | No acceleration/turn modelling; accuracy degrades for manoeuvring aircraft over longer horizons, propagating into Milestones 3–4 | Documented simplifying assumption; intent-based model is future work |
+| `history_length=3600` in default config | ~1 hour at 1 Hz; no persistence across restarts | Milestone 7 can add a file-backed replay store |
 | `sim_step_s` fixed per session | Cannot accelerate only specific segments | Acceptable for thesis prototype |
+| Complexity score combination is linear-weighted, not PCA/quadratic-mean | Documented simplification vs. the reference ASTRA literature — see `docs/milestone_4_complexity.md` "Score combination" | Would need a historical reference dataset to calibrate a PCA-based model |
+| `Cluster`/`ComplexityRegion` carry no identity across horizons or poll cycles | Cannot yet answer "is this the same hotspot as last cycle?" | Milestone 5 (4DARHAC detection / tracking) — design ready in `docs/architecture.md §6` |
 
 ---
 
 ## Troubleshooting
-
-**`ImportError: bluesky-simulator`**
-Install it: `pip install bluesky-simulator`
 
 **`"Waiting for a BlueSky simulation node…"` hangs**
 BlueSky must be started in a separate terminal with `python -m bluesky --headless`
