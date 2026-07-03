@@ -13,8 +13,8 @@ for design decisions and conventions.
 | 2 | Phase 2 | Trajectory prediction — constant-velocity kinematic engine | ✅ Complete |
 | 3 | Phase 3 | Cluster detection (DBSCAN, 15 NM / 1 000 ft, stateless) | ✅ Complete |
 | 4 | Phase 4 | Complexity assessment (density, MTCA/LTCA, heading/altitude diversity, type mix) | ✅ Complete |
-| 5 | Phase 5 | 4DARHAC detection — tracking (stateful, persists across cycles) | ⬜ Next (design ready, not built) |
-| 6 | Phase 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, priority) | ⬜ Planned |
+| 5 | Phase 5 | 4DARHAC detection — tracking (stateful, persists across cycles) | ✅ Complete |
+| 6 | Phase 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, priority) | ⬜ Design review pending |
 | 7 | Phase 7 | AI resolution framework | ⬜ Planned |
 | 8 | Phase 8 | Live dashboard | ⬜ Planned |
 
@@ -72,27 +72,50 @@ for design decisions and conventions.
 - `demo_complexity.py` — high- vs. low-complexity scenario across the
   observed snapshot and every predicted horizon
 
+## Milestone 5 — 4DARHAC Detection / Tracking ✅ Complete
+
+- `astra/tracking/models.py` — `FourDArhac` (mutable, stateful),
+  `ArhacStatus` lifecycle literal
+- `astra/tracking/association.py` — pure Jaccard-similarity and
+  centroid/extent-overlap match heuristics
+- `astra/tracking/engine.py` — `TrackerEngine.update()`, the pipeline's
+  first stateful component: holds open tracks across poll cycles,
+  associates new observations, derives lifecycle status from the
+  `complexity_score` trend, closes stale tracks
+- `ASTRAConfig` — `tracking_jaccard_threshold`, `tracking_stale_cycles`,
+  `tracking_confirm_cycles`, `tracking_trend_tolerance` (all validated)
+- Design rationale, including the three concrete decisions made beyond
+  the original build plan (horizon-0-only identity, greedy one-to-one
+  association, trend-based status FSM): `docs/milestone_5_tracking.md`
+- Verification: `tests/test_tracking.py` — 44/44 checks pass
+- `demo_tracking.py` — scripted multi-poll-cycle scenario walking a
+  `FourDArhac` through its full lifecycle (`CANDIDATE → CONFIRMED →
+  GROWING → PEAK → DISSIPATING → CLOSED`)
+- `main.py` deliberately left as a Phase 1 demonstration only, matching
+  the precedent set by Milestones 2–4 (see `docs/milestone_5_tracking.md`
+  "`main.py` — deliberately not integrated")
+
 ---
 
 ## Remaining work (this milestone)
 
-- [x] `demo_hotspot.py`, `demo_complexity.py`
-- [x] `tests/test_hotspot.py`, `tests/test_complexity.py`
-- [x] `docs/milestone_3_hotspot.md`, `docs/milestone_4_complexity.md`
+- [x] `demo_tracking.py`
+- [x] `tests/test_tracking.py`
+- [x] `docs/milestone_5_tracking.md`
 - [x] Update `README.md`, `docs/architecture.md`, `Developer_Handover.md`,
       `PROJECT_STATUS.md` (this file)
-- [x] Final verification (66/66 checks across both suites)
+- [x] Final verification (110/110 checks across Milestones 3–5;
+      240/240 across all five milestones)
 
-**Milestones 3 and 4 are complete.** No further work remains for this
-phase of the project.
+**Milestone 5 is complete.** No further work remains for this phase of
+the project.
 
 ## Next milestone
 
-**Milestone 5 — 4DARHAC detection (tracking).** Design scoped in
-`docs/architecture.md §6` and `Developer_Handover.md`; not yet built.
-Links `ComplexityRegion`s across poll cycles into a persistent `FourDArhac`
-using centroid-overlap association, assigns a stable ID, and tracks
-onset/peak/dissipation state. Explicitly stateful — the first stateful
-component in the pipeline, isolated behind its own module
-(`astra/prediction/` or `astra/tracking/`, naming TBD) so Milestones 1–4
-remain pure and independently testable.
+**Milestone 6 — 4DARHAC forecast.** An engineering design review has
+been prepared and is pending approval before implementation begins —
+see `docs/milestone_6_forecast_design_review.md`. It covers
+onset/peak/dissipation *time* prediction and a calibrated confidence
+model, layered on top of the `FourDArhac` tracks Milestone 5 now
+produces. Implementation is explicitly on hold until the review is
+approved.

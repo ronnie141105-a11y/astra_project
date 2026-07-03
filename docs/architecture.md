@@ -177,11 +177,12 @@ ATM units.
 ## 6. 4DARHAC Domain Model and Revised Pipeline
 
 > **Status:** design decision recorded by the July 2026 architecture
-> review. `Cluster` (Milestone 3) and `ComplexityRegion` (Milestone 4) are
-> implemented — see `docs/milestone_3_hotspot.md` and
-> `docs/milestone_4_complexity.md` for their as-built details.
-> `FourDArhac` (Milestone 5) is designed below but **not yet implemented**
-> — see §6.5 for the concrete build plan.
+> review. `Cluster` (Milestone 3), `ComplexityRegion` (Milestone 4), and
+> `FourDArhac` (Milestone 5) are all implemented — see
+> `docs/milestone_3_hotspot.md`, `docs/milestone_4_complexity.md`, and
+> `docs/milestone_5_tracking.md` for their as-built details. Milestone 6
+> (4DARHAC forecast) has an engineering design review pending approval —
+> see `docs/milestone_6_forecast_design_review.md`.
 
 ### 6.1 Why the old Phase 3 ("hotspot detection") was under-specified
 
@@ -264,8 +265,8 @@ meaningful.
 |---|---|---|---|---|
 | 3 | Cluster detection | pure / stateless | Trajectory prediction (Milestone 2) | ✅ Complete |
 | 4 | Complexity assessment | pure / stateless | Cluster detection | ✅ Complete |
-| 5 | 4DARHAC detection (tracking) | **stateful** | Cluster detection (+ complexity, to carry scores onto tracks) | ⬜ Next — design below, not built |
-| 6 | 4DARHAC forecast | stateful, layered on 5 | 4DARHAC detection | ⬜ Planned |
+| 5 | 4DARHAC detection (tracking) | **stateful** | Cluster detection (+ complexity, to carry scores onto tracks) | ✅ Complete — see `docs/milestone_5_tracking.md` |
+| 6 | 4DARHAC forecast | stateful, layered on 5 | 4DARHAC detection | ⬜ Design review pending — see `docs/milestone_6_forecast_design_review.md` |
 | 7 | Resolution | stateless given a 4DARHAC | 4DARHAC forecast | ⬜ Planned |
 | 8 | Dashboard | presentation | everything above | ⬜ Planned |
 
@@ -291,10 +292,13 @@ cycle with the set of currently-open `FourDArhac` tracks from the previous
 cycle, which is the mechanism that gives an ARHAC a stable identity over
 wall-clock time rather than being rediscovered from scratch every second.
 
-### 6.5 Milestone 5 build plan (design-ready, not implemented)
+### 6.5 Milestone 5 build plan (as built)
 
-Prepared ahead of implementation so the next session can start directly.
-No code for this milestone exists yet.
+> This section is preserved as the original build plan; it matched the
+> as-built implementation closely. See `docs/milestone_5_tracking.md`
+> for the concrete design decisions made while implementing it (horizon-0
+> identity, greedy one-to-one association, the trend-based status
+> finite-state-machine) and full verification results.
 
 **Proposed module:** `astra/tracking/` (name TBD — `astra/prediction/`
 collides in intent with `astra/trajectory/`; `tracking` matches its

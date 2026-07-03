@@ -11,12 +11,14 @@ process. All prediction, detection, complexity, AI and visualisation logic
 lives in this repository. The two processes communicate over ZeroMQ using
 BlueSky's built-in network API.
 
-**Current status:** Milestones 1–4 — data interface, trajectory
-prediction, cluster detection, and complexity assessment — are
-**complete and verified** (130/130 checks from Milestones 1–2, plus
-24/24 and 42/42 from Milestones 3–4 — 196/196 total). Milestone 5
-(4DARHAC detection / tracking) is design-ready but not yet built; see
-`docs/architecture.md §6`. Milestones 6–8 remain planned.
+**Current status:** Milestones 1–5 — data interface, trajectory
+prediction, cluster detection, complexity assessment, and 4DARHAC
+tracking — are **complete and verified** (130/130 checks from
+Milestones 1–2, plus 24/24, 42/42, and 44/44 from Milestones 3–5 —
+240/240 total). Milestone 6 (4DARHAC forecast) has an engineering
+design review pending approval; see
+`docs/milestone_6_forecast_design_review.md`. Milestones 7–8 remain
+planned.
 
 ---
 
@@ -55,8 +57,12 @@ astra_project/
 │   │   ├── models.py              ComplexityRegion (composes Cluster)
 │   │   └── engine.py              ComplexityEngine (assess() / assess_many())
 │   │
-│   ├── tracking/                Milestone 5 ⬜ — 4DARHAC detection (tracking); design ready, not built
-│   ├── forecast/                 Milestone 6 ⬜ — 4DARHAC forecast; planned
+│   ├── tracking/               Milestone 5 ✅ — 4DARHAC detection (tracking); stateful
+│   │   ├── models.py              FourDArhac (mutable), ArhacStatus lifecycle literal
+│   │   ├── association.py         Jaccard / centroid-extent match heuristics (pure)
+│   │   └── engine.py              TrackerEngine (update() — stateful across poll cycles)
+│   │
+│   ├── forecast/                 Milestone 6 ⬜ — 4DARHAC forecast; design review pending
 │   ├── resolution/              Milestone 7 ⬜ — clearance generation + ranking; planned
 │   └── dashboard/                Milestone 8 ⬜ — live visualisation; planned
 │
@@ -64,6 +70,8 @@ astra_project/
 │   ├── architecture.md            Mermaid diagrams (full system + dep graph + domain model)
 │   ├── milestone_3_hotspot.md     Milestone 3 design rationale
 │   ├── milestone_4_complexity.md  Milestone 4 design rationale
+│   ├── milestone_5_tracking.md    Milestone 5 design rationale
+│   ├── milestone_6_forecast_design_review.md  Milestone 6 design review (pending approval)
 │   ├── PROJECT_STATUS.md          Overall milestone status
 │   └── Developer_Handover.md      This file
 │
@@ -75,10 +83,12 @@ astra_project/
 │   ├── demo_trajectory.py         Offline demo: trajectory prediction tables
 │   ├── demo_hotspot.py            Offline demo: cluster detection
 │   ├── demo_complexity.py         Offline demo: complexity assessment
+│   ├── demo_tracking.py           Offline demo: 4DARHAC tracking lifecycle
 │   ├── test_hotspot.py            Milestone 3 regression suite (24 checks)
-│   └── test_complexity.py         Milestone 4 regression suite (42 checks)
+│   ├── test_complexity.py         Milestone 4 regression suite (42 checks)
+│   └── test_tracking.py           Milestone 5 regression suite (44 checks)
 │
-├── main.py                    Entry point (--mock flag or live BlueSky)
+├── main.py                    Entry point (--mock flag or live BlueSky) — Phase 1 only
 ├── requirements.txt           pip install -r requirements.txt
 └── README.md                  User-facing setup and usage guide
 ```
@@ -101,7 +111,8 @@ pip install -r requirements.txt
 ```
 
 `requirements.txt` lists `bluesky-simulator` plus `numpy` and
-`scikit-learn` (added for Milestone 3's DBSCAN clustering). Milestone 8
+`scikit-learn` (added for Milestone 3's DBSCAN clustering; Milestone 5's
+tracking module reuses `numpy`/stdlib only, no new dependency). Milestone 8
 (dashboard) will add a dashboard framework.
 
 ---
@@ -145,14 +156,18 @@ python tests/demo_phase1.py       # Milestone 1 — state interface
 python tests/demo_trajectory.py   # Milestone 2 — trajectory prediction
 python tests/demo_hotspot.py      # Milestone 3 — cluster detection
 python tests/demo_complexity.py   # Milestone 4 — complexity assessment
+python tests/demo_tracking.py     # Milestone 5 — 4DARHAC tracking
 ```
 
 `demo_phase1.py` creates 5 aircraft across Swiss/German upper airspace,
 polls five times (each tick = 60 simulated seconds), and prints a
 formatted `TrafficSnapshot` with inter-aircraft separations. The
 Milestone 3/4 demos each run a high- and low-complexity scenario across
-the observed snapshot and every predicted horizon. None require BlueSky;
-each completes in under one second.
+the observed snapshot and every predicted horizon. `demo_tracking.py`
+drives several manual `poll()` cycles with scripted stack commands to
+show a `FourDArhac` moving through its full lifecycle (`CANDIDATE →
+CONFIRMED → GROWING → PEAK → DISSIPATING → CLOSED`). None require
+BlueSky; each completes in under one second.
 
 ---
 
@@ -201,15 +216,16 @@ Full automated suite results as of Phase 1 completion:
 
 **Total: 130/130 checks pass.**
 
-Milestones 3–4 have their own self-contained regression suites (no
+Milestones 3–5 have their own self-contained regression suites (no
 shell-timeout splitting needed — each runs in well under a second):
 
 ```bash
 python tests/test_hotspot.py      # Milestone 3 — 24/24 checks PASS
 python tests/test_complexity.py   # Milestone 4 — 42/42 checks PASS
+python tests/test_tracking.py     # Milestone 5 — 44/44 checks PASS
 ```
 
-**Grand total across all four milestones: 196/196 checks pass.**
+**Grand total across all five milestones: 240/240 checks pass.**
 
 ---
 
@@ -309,15 +325,15 @@ The remaining milestones were reorganized accordingly. Full rationale,
 domain model (`Cluster`, `ComplexityRegion`, `FourDArhac`), and revised
 pipeline diagram live in
 [`docs/architecture.md §6`](docs/architecture.md#6-4darhac-domain-model-and-revised-pipeline).
-`Cluster` (Milestone 3) and `ComplexityRegion` (Milestone 4) are now
-implemented; `FourDArhac` (Milestone 5) remains design-only.
+`Cluster` (Milestone 3), `ComplexityRegion` (Milestone 4), and
+`FourDArhac` (Milestone 5) are now all implemented.
 
 | # | Milestone | Nature | Depends on | Status |
 |---|---|---|---|---|
 | 3 | Cluster detection | pure / stateless | Trajectory prediction (Milestone 2) | ✅ Complete |
 | 4 | Complexity assessment | pure / stateless | Cluster detection | ✅ Complete |
-| 5 | 4DARHAC detection (tracking) | **stateful** | Cluster detection (+ complexity) | ⬜ Next |
-| 6 | 4DARHAC forecast | stateful, layered on 5 | 4DARHAC detection | ⬜ Planned |
+| 5 | 4DARHAC detection (tracking) | **stateful** | Cluster detection (+ complexity) | ✅ Complete |
+| 6 | 4DARHAC forecast | stateful, layered on 5 | 4DARHAC detection | ⬜ Design review pending |
 | 7 | Resolution | stateless given a 4DARHAC | 4DARHAC forecast | ⬜ Planned |
 | 8 | Dashboard | presentation | everything above | ⬜ Planned |
 
@@ -339,9 +355,9 @@ rationale: `docs/milestone_3_hotspot.md`. Verification:
 `tests/test_hotspot.py`, 24/24 checks pass.
 
 Deliberately **out of scope** for Milestone 3: linking clusters across
-horizons or poll cycles into a persistent identity. That is Milestone 5
+horizons or poll cycles into a persistent identity. That was Milestone 5
 (4DARHAC detection / tracking), scoped separately so the two problems —
-one mechanical, one genuinely novel — get independent design attention
+one mechanical, one genuinely novel — got independent design attention
 instead of being silently bundled together.
 
 ## Milestone 4 (Complexity assessment) — as built
@@ -361,6 +377,34 @@ configurable weights (`ASTRAConfig.complexity_weight_*`, validated to
 sum to 1.0). Full design rationale: `docs/milestone_4_complexity.md`.
 Verification: `tests/test_complexity.py`, 42/42 checks pass.
 
+## Milestone 5 (4DARHAC detection / tracking) — as built
+
+Implemented in `astra/tracking/`:
+
+```python
+from astra.tracking.engine import TrackerEngine
+from astra.tracking.models import FourDArhac
+```
+
+`TrackerEngine` is the pipeline's first stateful component: one instance
+holds the current set of open `FourDArhac` tracks across `update()`
+calls, one call per poll cycle. Each call associates this cycle's
+observed (`horizon_min == 0`) `ComplexityRegion`s against open tracks —
+primary signal Jaccard similarity of `member_callsigns`
+(`tracking_jaccard_threshold`), fallback centroid/extent circle overlap
+— extends matches, opens new `CANDIDATE` tracks for the rest, and
+mechanically derives lifecycle status (`CANDIDATE → CONFIRMED → GROWING
+→ PEAK → DISSIPATING → CLOSED`) from the `complexity_score` trend plus a
+staleness check (`tracking_stale_cycles`). Full design rationale,
+including why only horizon 0 drives identity in this milestone:
+`docs/milestone_5_tracking.md`. Verification: `tests/test_tracking.py`,
+44/44 checks pass. Demonstration: `tests/demo_tracking.py`.
+
+`main.py` was deliberately **not** wired to the tracker (or to any of
+Milestones 2–4's engines) — see "`main.py` — deliberately not
+integrated" in `docs/milestone_5_tracking.md` for why that stays a
+demo-script concern until the Dashboard milestone.
+
 ---
 
 ## Coding conventions
@@ -378,18 +422,20 @@ Verification: `tests/test_complexity.py`, 42/42 checks pass.
 
 ---
 
-## Known limitations (Milestones 1–4)
+## Known limitations (Milestones 1–5)
 
 | Limitation | Impact | Mitigation path |
 |---|---|---|
 | `trk` used as heading (no wind correction) | Heading accuracy degrades with strong crosswinds; carried into Milestone 2 predictions | Future work — wind-corrected model noted as an extension |
 | Aircraft type `"UNKNOWN"` for scenario-loaded aircraft | `type_mix_count` (Milestone 4) is approximate for such aircraft | A manual type table loaded from config would resolve this |
 | No ADS-C / EPP data | Trajectory prediction (Milestone 2) uses constant-velocity dead-reckoning from flight plan only, not intent data | Out of scope for TRL-2 per reference FRD |
-| Constant-velocity assumption (Milestone 2) | No acceleration/turn modelling; accuracy degrades for manoeuvring aircraft over longer horizons, propagating into Milestones 3–4 | Documented simplifying assumption; intent-based model is future work |
+| Constant-velocity assumption (Milestone 2) | No acceleration/turn modelling; accuracy degrades for manoeuvring aircraft over longer horizons, propagating into Milestones 3–5 | Documented simplifying assumption; intent-based model is future work |
 | `history_length=3600` in default config | ~1 hour at 1 Hz; no persistence across restarts | Milestone 7 can add a file-backed replay store |
 | `sim_step_s` fixed per session | Cannot accelerate only specific segments | Acceptable for thesis prototype |
 | Complexity score combination is linear-weighted, not PCA/quadratic-mean | Documented simplification vs. the reference ASTRA literature — see `docs/milestone_4_complexity.md` "Score combination" | Would need a historical reference dataset to calibrate a PCA-based model |
-| `Cluster`/`ComplexityRegion` carry no identity across horizons or poll cycles | Cannot yet answer "is this the same hotspot as last cycle?" | Milestone 5 (4DARHAC detection / tracking) — design ready in `docs/architecture.md §6` |
+| `TrackerEngine` uses greedy one-to-one association, not globally-optimal assignment | A rare multi-candidate cycle could pick a locally-good but not globally-best match | Acceptable at DBSCAN cluster counts in the tens; see `docs/milestone_5_tracking.md` |
+| `FourDArhac.confidence` is a detection-count placeholder, not calibrated | Not yet meaningful as a forecast confidence | Milestone 6 (4DARHAC forecast) — see `docs/milestone_6_forecast_design_review.md` |
+| Only horizon 0 drives track identity/lifecycle | Predicted-horizon regions computed each cycle are not yet folded into a track's history | Milestone 6 will consume predicted horizons on confirmed tracks for onset/peak/dissipation estimation |
 
 ---
 

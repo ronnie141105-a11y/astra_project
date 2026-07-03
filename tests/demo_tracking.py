@@ -44,8 +44,12 @@ complexity_engine = ComplexityEngine(config)
 tracker = TrackerEngine(config)
 
 
-def run_cycle(label: str) -> None:
-    """Poll once, run the Milestone 3/4 pipeline, then advance the tracker."""
+def run_cycle(label: str):
+    """Poll once, run the Milestone 3/4 pipeline, then advance the tracker.
+
+    Returns:
+        ``(tracks, regions, snapshot)`` for the caller to inspect.
+    """
     snapshot = reader.poll() or reader.current()
     clusters = cluster_engine.detect(snapshot)
     regions = complexity_engine.assess_many(clusters, snapshot)
@@ -66,6 +70,7 @@ def run_cycle(label: str) -> None:
             f"priority={track.priority}  members={sorted(track.member_aircraft)}"
         )
     print()
+    return tracks, regions, snapshot
 
 
 print("=" * 88)
@@ -91,16 +96,44 @@ reader.send_command("HDG AC3 0")
 reader.send_command("ALT AC2 35000")
 run_cycle("Cycle 5 (re-aligning -> DISSIPATING)")
 
-# Phase 4: AC2 and AC3 sprint away in opposite directions, leaving AC1
-# alone. Once no cluster re-forms, the track ages out and closes.
-reader.send_command("SPD AC2 450")
+# Phase 4: AC2 and AC3 sprint directly away from AC1 in opposite
+# directions until the cluster genuinely dissolves (rather than assuming
+# a fixed number of cycles), then the demo holds for
+# tracking_stale_cycles more cycles to watch the track close.
+reader.send_command("SPD AC2 900")
 reader.send_command("HDG AC2 090")
-reader.send_command("SPD AC3 450")
+reader.send_command("SPD AC3 900")
 reader.send_command("HDG AC3 270")
-run_cycle("Cycle 6 (formation breaking up)")
-run_cycle("Cycle 7 (no cluster -> 1st missed cycle)")
-run_cycle("Cycle 8 (no cluster -> 2nd missed cycle)")
-run_cycle("Cycle 9 (no cluster -> stale -> CLOSED)")
+
+_MAX_BREAKUP_CYCLES = 10
+cycle_num = 6
+cluster_gone = False
+for _ in range(_MAX_BREAKUP_CYCLES):
+    _tracks, regions, _snapshot = run_cycle(f"Cycle {cycle_num} (formation breaking up)")
+    cycle_num += 1
+    if not regions:
+        cluster_gone = True
+        break
+
+if not cluster_gone:
+    print(
+        f"  (formation did not fully break up within "
+        f"{_MAX_BREAKUP_CYCLES} cycles -- try a higher departure speed)"
+    )
+
+closed = False
+for _ in range(config.tracking_stale_cycles):
+    tracks, _regions, _snapshot = run_cycle(f"Cycle {cycle_num} (waiting for staleness)")
+    cycle_num += 1
+    if any(track.status == "CLOSED" for track in tracks):
+        closed = True
+        break
+
+if not closed:
+    print(
+        f"  (track did not close within tracking_stale_cycles="
+        f"{config.tracking_stale_cycles} -- unexpected, check staleness logic)"
+    )
 
 print("  Tracking demo complete.")
 print()

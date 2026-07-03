@@ -19,8 +19,8 @@ open-source Air Traffic Simulator.
 | **2** | Kinematic trajectory prediction (5/10/15/30/60 min horizons) | ✅ Complete |
 | **3** | Cluster detection (DBSCAN, 15 NM / 1 000 ft, stateless) | ✅ Complete |
 | **4** | Complexity assessment (density, MTCA/LTCA, heading/altitude diversity, type mix) | ✅ Complete |
-| 5 | 4DARHAC detection — tracking (stateful, persists across cycles) | ⬜ Next (design ready) |
-| 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, priority) | ⬜ Planned |
+| **5** | 4DARHAC detection — tracking (stateful, persists across cycles) | ✅ Complete |
+| 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, priority) | ⬜ Next (design review pending) |
 | 7 | AI resolution framework (speed / FL / direct-to clearances, ranked) | ⬜ Planned |
 | 8 | Live dashboard (traffic map, heatmap, hotspot table, resolutions) | ⬜ Planned |
 
@@ -30,7 +30,8 @@ open-source Air Traffic Simulator.
 > across prediction horizons and poll cycles. See
 > [`docs/architecture.md §6`](docs/architecture.md#6-4darhac-domain-model-and-revised-pipeline)
 > for the domain model and rationale, and `docs/milestone_3_hotspot.md` /
-> `docs/milestone_4_complexity.md` for the as-built design of Milestones 3–4.
+> `docs/milestone_4_complexity.md` / `docs/milestone_5_tracking.md` for the
+> as-built design of Milestones 3–5.
 
 ---
 
@@ -44,6 +45,7 @@ python tests/demo_phase1.py         # Milestone 1 — state interface
 python tests/demo_trajectory.py     # Milestone 2 — trajectory prediction
 python tests/demo_hotspot.py        # Milestone 3 — cluster detection
 python tests/demo_complexity.py     # Milestone 4 — complexity assessment
+python tests/demo_tracking.py       # Milestone 5 — 4DARHAC tracking
 ```
 
 Run each from the project root (all demo scripts add the project root to
@@ -58,6 +60,7 @@ every stage before it), and prints formatted results to the console.
 ```bash
 python tests/test_hotspot.py      # Milestone 3 — 24 checks
 python tests/test_complexity.py   # Milestone 4 — 42 checks
+python tests/test_tracking.py     # Milestone 5 — 44 checks
 ```
 
 No BlueSky process or third-party test framework required.
@@ -97,8 +100,8 @@ astra/
     trajectory/   Milestone 2 ✅  Kinematic trajectory prediction
     hotspot/      Milestone 3 ✅  Cluster detection (DBSCAN)
     complexity/   Milestone 4 ✅  Complexity assessment (density, conflicts, diversity)
-    tracking/     Milestone 5 ⬜  4DARHAC detection (tracking) — design ready, not built
-    (forecast/)   Milestone 6 ⬜  4DARHAC forecast — planned
+    tracking/     Milestone 5 ✅  4DARHAC detection (tracking) — stateful
+    (forecast/)   Milestone 6 ⬜  4DARHAC forecast — design review pending
     resolution/   Milestone 7 ⬜  AI clearance generation — planned
     dashboard/    Milestone 8 ⬜  Live visualisation — planned
     utils/              Config, unit conversion, geodesy, logging
@@ -106,12 +109,15 @@ astra/
 docs/architecture.md            System architecture + Mermaid diagrams
 docs/milestone_3_hotspot.md     Milestone 3 design rationale
 docs/milestone_4_complexity.md  Milestone 4 design rationale
-tests/                          Regression tests + offline demos (Milestones 1–4)
+docs/milestone_5_tracking.md    Milestone 5 design rationale
+docs/milestone_6_forecast_design_review.md  Milestone 6 engineering design review (pending approval)
+tests/                          Regression tests + offline demos (Milestones 1–5)
 tests/demo_phase1.py            Milestone 1 offline demonstration
 tests/demo_trajectory.py        Milestone 2 offline demonstration
 tests/demo_hotspot.py           Milestone 3 offline demonstration
 tests/demo_complexity.py        Milestone 4 offline demonstration
-main.py                         Entry point  (python main.py [--mock])
+tests/demo_tracking.py          Milestone 5 offline demonstration
+main.py                         Entry point  (python main.py [--mock]) — Phase 1 only, see note below
 Developer_Handover.md           Full developer guide, design decisions, conventions
 PROJECT_STATUS.md               Overall milestone status
 ```
@@ -146,6 +152,9 @@ Selected defaults:
 | `mtca_distance_nm` / `mtca_time_min` | `5.5` / `2.5` | MTCA conflict thresholds |
 | `ltca_distance_nm` / `ltca_time_min` | `7.9` / `15.0` | LTCA conflict thresholds |
 | `complexity_weight_*` | sums to `1.0` | Complexity sub-score combination weights |
+| `tracking_jaccard_threshold` | `0.5` | Min. member-callsign overlap to associate a track |
+| `tracking_stale_cycles` | `3` | Poll cycles a track may go un-refreshed before closing |
+| `tracking_confirm_cycles` | `2` | Consecutive detections before CANDIDATE → CONFIRMED |
 
 See `astra/utils/config.py` for the full field list (validated in
 `ASTRAConfig.__post_init__`).
@@ -161,4 +170,6 @@ See `astra/utils/config.py` for the full field list (validated in
 | `docs/architecture.md` | Mermaid system architecture diagrams + domain model |
 | `docs/milestone_3_hotspot.md` | Milestone 3 (cluster detection) design rationale |
 | `docs/milestone_4_complexity.md` | Milestone 4 (complexity assessment) design rationale |
+| `docs/milestone_5_tracking.md` | Milestone 5 (4DARHAC tracking) design rationale |
+| `docs/milestone_6_forecast_design_review.md` | Milestone 6 (4DARHAC forecast) design review — pending approval |
 | `PROJECT_STATUS.md` | Overall milestone status |
