@@ -9,6 +9,7 @@ the actual endpoints, `astra.dashboard.serializers` owns the JSON shape.
 """
 
 import logging
+import os
 import threading
 
 from flask import Flask
@@ -31,7 +32,8 @@ def create_app(store: CycleStore, config: ASTRAConfig) -> Flask:
     Returns:
         A configured `Flask` app, not yet running.
     """
-    app = Flask(__name__)
+    dashboard_dir = os.path.dirname(__file__)
+    app = Flask(__name__, template_folder=dashboard_dir, static_folder=dashboard_dir)
     app.register_blueprint(build_blueprint(store, config))
     # Werkzeug's own request logging is noisy at INFO for a 1 Hz poll
     # loop being hit by a 1 Hz frontend; the astra.dashboard logger above
