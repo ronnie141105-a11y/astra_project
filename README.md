@@ -21,8 +21,8 @@ open-source Air Traffic Simulator.
 | **4** | Complexity assessment (density, MTCA/LTCA, heading/altitude diversity, type mix) | ✅ Complete |
 | **5** | 4DARHAC detection — tracking (stateful, persists across cycles) | ✅ Complete |
 | **6** | 4DARHAC forecast (onset/peak/dissipation, confidence, urgency rank) | ✅ Complete |
-| 7 | AI resolution framework (speed / FL / direct-to clearances, ranked) | ⬜ Next (design review pending) |
-| 8 | Live dashboard (traffic map, heatmap, hotspot table, resolutions) | ⬜ Planned |
+| **7** | AI resolution framework (speed / FL / heading clearances, ranked) | ✅ Complete |
+| 8 | Live dashboard (traffic map, heatmap, hotspot table, resolutions) | ⬜ Next (design review pending) |
 
 > Milestones 3–8 were reorganized by an architecture review (July 2026): the
 > original single "hotspot detection" phase conflated stateless spatial
@@ -31,7 +31,8 @@ open-source Air Traffic Simulator.
 > [`docs/architecture.md §6`](docs/architecture.md#6-4darhac-domain-model-and-revised-pipeline)
 > for the domain model and rationale, and `docs/milestone_3_hotspot.md` /
 > `docs/milestone_4_complexity.md` / `docs/milestone_5_tracking.md` /
-> `docs/milestone_6_forecast.md` for the as-built design of Milestones 3–6.
+> `docs/milestone_6_forecast.md` / `docs/milestone_7_resolution.md` for the
+> as-built design of Milestones 3–7.
 
 ---
 
@@ -47,6 +48,7 @@ python tests/demo_hotspot.py        # Milestone 3 — cluster detection
 python tests/demo_complexity.py     # Milestone 4 — complexity assessment
 python tests/demo_tracking.py       # Milestone 5 — 4DARHAC tracking
 python tests/demo_forecast.py       # Milestone 6 — 4DARHAC forecast
+python tests/demo_resolution.py     # Milestone 7 — AI resolution framework
 ```
 
 Run each from the project root (all demo scripts add the project root to
@@ -63,6 +65,7 @@ python tests/test_hotspot.py      # Milestone 3 — 24 checks
 python tests/test_complexity.py   # Milestone 4 — 42 checks
 python tests/test_tracking.py     # Milestone 5 — 44 checks
 python tests/test_forecast.py     # Milestone 6 — 47 checks
+python tests/test_resolution.py   # Milestone 7 — 39 checks
 ```
 
 No BlueSky process or third-party test framework required.
@@ -104,8 +107,8 @@ astra/
     complexity/   Milestone 4 ✅  Complexity assessment (density, conflicts, diversity)
     tracking/     Milestone 5 ✅  4DARHAC detection (tracking) — stateful
     forecast/     Milestone 6 ✅  4DARHAC forecast — onset/peak/dissipation, confidence
-    resolution/   Milestone 7 ⬜  AI clearance generation — design review pending
-    dashboard/    Milestone 8 ⬜  Live visualisation — planned
+    resolution/   Milestone 7 ✅  AI clearance generation — speed/FL/heading, ranked
+    dashboard/    Milestone 8 ⬜  Live visualisation — design review pending
     utils/              Config, unit conversion, geodesy, logging
 
 docs/architecture.md            System architecture + Mermaid diagrams
@@ -113,14 +116,16 @@ docs/milestone_3_hotspot.md     Milestone 3 design rationale
 docs/milestone_4_complexity.md  Milestone 4 design rationale
 docs/milestone_5_tracking.md    Milestone 5 design rationale
 docs/milestone_6_forecast.md    Milestone 6 design rationale
-docs/milestone_7_resolution_design_review.md  Milestone 7 engineering design review (pending approval)
-tests/                          Regression tests + offline demos (Milestones 1–6)
+docs/milestone_7_resolution.md  Milestone 7 design rationale (as built)
+docs/milestone_8_dashboard_design_review.md  Milestone 8 engineering design review (pending approval)
+tests/                          Regression tests + offline demos (Milestones 1–7)
 tests/demo_phase1.py            Milestone 1 offline demonstration
 tests/demo_trajectory.py        Milestone 2 offline demonstration
 tests/demo_hotspot.py           Milestone 3 offline demonstration
 tests/demo_complexity.py        Milestone 4 offline demonstration
 tests/demo_tracking.py          Milestone 5 offline demonstration
 tests/demo_forecast.py          Milestone 6 offline demonstration
+tests/demo_resolution.py        Milestone 7 offline demonstration
 main.py                         Entry point  (python main.py [--mock]) — Phase 1 only, see note below
 Developer_Handover.md           Full developer guide, design decisions, conventions
 PROJECT_STATUS.md               Overall milestone status
