@@ -22,7 +22,7 @@ open-source Air Traffic Simulator.
 | **5** | 4DARHAC detection — tracking (stateful, persists across cycles) | ✅ Complete |
 | **6** | 4DARHAC forecast (onset/peak/dissipation, confidence, urgency rank) | ✅ Complete |
 | **7** | AI resolution framework (speed / FL / heading clearances, ranked) | ✅ Complete |
-| 8 | Live dashboard (traffic map, heatmap, hotspot table, resolutions) | ⬜ Next (design review pending) |
+| **8** | Dashboard / HMI (Flask; live map, heatmap, hotspot table, timeline, resolutions) | ✅ Complete |
 
 > Milestones 3–8 were reorganized by an architecture review (July 2026): the
 > original single "hotspot detection" phase conflated stateless spatial
@@ -31,8 +31,8 @@ open-source Air Traffic Simulator.
 > [`docs/architecture.md §6`](docs/architecture.md#6-4darhac-domain-model-and-revised-pipeline)
 > for the domain model and rationale, and `docs/milestone_3_hotspot.md` /
 > `docs/milestone_4_complexity.md` / `docs/milestone_5_tracking.md` /
-> `docs/milestone_6_forecast.md` / `docs/milestone_7_resolution.md` for the
-> as-built design of Milestones 3–7.
+> `docs/milestone_6_forecast.md` / `docs/milestone_7_resolution.md` /
+> `docs/milestone_8_dashboard.md` for the as-built design of Milestones 3–8.
 
 ---
 
@@ -57,6 +57,8 @@ Run each from the project root (all demo scripts add the project root to
 Each script is self-contained: it creates a small synthetic traffic
 scenario with `MockConnector`, runs that milestone's pipeline stage (and
 every stage before it), and prints formatted results to the console.
+Milestone 8 has no `demo_dashboard.py` — its live demonstration is
+`main.py` itself (see "Main loop — mock mode" below).
 
 ### Regression tests
 
@@ -66,6 +68,7 @@ python tests/test_complexity.py   # Milestone 4 — 42 checks
 python tests/test_tracking.py     # Milestone 5 — 44 checks
 python tests/test_forecast.py     # Milestone 6 — 47 checks
 python tests/test_resolution.py   # Milestone 7 — 39 checks
+python tests/test_dashboard.py    # Milestone 8 — 70 checks
 ```
 
 No BlueSky process or third-party test framework required.
@@ -77,7 +80,11 @@ python main.py --mock
 ```
 
 Runs the full polling loop continuously (Ctrl+C to stop). Aircraft positions
-update every second.
+update every second. This also opens the dashboard at
+`http://127.0.0.1:8050/` — open it in a browser to see the live traffic
+map, predicted trajectories, 4DARHAC hotspot table/timeline, and ranked
+resolution candidates update every `poll_interval_s`. Pass
+`--no-dashboard` to run the console-only loop instead.
 
 ### Main loop — live mode
 
@@ -95,6 +102,9 @@ Then load traffic into BlueSky:
 IC scenarios/phase1_demo.scn
 ```
 
+As with mock mode, the dashboard opens automatically at
+`http://127.0.0.1:8050/` unless `--no-dashboard` is passed.
+
 ---
 
 ## Project layout
@@ -108,7 +118,8 @@ astra/
     tracking/     Milestone 5 ✅  4DARHAC detection (tracking) — stateful
     forecast/     Milestone 6 ✅  4DARHAC forecast — onset/peak/dissipation, confidence
     resolution/   Milestone 7 ✅  AI clearance generation — speed/FL/heading, ranked
-    dashboard/    Milestone 8 ⬜  Live visualisation — design review pending
+    dashboard/    Milestone 8 ✅  Flask dashboard / HMI — read-only, map/table/timeline
+    pipeline.py         Pipeline.run_cycle() -> CycleResult, the shared entry point
     utils/              Config, unit conversion, geodesy, logging
 
 docs/architecture.md            System architecture + Mermaid diagrams
@@ -117,8 +128,9 @@ docs/milestone_4_complexity.md  Milestone 4 design rationale
 docs/milestone_5_tracking.md    Milestone 5 design rationale
 docs/milestone_6_forecast.md    Milestone 6 design rationale
 docs/milestone_7_resolution.md  Milestone 7 design rationale (as built)
-docs/milestone_8_dashboard_design_review.md  Milestone 8 engineering design review (pending approval)
-tests/                          Regression tests + offline demos (Milestones 1–7)
+docs/milestone_8_dashboard_design_review.md  Milestone 8 original design review (superseded)
+docs/milestone_8_dashboard.md   Milestone 8 design rationale (as built)
+tests/                          Regression tests + offline demos (Milestones 1–8)
 tests/demo_phase1.py            Milestone 1 offline demonstration
 tests/demo_trajectory.py        Milestone 2 offline demonstration
 tests/demo_hotspot.py           Milestone 3 offline demonstration
@@ -126,9 +138,10 @@ tests/demo_complexity.py        Milestone 4 offline demonstration
 tests/demo_tracking.py          Milestone 5 offline demonstration
 tests/demo_forecast.py          Milestone 6 offline demonstration
 tests/demo_resolution.py        Milestone 7 offline demonstration
-main.py                         Entry point  (python main.py [--mock]) — Phase 1 only, see note below
-Developer_Handover.md           Full developer guide, design decisions, conventions
-PROJECT_STATUS.md               Overall milestone status
+tests/test_dashboard.py         Milestone 8 regression suite (70 checks)
+main.py                         Real application entry point (python main.py [--mock] [--no-dashboard])
+docs/Developer_Handover.md      Full developer guide, design decisions, conventions
+docs/PROJECT_STATUS.md          Overall milestone status
 ```
 
 ---
@@ -167,6 +180,9 @@ Selected defaults:
 | `forecast_onset_threshold` | `50.0` | `complexity_score` above which an ARHAC counts as "active" for onset purposes |
 | `forecast_dissipation_threshold` | `30.0` | `complexity_score` below which an ARHAC counts as dissipated (hysteresis vs. onset threshold) |
 | `forecast_min_matched_horizons` | `2` | Minimum matched predicted horizons before attempting interpolation |
+| `dashboard_host` | `"127.0.0.1"` | Bind address for the dashboard's local Flask server |
+| `dashboard_port` | `8050` | Bind port for the dashboard's local Flask server |
+| `dashboard_max_resolution_candidates_shown` | `3` | Cap on ranked resolution candidates displayed per track |
 
 See `astra/utils/config.py` for the full field list (validated in
 `ASTRAConfig.__post_init__`).
@@ -178,7 +194,7 @@ See `astra/utils/config.py` for the full field list (validated in
 | Document | Purpose |
 |---|---|
 | `README.md` | This file — setup and usage |
-| `Developer_Handover.md` | Full developer guide, design decisions, conventions |
+| `docs/Developer_Handover.md` | Full developer guide, design decisions, conventions |
 | `docs/architecture.md` | Mermaid system architecture diagrams + domain model |
 | `docs/milestone_3_hotspot.md` | Milestone 3 (cluster detection) design rationale |
 | `docs/milestone_4_complexity.md` | Milestone 4 (complexity assessment) design rationale |
@@ -186,5 +202,6 @@ See `astra/utils/config.py` for the full field list (validated in
 | `docs/milestone_6_forecast.md` | Milestone 6 (4DARHAC forecast) design rationale |
 | `docs/milestone_6_forecast_design_review.md` | Milestone 6 original engineering design review (approved, superseded by the as-built doc above) |
 | `docs/milestone_7_resolution.md` | Milestone 7 (AI resolution) design rationale (as built) |
-| `docs/milestone_8_dashboard_design_review.md` | Milestone 8 (live dashboard) engineering design review — pending approval |
-| `PROJECT_STATUS.md` | Overall milestone status |
+| `docs/milestone_8_dashboard_design_review.md` | Milestone 8 original engineering design review (superseded by the as-built doc below) |
+| `docs/milestone_8_dashboard.md` | Milestone 8 (dashboard / HMI) design rationale (as built) |
+| `docs/PROJECT_STATUS.md` | Overall milestone status |

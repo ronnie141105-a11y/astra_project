@@ -16,7 +16,7 @@ for design decisions and conventions.
 | 5 | Phase 5 | 4DARHAC detection — tracking (stateful, persists across cycles) | ✅ Complete |
 | 6 | Phase 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, urgency rank) | ✅ Complete |
 | 7 | Phase 7 | AI resolution framework (speed / FL / heading, ranked) | ✅ Complete |
-| 8 | Phase 8 | Live dashboard | ⬜ Design review pending |
+| 8 | Phase 8 | Dashboard / HMI (Flask, live map + hotspot table + timeline + resolutions) | ✅ Complete |
 
 > **Reorganized by architecture review, July 2026.** The original Phase 3
 > ("hotspot detection") conflated stateless spatial clustering with the
@@ -24,6 +24,16 @@ for design decisions and conventions.
 > horizons and poll cycles. It has been split into Phases 3–6. See
 > `docs/architecture.md §6` for the domain model
 > (`Cluster` / `ComplexityRegion` / `FourDArhac`) and full rationale.
+
+> **Note on `main.py`.** The "`main.py` deliberately left as a Phase 1
+> demonstration only" bullets under Milestones 5–7 below describe
+> `main.py`'s status *at the time those milestones were built* — that
+> was a deliberate, reviewed choice to keep each milestone's demo
+> isolated (`demo_tracking.py`, `demo_forecast.py`, `demo_resolution.py`)
+> rather than repeatedly reworking the shared entry point. Milestone 8
+> below is where `main.py` was finally wired to the full pipeline via
+> `astra.pipeline.Pipeline`, becoming ASTRA's real application entry
+> point.
 
 ---
 
@@ -151,27 +161,64 @@ for design decisions and conventions.
 - `main.py` deliberately left as a Phase 1 demonstration only, matching
   the precedent set by Milestones 2–6
 
+## Milestone 8 — Dashboard / HMI ✅ Complete
+
+- `astra/pipeline.py` — small, in-scope fix found while verifying the
+  Milestone 8 design review's assumptions: `CycleResult` now also
+  carries the raw `PredictionResult` (not just the derived
+  `ComplexityRegion`s), computed once and threaded through, so a
+  presentation layer can render predicted aircraft positions without
+  recomputing anything.
+- `astra/dashboard/models.py` — `DashboardSnapshot`, the dashboard's own
+  tiny read-model (latest `CycleResult`, cycle count, staleness)
+- `astra/dashboard/store.py` — `CycleStore`, the one new concurrency
+  primitive this milestone introduces: a lock around "the last
+  `CycleResult`", written by `main.py`'s poll loop and read by Flask's
+  request-handling thread(s)
+- `astra/dashboard/serializers.py` — pure functions turning Milestone
+  1–7 domain objects into JSON; the only new "logic" module
+- `astra/dashboard/routes.py` / `server.py` — a minimal Flask app
+  (`/` HMI shell, `/state` JSON) that never imports an engine or the
+  `Pipeline` directly, only `CycleStore` + `serializers`
+- `astra/dashboard/templates/index.html`, `static/css/dashboard.css`,
+  `static/js/dashboard.js` — the HMI screen itself: a canvas plan-view
+  (observed traffic, dashed predicted trajectories, complexity-heatmap
+  circles), a 4DARHAC hotspot table, an onset/peak/dissipation timeline
+  per track, and a ranked-resolution-candidates panel. Auto-updates by
+  polling `/state` every `poll_interval_s` (served by the backend, not
+  hard-coded in the frontend)
+- `ASTRAConfig` — `dashboard_host`, `dashboard_port`,
+  `dashboard_max_resolution_candidates_shown` (all validated)
+- `main.py` — now the real application entry point: runs
+  `Pipeline.run_cycle()` every poll cycle, publishes each `CycleResult`
+  into a `CycleStore`, and starts the dashboard's Flask server in a
+  background thread (`--no-dashboard` to opt out and keep the
+  console-only loop)
+- Design decisions resolved from the design review (module layout,
+  `main.py` as the live-loop owner, the resolution-candidate display
+  cap, the live-only heatmap, polling as the update mechanism) and the
+  clean API boundary that lets a future BlueSky live run or RL-based
+  `ResolutionEngine` plug in without touching dashboard code:
+  `docs/milestone_8_dashboard.md`
+- Verification: `tests/test_dashboard.py` — 70/70 checks pass (pure
+  serializer unit tests + `Pipeline`/`CycleStore`/Flask `test_client`
+  integration checks); full regression suite (Milestones 3–8 combined,
+  `test_hotspot.py` + `test_complexity.py` + `test_tracking.py` +
+  `test_forecast.py` + `test_resolution.py` + `test_dashboard.py`):
+  266/266 checks pass
+- Live demonstration: `python main.py --mock` — no separate
+  `demo_dashboard.py` was added, since `main.py` *is* Milestone 8's
+  live, browser-visible demonstration (open `http://127.0.0.1:8050/`
+  while it runs)
+
 ---
 
-## Remaining work (this milestone)
+## Remaining work
 
-- [x] `demo_resolution.py`
-- [x] `tests/test_resolution.py`
-- [x] `docs/milestone_7_resolution.md`
-- [x] Update `README.md`, `docs/architecture.md`, `Developer_Handover.md`,
-      `PROJECT_STATUS.md` (this file)
-- [x] Final verification (39/39 new checks; 196/196 across Milestones
-      3–7 combined)
-
-**Milestone 7 is complete.** No further work remains for this phase of
-the project.
-
-## Next milestone
-
-**Milestone 8 — Live dashboard.** An engineering design review has been
-prepared and is pending approval before implementation begins — see
-`docs/milestone_8_dashboard_design_review.md`. It covers the live
-traffic map, predicted-trajectory overlay, 4DARHAC heatmap/table/
-timeline, and surfacing `ResolutionEngine`'s ranked candidate
-clearances, consuming the outputs Milestones 5–7 now produce.
-Implementation is explicitly on hold until the review is approved.
+**All 8 milestones are complete.** No further work is currently
+planned for this prototype. Natural next steps, out of scope for this
+prototype and explicitly not started (see `docs/milestone_8_dashboard.md`
+"Explicit non-goals" and `docs/architecture.md` §6.8): a live-BlueSky
+demonstration run (vs. today's mock-mode demonstrations), and an
+RL-based `ResolutionEngine` replacement or supplement. Both were
+designed for from Milestone 8's API boundary but neither is built.

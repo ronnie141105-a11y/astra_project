@@ -9,8 +9,6 @@
 #
 # Later phases will extend this file further:
 #   Phase 4/5 (complexity/4DARHAC tracking) -> numpy (already present below)
-#   Phase 8 (dashboard)                     -> a dashboard framework (e.g. dash/plotly
-#                                               or streamlit) + pandas
 #
 # Install with:
 #   pip install -r requirements.txt --break-system-packages   (Linux, externally-managed envs)
@@ -22,3 +20,8 @@ bluesky-simulator[full]
 # horizontal/vertical distance matrix it runs against.
 numpy
 scikit-learn
+
+# Phase 8 (dashboard / HMI, astra.dashboard) -- minimal local web server
+# for the live map/table/timeline/resolutions HMI. See
+# docs/milestone_8_dashboard.md.
+flask

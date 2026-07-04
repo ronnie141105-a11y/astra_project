@@ -11,13 +11,13 @@ process. All prediction, detection, complexity, AI and visualisation logic
 lives in this repository. The two processes communicate over ZeroMQ using
 BlueSky's built-in network API.
 
-**Current status:** Milestones 1–7 — data interface, trajectory
+**Current status:** Milestones 1–8 — data interface, trajectory
 prediction, cluster detection, complexity assessment, 4DARHAC tracking,
-4DARHAC forecast, and AI resolution — are **complete and verified**
-(130/130 checks from Milestones 1–2, plus 24/24, 42/42, 44/44, 47/47,
-and 39/39 from Milestones 3–7 — 326/326 total). Milestone 8 (live
-dashboard) has an engineering design review pending approval; see
-`docs/milestone_8_dashboard_design_review.md`.
+4DARHAC forecast, AI resolution, and the dashboard/HMI — are **complete
+and verified** (130/130 checks from Milestones 1–2, plus 24/24, 42/42,
+44/44, 47/47, 39/39, and 70/70 from Milestones 3–8 — 396/396 total).
+See `docs/milestone_8_dashboard.md` for the dashboard's as-built
+rationale.
 
 ---
 
@@ -70,7 +70,16 @@ astra_project/
 │   │   ├── models.py              ResolutionCandidate, ResolutionSet (composes FourDArhac)
 │   │   ├── candidates.py          Candidate generation + hypothetical snapshots (pure)
 │   │   └── engine.py              ResolutionEngine (resolve() / resolve_many())
-│   └── dashboard/                Milestone 8 ⬜ — live visualisation; design review pending
+│   ├── dashboard/                Milestone 8 ✅ — Flask dashboard / HMI; read-only
+│   │   ├── models.py              DashboardSnapshot (dashboard's own tiny read-model)
+│   │   ├── store.py               CycleStore (thread-safe latest-CycleResult bridge)
+│   │   ├── serializers.py         Pure functions: pipeline domain objects -> JSON
+│   │   ├── routes.py              Flask Blueprint ("/" HMI shell + "/state" JSON)
+│   │   ├── server.py              Flask app factory + run_dashboard_in_background()
+│   │   ├── templates/index.html   HMI page shell
+│   │   └── static/{css,js}/       dashboard.css, dashboard.js (polls /state)
+│   │
+│   └── pipeline.py             Pipeline.run_cycle() -> CycleResult (single pipeline entry point)
 │
 ├── docs/
 │   ├── architecture.md            Mermaid diagrams (full system + dep graph + domain model)
@@ -80,7 +89,8 @@ astra_project/
 │   ├── milestone_6_forecast.md    Milestone 6 design rationale
 │   ├── milestone_6_forecast_design_review.md  Milestone 6 original design review (approved)
 │   ├── milestone_7_resolution.md  Milestone 7 design rationale (as built)
-│   ├── milestone_8_dashboard_design_review.md  Milestone 8 design review (pending approval)
+│   ├── milestone_8_dashboard_design_review.md  Milestone 8 original design review (superseded)
+│   ├── milestone_8_dashboard.md   Milestone 8 design rationale (as built)
 │   ├── PROJECT_STATUS.md          Overall milestone status
 │   └── Developer_Handover.md      This file
 │
@@ -99,9 +109,11 @@ astra_project/
 │   ├── test_complexity.py         Milestone 4 regression suite (42 checks)
 │   ├── test_tracking.py           Milestone 5 regression suite (44 checks)
 │   ├── test_forecast.py           Milestone 6 regression suite (47 checks)
-│   └── test_resolution.py         Milestone 7 regression suite (39 checks)
+│   ├── test_resolution.py         Milestone 7 regression suite (39 checks)
+│   └── test_dashboard.py          Milestone 8 regression suite (70 checks)
 │
-├── main.py                    Entry point (--mock flag or live BlueSky) — Phase 1 only
+├── main.py                    Real application entry point — runs Pipeline.run_cycle()
+│                               every poll cycle and starts the dashboard (--mock / --no-dashboard)
 ├── requirements.txt           pip install -r requirements.txt
 └── README.md                  User-facing setup and usage guide
 ```
@@ -126,7 +138,8 @@ pip install -r requirements.txt
 `requirements.txt` lists `bluesky-simulator` plus `numpy` and
 `scikit-learn` (added for Milestone 3's DBSCAN clustering; Milestones
 5–7's tracking/forecast/resolution modules reuse `numpy`/stdlib only, no
-new dependency). Milestone 8 (dashboard) will add a dashboard framework.
+new dependency) and `flask` (added for Milestone 8's dashboard — the
+one new third-party dependency it introduces).
 
 ---
 
@@ -140,7 +153,9 @@ python main.py --mock
 
 The `MockConnector` generates synthetic traffic. Aircraft move via
 great-circle dead-reckoning. Useful for developing Phases 2–7 on a laptop
-with no BlueSky installation.
+with no BlueSky installation. Since Milestone 8, this also opens the
+dashboard at `http://127.0.0.1:8050/` (add `--no-dashboard` for the
+console-only loop every prior milestone used).
 
 ### Option B — Live mode (requires BlueSky)
 
@@ -153,7 +168,9 @@ python main.py
 ```
 
 BlueSky will print its port numbers (default 11000 / 11001). ASTRA
-connects automatically using the defaults in `ASTRAConfig`.
+connects automatically using the defaults in `ASTRAConfig`. As with
+mock mode, the dashboard opens automatically at
+`http://127.0.0.1:8050/` unless `--no-dashboard` is passed.
 
 To load the bundled demo scenario into the running simulation, from the
 BlueSky console or a third terminal:
@@ -190,6 +207,13 @@ onset threshold, 5-minute predicted horizon above it) so
 `ResolutionEngine` has an eligible track from the first confirmed cycle,
 printing ranked candidate clearances (speed / FL / heading) each cycle.
 None require BlueSky; each completes in under one second.
+
+Milestone 8 has no separate `demo_dashboard.py` — `main.py` (Option A/B
+above) *is* its live, browser-visible demonstration; a second script
+driving the same scenario through the same `Pipeline` would only
+duplicate it. Open `http://127.0.0.1:8050/` while `python main.py
+--mock` runs to see the live map, hotspot table, timeline, and ranked
+resolution candidates update every `poll_interval_s`.
 
 ---
 
@@ -238,7 +262,7 @@ Full automated suite results as of Phase 1 completion:
 
 **Total: 130/130 checks pass.**
 
-Milestones 3–7 have their own self-contained regression suites (no
+Milestones 3–8 have their own self-contained regression suites (no
 shell-timeout splitting needed — each runs in well under a second):
 
 ```bash
@@ -247,9 +271,10 @@ python tests/test_complexity.py   # Milestone 4 — 42/42 checks PASS
 python tests/test_tracking.py     # Milestone 5 — 44/44 checks PASS
 python tests/test_forecast.py     # Milestone 6 — 47/47 checks PASS
 python tests/test_resolution.py   # Milestone 7 — 39/39 checks PASS
+python tests/test_dashboard.py    # Milestone 8 — 70/70 checks PASS
 ```
 
-**Grand total across all seven milestones: 326/326 checks pass.**
+**Grand total across all eight milestones: 396/396 checks pass.**
 
 ---
 
@@ -360,7 +385,7 @@ pipeline diagram live in
 | 5 | 4DARHAC detection (tracking) | **stateful** | Cluster detection (+ complexity) | ✅ Complete |
 | 6 | 4DARHAC forecast | stateless, layered on 5 | 4DARHAC detection | ✅ Complete |
 | 7 | Resolution | stateless given a 4DARHAC | 4DARHAC forecast | ✅ Complete |
-| 8 | Dashboard | presentation | everything above | ⬜ Design review pending |
+| 8 | Dashboard | presentation, read-only | everything above | ✅ Complete |
 
 ## Milestone 3 (Cluster detection) — as built
 
@@ -426,9 +451,11 @@ including why only horizon 0 drives identity in this milestone:
 44/44 checks pass. Demonstration: `tests/demo_tracking.py`.
 
 `main.py` was deliberately **not** wired to the tracker (or to any of
-Milestones 2–4's engines) — see "`main.py` — deliberately not
-integrated" in `docs/milestone_5_tracking.md` for why that stays a
-demo-script concern until the Dashboard milestone.
+Milestones 2–4's engines) at the time this milestone was built — see
+"`main.py` — deliberately not integrated" in `docs/milestone_5_tracking.md`
+for why that stayed a demo-script concern until the Dashboard milestone.
+**Resolved in Milestone 8** below: `main.py` now runs the full pipeline
+via `astra.pipeline.Pipeline` every poll cycle.
 
 ## Milestone 6 (4DARHAC forecast) — as built
 
@@ -496,9 +523,57 @@ and the smoke test performed before writing the formal test suite:
 `docs/milestone_7_resolution.md`. Verification: `tests/test_resolution.py`,
 39/39 checks pass. Demonstration: `tests/demo_resolution.py`.
 
-`main.py` was deliberately **not** wired to the forecaster either, for
-the same reasons as Milestone 5 — see "`main.py` — deliberately not
-integrated" in `docs/milestone_5_tracking.md`.
+`main.py` was deliberately **not** wired to the forecaster either at
+the time this milestone was built, for the same reasons as Milestone 5
+— see "`main.py` — deliberately not integrated" in
+`docs/milestone_5_tracking.md`. **Resolved in Milestone 8** below.
+
+## Milestone 8 (Dashboard / HMI) — as built
+
+Implemented in `astra/dashboard/`:
+
+```python
+from astra.dashboard.server import create_app, run_dashboard_in_background
+from astra.dashboard.store import CycleStore
+```
+
+The dashboard is a **read-only** presentation layer over
+`astra.pipeline.Pipeline`'s `CycleResult` — it does not own state, does
+not issue clearances back to `MockConnector`/BlueSky, and introduces no
+new prediction/clustering/complexity/tracking/forecast/resolution math.
+`main.py` runs `Pipeline.run_cycle()` every `poll_interval_s` (finally
+ending the "deliberately not integrated" status noted under Milestones
+5 and 7 above) and publishes each `CycleResult` into a `CycleStore` — a
+small `threading.Lock`-protected object, the one new concurrency
+primitive this milestone introduces, written by `main.py`'s poll loop
+and read by the dashboard's Flask server, which runs in a background
+daemon thread of the same process. `astra.dashboard.serializers` is the
+only new "logic" module: pure functions turning `TrafficSnapshot`,
+`PredictionResult`, `Cluster`/`ComplexityRegion`, `FourDArhac`, and
+`ResolutionSet` objects into JSON; `astra.dashboard.routes` imports only
+`CycleStore` and `serializers`, never an engine or `Pipeline` directly —
+the clean boundary that lets a future live-BlueSky run or an RL-based
+`ResolutionEngine` plug in without any dashboard code changing. The HMI
+page (`templates/index.html` + `static/{css,js}/dashboard.js`) polls
+`/state` at the server-supplied `poll_interval_s` and renders a
+plan-view traffic/predicted-trajectory map, a complexity heatmap, a
+4DARHAC hotspot table, an onset/peak/dissipation timeline, and a ranked
+resolution-candidates panel (capped at
+`dashboard_max_resolution_candidates_shown` per track).
+
+One real gap was found and fixed while verifying the design review's
+assumptions (not a redesign): `Pipeline.run_cycle()` computed a
+`PredictionResult` internally but only exposed the `ComplexityRegion`s
+derived from it — the map panel had no predicted aircraft positions to
+draw. Fixed by hoisting the existing `TrajectoryEngine.predict()` call
+up one level so `CycleResult` carries `prediction` alongside
+`regions_by_horizon`; no new computation, no change to any Milestone
+1–7 engine. Full design rationale, including the resolution of all
+five open design questions from the original review:
+`docs/milestone_8_dashboard.md`. Verification: `tests/test_dashboard.py`,
+70/70 checks pass. Demonstration: `python main.py --mock`, then open
+`http://127.0.0.1:8050/` — no separate `demo_dashboard.py` was needed
+since the now-wired `main.py` already is the live demonstration.
 
 ---
 
@@ -517,7 +592,7 @@ integrated" in `docs/milestone_5_tracking.md`.
 
 ---
 
-## Known limitations (Milestones 1–7)
+## Known limitations (Milestones 1–8)
 
 | Limitation | Impact | Mitigation path |
 |---|---|---|
@@ -536,7 +611,11 @@ integrated" in `docs/milestone_5_tracking.md`.
 | No direct-to candidate in `ResolutionEngine` | Only speed/FL/heading levers are ranked | `MockConnector` has no direct-to-equivalent stack command to demonstrate it offline; see `docs/milestone_7_resolution.md` OQ-2 |
 | `deviation_cost_norm` / `fuel_cost_proxy_norm` are documented proxies, not real cost models | Same "no ADS-C/EPP flight-plan-leg data" constraint already documented for trajectory prediction | Would need real flight-plan leg geometry and a fuel-burn model; see `docs/milestone_7_resolution.md` OQ-4 |
 | `select_target_aircraft()` picks the highest-conflict-pair member (or alphabetical fallback), not a true per-aircraft complexity contribution | `ComplexityRegion` has no per-aircraft score breakdown to select against | Would need `ComplexityEngine` to expose per-aircraft contribution scores; see `docs/milestone_7_resolution.md` OQ-2 |
-| `ResolutionEngine` is advisory only — no clearance issuance to BlueSky/`MockConnector` | Candidates are computed and ranked but not acted on | Deferred to Milestone 8 (dashboard) or later; see `docs/milestone_7_resolution.md` non-goals |
+| `ResolutionEngine` is advisory only — no clearance issuance to BlueSky/`MockConnector` | Candidates are computed, ranked, and now displayed (Milestone 8) but never acted on | Deliberate non-goal, carried through Milestone 8; see `docs/milestone_8_dashboard.md` non-goals |
+| Dashboard binds to `127.0.0.1` only, no authentication | Single-user, single-machine use only — not a multi-FMP or networked deployment | Deliberate non-goal for a TRL-2 prototype; see `docs/milestone_8_dashboard.md` non-goals |
+| Dashboard updates by polling `/state`, not push (websocket) | Up to one `poll_interval_s` of staleness between a cycle completing and the browser showing it | Acceptable at the default 1 Hz cadence; see `docs/milestone_8_dashboard.md` OQ-5 |
+| Dashboard heatmap is live-only (current cycle's horizon-0 regions), no accumulated history | No rolling/historical hotspot view | Deliberate scope cut (OQ-4's stretch goal); see `docs/milestone_8_dashboard.md` |
+| Flask's built-in development server (`app.run()`), not a production WSGI server | Not hardened for concurrent multi-user load | Acceptable for a single-FMP thesis prototype; a production deployment would use gunicorn/uWSGI behind a real web server |
 
 ---
 

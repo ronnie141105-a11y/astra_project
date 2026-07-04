@@ -43,8 +43,8 @@ flowchart TD
             RES["ResolutionEngine\n· candidate generation (speed / FL / heading)\n· hypothetical-snapshot replay via\n  TrajectoryEngine → ClusterEngine → ComplexityEngine\n· weighted score: complexity Δ · deviation · fuel proxy\n· stateless — reads tracks, does not own them"]
         end
 
-        subgraph DB["astra/dashboard  ── Milestone 8 PLANNED"]
-            DASH["Dashboard\n· live traffic map\n· predicted trajectories\n· 4DARHAC heatmap + table + timeline\n· AI resolution suggestions"]
+        subgraph DB["astra/dashboard  ── Milestone 8 COMPLETE"]
+            DASH["Dashboard (Flask, read-only)\n· live traffic map\n· predicted trajectories\n· 4DARHAC heatmap + table + timeline\n· ranked AI resolution candidates\n· advisory display only — no clearances issued"]
         end
     end
 
@@ -64,7 +64,6 @@ flowchart TD
     TRK --> FC
     FCB --> RS
     RES --> DB
-    DB -- "Clearances\n(SPD / ALT / DCT)" --> SR
 ```
 
 ---
@@ -272,8 +271,8 @@ meaningful.
 | 4 | Complexity assessment | pure / stateless | Cluster detection | ✅ Complete |
 | 5 | 4DARHAC detection (tracking) | **stateful** | Cluster detection (+ complexity, to carry scores onto tracks) | ✅ Complete — see `docs/milestone_5_tracking.md` |
 | 6 | 4DARHAC forecast | stateful, layered on 5 | 4DARHAC detection | ✅ Complete — see `docs/milestone_6_forecast.md` |
-| 7 | Resolution | stateless given a 4DARHAC | 4DARHAC forecast | ⬜ Planned |
-| 8 | Dashboard | presentation | everything above | ⬜ Planned |
+| 7 | Resolution | stateless given a 4DARHAC | 4DARHAC forecast | ✅ Complete — see `docs/milestone_7_resolution.md` |
+| 8 | Dashboard | presentation, read-only | everything above | ✅ Complete — see `docs/milestone_8_dashboard.md` |
 
 ### 6.4 Revised data flow
 
@@ -287,8 +286,7 @@ flowchart TD
     TR -- "prior open tracks feed back in\nnext poll cycle" --> TR
     TR --> FC["4DARHAC forecast\nonset / peak / dissipation / confidence"]
     FC --> RS["Resolution\ncandidate clearances, ranked"]
-    RS --> DB["Dashboard\nmap · hotspot table · timeline"]
-    DB -- "clearances (SPD/ALT/DCT)" --> SR
+    RS --> DB["Dashboard\nmap · hotspot table · timeline\nread-only, advisory display only"]
 ```
 
 Note the self-loop on `4DARHAC detection`: unlike every other stage, it is
@@ -453,3 +451,56 @@ issued; no automatic clearance issuance to BlueSky/`MockConnector`
 (documented proxies only); no change to `ForecastEngine`,
 `TrackerEngine`, or any earlier package's public API.
 
+### 6.8 Milestone 8 build plan (as built)
+
+> See `docs/milestone_8_dashboard.md` for the full as-built rationale
+> (OQ-1 through OQ-5) and verification results.
+
+**Module:** `astra/dashboard/` — `models.py` (`DashboardSnapshot`, the
+dashboard's own tiny read-model), `store.py` (`CycleStore`, a
+`threading.Lock`-protected "latest `CycleResult`" bridge — the one new
+concurrency primitive this milestone introduces), `serializers.py`
+(pure functions: pipeline domain objects → JSON-safe dicts — the only
+new "logic" module), `routes.py` (a Flask `Blueprint`: `/` HMI shell +
+`/state` JSON, importing only `CycleStore` and `serializers`, never an
+engine or `Pipeline`), `server.py` (Flask app factory +
+`run_dashboard_in_background()`), plus `templates/index.html` and
+`static/{css,js}/` for the HMI screen itself (plan-view map with
+predicted-trajectory overlay and a complexity heatmap, a 4DARHAC
+hotspot table, an onset/peak/dissipation timeline, and a ranked
+resolution-candidates panel).
+
+**Pipeline change:** `astra/pipeline.py`'s `CycleResult` gained a
+`prediction: PredictionResult` field (the raw `TrajectoryEngine.
+predict()` output, alongside the already-present derived
+`regions_by_horizon`) — a real gap found while verifying the dashboard
+could actually render predicted trajectories, fixed by hoisting one
+existing call up one level rather than adding new computation. See
+`docs/milestone_8_dashboard.md` "Pipeline fix found while implementing"
+for the full rationale.
+
+**`main.py`:** now the real application entry point (ending the
+"deliberately not integrated" status Milestones 5–7 left it in) — runs
+`Pipeline.run_cycle()` every `poll_interval_s`, publishes each
+`CycleResult` into a `CycleStore`, and starts the dashboard's Flask
+server in a background daemon thread (`--no-dashboard` to opt out).
+
+**Config additions (`ASTRAConfig`, Phase 8 section):**
+`dashboard_host` (default `"127.0.0.1"`), `dashboard_port` (default
+`8050`, validated `0 < port <= 65535`), and
+`dashboard_max_resolution_candidates_shown` (default `3`, validated
+`>= 1`) — see `docs/milestone_8_dashboard.md` for the full rationale.
+
+**Verification:** `tests/test_dashboard.py`, 70/70 checks pass.
+Combined with Milestones 3–7 (24/24, 42/42, 44/44, 47/47, 39/39):
+266/266. Live demonstration: `python main.py --mock`, then open
+`http://127.0.0.1:8050/`.
+
+**Explicit non-goals for Milestone 8:** no clearance issuance back to
+`MockConnector`/BlueSky from the dashboard (read-only, advisory display
+only — same boundary Milestone 7 already drew for `ResolutionEngine`
+itself); no user authentication or multi-user support; no
+mobile/responsive layout requirement; no real-time collaborative
+coordination features; no historical replay/scrubbing beyond today's
+live-only heatmap; no websocket/push channel (polling only); no change
+to any Milestone 1–7 package's public API.
