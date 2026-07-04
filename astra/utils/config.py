@@ -212,6 +212,25 @@ class ASTRAConfig:
     #: trajectory/cluster/complexity pipeline per candidate per track.
     resolution_max_tracks_per_cycle: int = 5
 
+    # ------------------------------------------------------------------
+    # Phase 8 - dashboard / HMI (astra.dashboard)
+    # See docs/milestone_8_dashboard_design_review.md (proposed config
+    # additions table) and docs/milestone_8_dashboard.md for rationale.
+    # ------------------------------------------------------------------
+    #: Bind address for the dashboard's local Flask web server. Never
+    #: exposed beyond localhost by default -- this is a single-FMP,
+    #: single-machine prototype (see Milestone 8 non-goals).
+    dashboard_host: str = "127.0.0.1"
+
+    #: Bind port for the dashboard's local Flask web server.
+    dashboard_port: int = 8050
+
+    #: Cap on ranked `ResolutionCandidate`s shown per track in the
+    #: dashboard's resolution table (OQ-3) -- independent of
+    #: `resolution_max_tracks_per_cycle`, which caps how many *tracks*
+    #: are resolved, not how many candidates are displayed per track.
+    dashboard_max_resolution_candidates_shown: int = 3
+
     def __post_init__(self) -> None:
         """Fail fast on internally-inconsistent configuration.
 
@@ -303,6 +322,11 @@ class ASTRAConfig:
             )
         if self.resolution_max_tracks_per_cycle < 1:
             raise ValueError("resolution_max_tracks_per_cycle must be >= 1")
+
+        if not (0 < self.dashboard_port <= 65535):
+            raise ValueError("dashboard_port must be in (0, 65535], got " f"{self.dashboard_port}")
+        if self.dashboard_max_resolution_candidates_shown < 1:
+            raise ValueError("dashboard_max_resolution_candidates_shown must be >= 1")
 
 
 #: Module-level default configuration instance. Most entry points (main.py,

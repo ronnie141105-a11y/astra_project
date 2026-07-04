@@ -3,7 +3,11 @@ ASTRA prototype entry point.
 
 Connects to BlueSky (or a mock), polls traffic state, and runs the full
 Milestone 2-7 pipeline (trajectory -> cluster -> complexity -> tracking ->
-forecast -> resolution) every cycle via `astra.pipeline.Pipeline`.
+forecast -> resolution) every cycle via `astra.pipeline.Pipeline`. Since
+Milestone 8, this is also the dashboard's live-loop owner (design review
+OQ-2(A)): each cycle's `CycleResult` is pushed into a `CycleStore` that
+the dashboard's Flask server (running in a background thread of this
+same process) reads from -- see `astra.dashboard`.
 
 Usage
 -----
@@ -15,11 +19,17 @@ Live mode (requires a running BlueSky headless server):
 Offline mock mode (no BlueSky needed, for offline development/testing):
 
     python main.py --mock
+
+Either mode opens the dashboard at http://127.0.0.1:8050/ by default
+(see `ASTRAConfig.dashboard_host`/`dashboard_port`). Add `--no-dashboard`
+to run the console-only loop without starting the Flask server.
 """
 
 import argparse
 import time
 
+from astra.dashboard.server import run_dashboard_in_background
+from astra.dashboard.store import CycleStore
 from astra.interface.state_reader import StateReader
 from astra.pipeline import CycleResult, Pipeline
 from astra.utils.config import DEFAULT_CONFIG
@@ -40,6 +50,11 @@ def _parse_args() -> argparse.Namespace:
         "--mock",
         action="store_true",
         help="Run in offline mock mode (no BlueSky process needed).",
+    )
+    parser.add_argument(
+        "--no-dashboard",
+        action="store_true",
+        help="Run the console-only loop without starting the Milestone 8 dashboard.",
     )
     return parser.parse_args()
 
@@ -111,6 +126,9 @@ def main() -> None:
         _LOG.info("BlueSky node active. Polling every %.1fs.", config.poll_interval_s)
 
     pipeline = Pipeline(config)
+    store = CycleStore()
+    if not args.no_dashboard:
+        run_dashboard_in_background(store, config)
 
     _LOG.info("Running. Press Ctrl+C to stop.")
     try:
@@ -118,6 +136,7 @@ def main() -> None:
             snapshot = reader.poll()
             if snapshot is not None:
                 result = pipeline.run_cycle(snapshot)
+                store.update(result)
                 _print_cycle(result)
             time.sleep(config.poll_interval_s)
     except KeyboardInterrupt:

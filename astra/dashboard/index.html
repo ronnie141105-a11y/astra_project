@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>ASTRA &mdash; Live Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <!--
+        Milestone 8 HMI shell. Per the reference ASTRA FRD's HMI
+        requirements (docs/milestone_8_dashboard_design_review.md):
+        a live traffic/projection panel, a 4DARHAC hotspot table with
+        onset/peak/dissipation timeline, and a ranked-resolution panel.
+        Everything below is a read-only view onto /state -- this page
+        never issues a clearance or command anywhere.
+    -->
+    <header id="hmi-header">
+        <h1>ASTRA &mdash; Live Dashboard</h1>
+        <div id="hmi-status">
+            <span id="status-badge" class="badge badge-waiting">WAITING</span>
+            <span id="status-time">t = &ndash;</span>
+            <span id="status-cycle">cycle 0</span>
+        </div>
+    </header>
+
+    <main id="hmi-grid">
+        <section id="panel-map" class="panel">
+            <h2>Traffic &amp; Predicted Trajectories</h2>
+            <canvas id="map-canvas" width="720" height="560"></canvas>
+            <p class="panel-hint">
+                Aircraft (observed) &middot; dashed predicted paths (5&ndash;60 min)
+                &middot; shaded circles = 4DARHAC complexity regions
+            </p>
+        </section>
+
+        <section id="panel-tracks" class="panel">
+            <h2>4DARHAC Hotspots</h2>
+            <table id="tracks-table">
+                <thead>
+                    <tr>
+                        <th>ARHAC</th>
+                        <th>Status</th>
+                        <th>Urgency</th>
+                        <th>Priority</th>
+                        <th>Peak</th>
+                        <th>Confidence</th>
+                        <th>Members</th>
+                        <th>Best clearance</th>
+                    </tr>
+                </thead>
+                <tbody id="tracks-tbody">
+                    <tr><td colspan="8" class="empty-row">No open tracks.</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="panel-timeline" class="panel">
+            <h2>Onset &middot; Peak &middot; Dissipation Timeline</h2>
+            <div id="timeline-list"></div>
+        </section>
+
+        <section id="panel-resolutions" class="panel">
+            <h2>Ranked Resolution Candidates</h2>
+            <div id="resolutions-list"></div>
+        </section>
+    </main>
+
+    <script>
+        // Server-provided constants -- the frontend never hard-codes
+        // these (design review OQ-5(B): poll at poll_interval_s, not an
+        // arbitrary fixed cadence).
+        window.ASTRA_POLL_INTERVAL_S = {{ poll_interval_s }};
+    </script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

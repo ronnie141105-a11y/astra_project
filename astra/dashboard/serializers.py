@@ -1,0 +1,249 @@
+"""
+Pure serialization functions (Milestone 8).
+
+Per the design review's proposed module layout, this is the *only* new
+"logic" module the dashboard introduces: every function here is a pure,
+side-effect-free transform from an existing Milestone 1-7 domain object
+(`AircraftState`, `TrafficSnapshot`, `PredictionResult`, `Cluster`,
+`ComplexityRegion`, `FourDArhac`, `ResolutionSet`) to a JSON-safe
+`dict`/`list`. No prediction, clustering, complexity, tracking,
+forecasting, or resolution math is performed here -- the dashboard is a
+read-only consumer, never a recomputation of what the pipeline already
+produced.
+
+`astra.dashboard.routes` is the only caller of `serialize_cycle_result`;
+the smaller per-type functions are exposed individually because
+`tests/test_dashboard.py` exercises them directly against hand-built
+objects, following the Milestone 3-7 test pattern.
+"""
+
+from typing import Dict, List, Optional
+
+from astra.complexity.models import ComplexityRegion
+from astra.dashboard.models import DashboardSnapshot
+from astra.hotspot.models import Cluster
+from astra.interface.traffic_state import AircraftState, TrafficSnapshot
+from astra.pipeline import CycleResult
+from astra.resolution.models import ResolutionCandidate, ResolutionSet
+from astra.tracking.models import FourDArhac
+from astra.trajectory.models import PredictionResult
+from astra.utils.config import ASTRAConfig
+
+
+def serialize_aircraft(aircraft: AircraftState) -> Dict:
+    """One `AircraftState` -> a JSON-safe dict for the traffic-map panel."""
+    return {
+        "callsign": aircraft.callsign,
+        "lat": aircraft.lat,
+        "lon": aircraft.lon,
+        "altitude_ft": aircraft.altitude_ft,
+        "ground_speed_kt": aircraft.ground_speed_kt,
+        "heading_deg": aircraft.heading_deg,
+        "vertical_speed_fpm": aircraft.vertical_speed_fpm,
+        "aircraft_type": aircraft.aircraft_type,
+    }
+
+
+def serialize_snapshot(snapshot: TrafficSnapshot) -> Dict:
+    """The observed `TrafficSnapshot` -> the traffic-map panel's live layer."""
+    return {
+        "timestamp_s": snapshot.timestamp_s,
+        "aircraft": [serialize_aircraft(ac) for ac in snapshot.as_list()],
+    }
+
+
+def serialize_prediction(prediction: PredictionResult) -> Dict[str, List[Dict]]:
+    """`PredictionResult` -> one predicted-position path per aircraft.
+
+    Reshaped from the engine's own `{horizon_min: PredictedSnapshot}`
+    layout (grouped by horizon) into `{callsign: [points...]}` (grouped
+    by aircraft), because the map panel draws one predicted-trajectory
+    polyline per aircraft, not one marker layer per horizon. Each point
+    carries its own `horizon_min` so the frontend can still label
+    individual horizons along the line.
+
+    Returns:
+        `{callsign: [{"horizon_min", "lat", "lon", "altitude_ft"}, ...]}`,
+        each aircraft's points ordered by ascending `horizon_min`. An
+        aircraft absent from a given horizon (e.g. it left the area of
+        interest in a future scenario) simply has fewer points.
+    """
+    paths: Dict[str, List[Dict]] = {}
+    for horizon_min in prediction.horizon_list():
+        predicted_snapshot = prediction.at(horizon_min)
+        for aircraft in predicted_snapshot:
+            paths.setdefault(aircraft.callsign, []).append(
+                {
+                    "horizon_min": horizon_min,
+                    "lat": aircraft.lat,
+                    "lon": aircraft.lon,
+                    "altitude_ft": aircraft.altitude_ft,
+                }
+            )
+    for points in paths.values():
+        points.sort(key=lambda point: point["horizon_min"])
+    return paths
+
+
+def serialize_cluster(cluster: Cluster) -> Dict:
+    """One `Cluster` -> a JSON-safe dict (centroid + extent + membership)."""
+    return {
+        "cluster_id": cluster.cluster_id,
+        "source": cluster.source,
+        "horizon_min": cluster.horizon_min,
+        "valid_at_s": cluster.valid_at_s,
+        "member_callsigns": sorted(cluster.member_callsigns),
+        "centroid_lat": cluster.centroid_lat,
+        "centroid_lon": cluster.centroid_lon,
+        "centroid_alt_ft": cluster.centroid_alt_ft,
+        "horizontal_extent_nm": cluster.horizontal_extent_nm,
+    }
+
+
+def serialize_region(region: ComplexityRegion) -> Dict:
+    """One `ComplexityRegion` -> its `Cluster` plus score/components, for the heatmap."""
+    return {
+        "cluster": serialize_cluster(region.cluster),
+        "complexity_score": region.complexity_score,
+        "components": dict(region.components),
+        "computed_at_s": region.computed_at_s,
+    }
+
+
+def serialize_regions_by_horizon(
+    regions_by_horizon: Dict[int, List[ComplexityRegion]]
+) -> Dict[int, List[Dict]]:
+    """`{horizon_min: [ComplexityRegion, ...]}` -> the same shape, JSON-safe.
+
+    Horizon `0` (observed) is what the initial heatmap panel renders
+    (design review OQ-4(A)); the other horizons are included too since
+    they cost nothing extra to serialize and let the frontend offer a
+    "predicted hotspot" horizon selector later without any backend change.
+    """
+    return {
+        horizon_min: [serialize_region(region) for region in regions]
+        for horizon_min, regions in regions_by_horizon.items()
+    }
+
+
+def serialize_track(track: FourDArhac) -> Dict:
+    """One `FourDArhac` -> the hotspot table/timeline panel's row.
+
+    Includes a `history` series (`[{time_s, complexity_score}]`, oldest
+    first) taken directly from `track.track` -- the same data the
+    Milestone 5/6 lifecycle is built from -- for the timeline panel's
+    onset/peak/dissipation plot. The most recent entry's `Cluster`
+    supplies the track's current centroid for the map/table panels.
+    """
+    latest_region = track.track[-1] if track.track else None
+    return {
+        "arhac_id": track.arhac_id,
+        "status": track.status,
+        "member_aircraft": sorted(track.member_aircraft),
+        "priority": track.priority,
+        "confidence": track.confidence,
+        "peak_complexity": track.peak_complexity,
+        "peak_time_s": track.peak_time_s,
+        "predicted_onset_s": track.predicted_onset_s,
+        "predicted_dissipation_s": track.predicted_dissipation_s,
+        "predicted_peak_time_s": track.predicted_peak_time_s,
+        "forecast_urgency_rank": track.forecast_urgency_rank,
+        "first_detected_cycle_s": track.first_detected_cycle_s,
+        "last_updated_cycle_s": track.last_updated_cycle_s,
+        "current_complexity_score": (
+            latest_region.complexity_score if latest_region is not None else None
+        ),
+        "centroid": (
+            {
+                "lat": latest_region.cluster.centroid_lat,
+                "lon": latest_region.cluster.centroid_lon,
+                "alt_ft": latest_region.cluster.centroid_alt_ft,
+            }
+            if latest_region is not None
+            else None
+        ),
+        "history": [
+            {"time_s": region.computed_at_s, "complexity_score": region.complexity_score}
+            for region in track.track
+        ],
+    }
+
+
+def serialize_resolution_candidate(candidate: ResolutionCandidate) -> Dict:
+    """One `ResolutionCandidate` -> a JSON-safe dict for the resolution table."""
+    return {
+        "clearance_type": candidate.clearance_type,
+        "target_callsign": candidate.target_callsign,
+        "delta_value": candidate.delta_value,
+        "complexity_before": candidate.complexity_before,
+        "complexity_after": candidate.complexity_after,
+        "complexity_delta_norm": candidate.complexity_delta_norm,
+        "deviation_cost_norm": candidate.deviation_cost_norm,
+        "fuel_cost_proxy_norm": candidate.fuel_cost_proxy_norm,
+        "resolution_score": candidate.resolution_score,
+    }
+
+
+def serialize_resolution_set(resolution_set: ResolutionSet, max_candidates: int) -> Dict:
+    """One `ResolutionSet` -> its track id plus its top-ranked candidates.
+
+    Per design review OQ-3(B), the full ranked list is shown (not just
+    `.best()`), capped at `max_candidates`
+    (`ASTRAConfig.dashboard_max_resolution_candidates_shown`) -- a display
+    cap only; it does not change how many candidates `ResolutionEngine`
+    generated or ranked.
+    """
+    return {
+        "arhac_id": resolution_set.track.arhac_id,
+        "evaluated_horizon_min": resolution_set.evaluated_horizon_min,
+        "candidates": [
+            serialize_resolution_candidate(candidate)
+            for candidate in resolution_set.candidates[:max_candidates]
+        ],
+    }
+
+
+def serialize_cycle_result(result: CycleResult, config: ASTRAConfig) -> Dict:
+    """The full `CycleResult` -> the `/api/state` endpoint's payload body.
+
+    Args:
+        result: One pipeline cycle's output.
+        config: Only read for `dashboard_max_resolution_candidates_shown`
+            (OQ-3's display cap).
+    """
+    return {
+        "snapshot": serialize_snapshot(result.snapshot),
+        "prediction": {
+            "source_time_s": result.prediction.source_time_s,
+            "horizons_min": list(result.prediction.horizons_min),
+            "paths": serialize_prediction(result.prediction),
+        },
+        "regions_by_horizon": serialize_regions_by_horizon(result.regions_by_horizon),
+        "tracks": [serialize_track(track) for track in result.tracks],
+        "resolution_sets": [
+            serialize_resolution_set(
+                resolution_set, config.dashboard_max_resolution_candidates_shown
+            )
+            for resolution_set in result.resolution_sets
+        ],
+    }
+
+
+def serialize_dashboard_snapshot(snapshot: DashboardSnapshot, config: ASTRAConfig) -> Dict:
+    """A `DashboardSnapshot` (possibly empty) -> the `/api/state` payload.
+
+    This is the top-level function `astra.dashboard.routes` calls. It
+    handles the "no cycle has run yet" case that `serialize_cycle_result`
+    does not need to know about.
+    """
+    return {
+        "cycle_count": snapshot.cycle_count,
+        "updated_at_s": snapshot.updated_at_s,
+        "poll_interval_s": config.poll_interval_s,
+        "has_data": snapshot.cycle_result is not None,
+        "cycle": (
+            serialize_cycle_result(snapshot.cycle_result, config)
+            if snapshot.cycle_result is not None
+            else None
+        ),
+    }
