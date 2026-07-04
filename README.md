@@ -200,8 +200,6 @@ See `astra/utils/config.py` for the full field list (validated in
 | `docs/milestone_4_complexity.md` | Milestone 4 (complexity assessment) design rationale |
 | `docs/milestone_5_tracking.md` | Milestone 5 (4DARHAC tracking) design rationale |
 | `docs/milestone_6_forecast.md` | Milestone 6 (4DARHAC forecast) design rationale |
-| `docs/milestone_6_forecast_design_review.md` | Milestone 6 original engineering design review (approved, superseded by the as-built doc above) |
 | `docs/milestone_7_resolution.md` | Milestone 7 (AI resolution) design rationale (as built) |
-| `docs/milestone_8_dashboard_design_review.md` | Milestone 8 original engineering design review (superseded by the as-built doc below) |
 | `docs/milestone_8_dashboard.md` | Milestone 8 (dashboard / HMI) design rationale (as built) |
 | `docs/PROJECT_STATUS.md` | Overall milestone status |
