@@ -11,11 +11,12 @@ presentation layer can plot predicted aircraft positions without
 recomputing anything the pipeline already computed).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List
 
 from astra.complexity.engine import ComplexityEngine
 from astra.complexity.models import ComplexityRegion
+from astra.complexity.sector import SectorComplexityEngine, SectorComplexitySample
 from astra.forecast.engine import ForecastEngine
 from astra.hotspot.engine import ClusterEngine
 from astra.interface.traffic_state import TrafficSnapshot
@@ -45,6 +46,10 @@ class CycleResult:
             cycle's `TrackerEngine.update()` + `ForecastEngine.forecast_many()`.
         resolution_sets: One `ResolutionSet` per resolved track this
             cycle (bounded by `resolution_max_tracks_per_cycle`).
+        sector_regions: `{sector_name: ComplexityRegion}` for this cycle
+            (Milestone 9, Tier 3) -- empty if no sectors are configured.
+        sector_history: `{sector_name: [SectorComplexitySample, ...]}`,
+            oldest first, for the HMI's complexity-charts page.
     """
 
     snapshot: TrafficSnapshot
@@ -52,6 +57,8 @@ class CycleResult:
     regions_by_horizon: Dict[int, List[ComplexityRegion]]
     tracks: List[FourDArhac]
     resolution_sets: List[ResolutionSet]
+    sector_regions: Dict[str, ComplexityRegion] = field(default_factory=dict)
+    sector_history: Dict[str, List[SectorComplexitySample]] = field(default_factory=dict)
 
 
 class Pipeline:
@@ -76,6 +83,7 @@ class Pipeline:
         self._tracker = TrackerEngine(config)
         self._forecaster = ForecastEngine(config)
         self._resolver = ResolutionEngine(config)
+        self._sector_engine = SectorComplexityEngine(config)
 
     def run_cycle(self, snapshot: TrafficSnapshot) -> CycleResult:
         """Run one full pipeline cycle for `snapshot` and return its results."""
@@ -84,12 +92,19 @@ class Pipeline:
         tracks = self._tracker.update(regions_by_horizon)
         self._forecaster.forecast_many(tracks, regions_by_horizon)
         resolution_sets = self._resolver.resolve_many(tracks, snapshot, regions_by_horizon)
+        sector_regions = self._sector_engine.update(snapshot)
+        sector_history = {
+            sector.name: self._sector_engine.history(sector.name)
+            for sector in self._config.sectors
+        }
         return CycleResult(
             snapshot=snapshot,
             prediction=prediction,
             regions_by_horizon=regions_by_horizon,
             tracks=tracks,
             resolution_sets=resolution_sets,
+            sector_regions=sector_regions,
+            sector_history=sector_history,
         )
 
     def _build_regions_by_horizon(

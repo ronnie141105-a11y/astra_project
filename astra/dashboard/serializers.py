@@ -20,6 +20,7 @@ objects, following the Milestone 3-7 test pattern.
 from typing import Dict, List, Optional
 
 from astra.complexity.models import ComplexityRegion
+from astra.complexity.sector import SectorComplexitySample
 from astra.dashboard.models import DashboardSnapshot
 from astra.hotspot.models import Cluster
 from astra.interface.traffic_state import AircraftState, TrafficSnapshot
@@ -181,6 +182,23 @@ def serialize_resolution_candidate(candidate: ResolutionCandidate) -> Dict:
         "deviation_cost_norm": candidate.deviation_cost_norm,
         "fuel_cost_proxy_norm": candidate.fuel_cost_proxy_norm,
         "resolution_score": candidate.resolution_score,
+        "complexity_after_components": (
+            dict(candidate.complexity_after_components)
+            if candidate.complexity_after_components is not None
+            else None
+        ),
+        "complexity_before_components": (
+            dict(candidate.complexity_before_components)
+            if candidate.complexity_before_components is not None
+            else None
+        ),
+        "hypothetical_path": (
+            serialize_prediction(candidate.hypothetical_prediction).get(
+                candidate.target_callsign, []
+            )
+            if candidate.hypothetical_prediction is not None
+            else []
+        ),
     }
 
 
@@ -200,6 +218,28 @@ def serialize_resolution_set(resolution_set: ResolutionSet, max_candidates: int)
             serialize_resolution_candidate(candidate)
             for candidate in resolution_set.candidates[:max_candidates]
         ],
+    }
+
+
+def serialize_sector_regions(sector_regions: Dict[str, ComplexityRegion]) -> Dict[str, Dict]:
+    """`{sector_name: ComplexityRegion}` -> the same shape, JSON-safe."""
+    return {name: serialize_region(region) for name, region in sector_regions.items()}
+
+
+def serialize_sector_history(
+    sector_history: Dict[str, List[SectorComplexitySample]]
+) -> Dict[str, List[Dict]]:
+    """`{sector_name: [SectorComplexitySample, ...]}` -> the complexity-charts series."""
+    return {
+        name: [
+            {
+                "bucket_start_s": sample.bucket_start_s,
+                "complexity_score": sample.complexity_score,
+                "aircraft_count": sample.aircraft_count,
+            }
+            for sample in samples
+        ]
+        for name, samples in sector_history.items()
     }
 
 
@@ -226,6 +266,8 @@ def serialize_cycle_result(result: CycleResult, config: ASTRAConfig) -> Dict:
             )
             for resolution_set in result.resolution_sets
         ],
+        "sector_regions": serialize_sector_regions(result.sector_regions),
+        "sector_history": serialize_sector_history(result.sector_history),
     }
 
 

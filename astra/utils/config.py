@@ -31,6 +31,27 @@ from typing import List
 
 
 @dataclass(frozen=True)
+class SectorDefinition:
+    """A named circular airspace region for sector-level complexity.
+
+    Defined here (not in `astra.complexity.sector`) so `ASTRAConfig` has
+    no dependency on that module -- `astra.complexity.sector` imports
+    this type instead, avoiding a circular import.
+
+    Attributes:
+        name: Short identifier shown in the HMI (e.g. "GVA-UPPER").
+        center_lat: Circle centre latitude, decimal degrees.
+        center_lon: Circle centre longitude, decimal degrees.
+        radius_nm: Circle radius, nautical miles.
+    """
+
+    name: str
+    center_lat: float
+    center_lon: float
+    radius_nm: float
+
+
+@dataclass(frozen=True)
 class ASTRAConfig:
     """Immutable configuration object passed explicitly through the pipeline.
 
@@ -231,6 +252,22 @@ class ASTRAConfig:
     #: are resolved, not how many candidates are displayed per track.
     dashboard_max_resolution_candidates_shown: int = 3
 
+    # ------------------------------------------------------------------
+    # Phase 9 - sector complexity (astra.complexity.sector)
+    # Opt-in: empty by default, so existing configs/tests are unaffected.
+    # ------------------------------------------------------------------
+    #: Fixed circular sectors to assess each cycle for the HMI's
+    #: complexity-charts page. Empty by default (feature is a no-op
+    #: until sectors are defined).
+    sectors: List[SectorDefinition] = field(default_factory=list)
+
+    #: Width (seconds) of each rolling-history bucket. 300s = 5 min,
+    #: matching the reference ASTRA complexity charts page.
+    sector_bucket_s: float = 300.0
+
+    #: Number of rolling buckets retained per sector (24 * 5min = 2h).
+    sector_history_buckets: int = 24
+
     def __post_init__(self) -> None:
         """Fail fast on internally-inconsistent configuration.
 
@@ -327,6 +364,17 @@ class ASTRAConfig:
             raise ValueError("dashboard_port must be in (0, 65535], got " f"{self.dashboard_port}")
         if self.dashboard_max_resolution_candidates_shown < 1:
             raise ValueError("dashboard_max_resolution_candidates_shown must be >= 1")
+
+        if self.sector_bucket_s <= 0:
+            raise ValueError("sector_bucket_s must be > 0")
+        if self.sector_history_buckets < 1:
+            raise ValueError("sector_history_buckets must be >= 1")
+        names = [s.name for s in self.sectors]
+        if len(names) != len(set(names)):
+            raise ValueError("sectors must have unique names")
+        for sector in self.sectors:
+            if sector.radius_nm <= 0:
+                raise ValueError(f"sector {sector.name!r} radius_nm must be > 0")
 
 
 #: Module-level default configuration instance. Most entry points (main.py,

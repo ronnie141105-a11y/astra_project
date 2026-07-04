@@ -204,6 +204,7 @@ class ResolutionEngine:
         hypothetical_clusters = self._cluster_engine.detect(hypothetical_snapshot_at_horizon)
 
         after_score: Optional[float] = None
+        after_components: Optional[Dict[str, float]] = None
         match = best_cluster_match(
             before_region.cluster, hypothetical_clusters, self._config.tracking_jaccard_threshold
         )
@@ -212,6 +213,7 @@ class ResolutionEngine:
                 match, hypothetical_snapshot_at_horizon
             )
             after_score = after_region.complexity_score
+            after_components = dict(after_region.components)
 
         before_score = before_region.complexity_score
         complexity_delta_norm = 0.0
@@ -237,6 +239,9 @@ class ResolutionEngine:
             deviation_cost_norm=deviation_cost_norm,
             fuel_cost_proxy_norm=fuel_cost_proxy_norm,
             resolution_score=score,
+            complexity_after_components=after_components,
+            complexity_before_components=dict(before_region.components),
+            hypothetical_prediction=prediction,
         )
 
     def _costs(self, spec: CandidateSpec) -> Tuple[float, float]:

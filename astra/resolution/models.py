@@ -9,9 +9,10 @@ docs/milestone_7_resolution_design_review.md OQ-1. Mirrors
 """
 
 from dataclasses import dataclass
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from astra.tracking.models import FourDArhac
+from astra.trajectory.models import PredictionResult
 
 #: The clearance types Milestone 7 generates candidates for. Direct-to is
 #: deferred -- see docs/milestone_7_resolution_design_review.md OQ-2.
@@ -53,6 +54,20 @@ class ResolutionCandidate:
             ``w_complexity * complexity_delta_norm
             - w_deviation * deviation_cost_norm
             - w_fuel * fuel_cost_proxy_norm``. Higher is better.
+        complexity_after_components: Per-component breakdown of the
+            hypothetical region at ``complexity_after`` (same keys as
+            ``ComplexityRegion.components``), for before/after HMI bar
+            charts. ``None`` under the same conditions as
+            ``complexity_after``.
+        complexity_before_components: Per-component breakdown of the
+            real, unmodified region at ``complexity_before`` -- the
+            "before" side of the same bar chart.
+        hypothetical_prediction: The full re-predicted ``PredictionResult``
+            for the snapshot with this candidate's clearance applied
+            (every configured horizon, not just the evaluated one) --
+            lets the HMI plot a "what-if" trajectory for
+            ``target_callsign`` without recomputing anything. ``None``
+            only if evaluation could not run at all.
     """
 
     clearance_type: ClearanceType
@@ -64,6 +79,9 @@ class ResolutionCandidate:
     deviation_cost_norm: float
     fuel_cost_proxy_norm: float
     resolution_score: float
+    complexity_after_components: Optional[Dict[str, float]] = None
+    complexity_before_components: Optional[Dict[str, float]] = None
+    hypothetical_prediction: Optional[PredictionResult] = None
 
 
 @dataclass(frozen=True)
