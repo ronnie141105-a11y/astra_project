@@ -15,8 +15,8 @@ for design decisions and conventions.
 | 4 | Phase 4 | Complexity assessment (density, MTCA/LTCA, heading/altitude diversity, type mix) | ✅ Complete |
 | 5 | Phase 5 | 4DARHAC detection — tracking (stateful, persists across cycles) | ✅ Complete |
 | 6 | Phase 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, urgency rank) | ✅ Complete |
-| 7 | Phase 7 | AI resolution framework | ⬜ Design review pending |
-| 8 | Phase 8 | Live dashboard | ⬜ Planned |
+| 7 | Phase 7 | AI resolution framework (speed / FL / heading, ranked) | ✅ Complete |
+| 8 | Phase 8 | Live dashboard | ⬜ Design review pending |
 
 > **Reorganized by architecture review, July 2026.** The original Phase 3
 > ("hotspot detection") conflated stateless spatial clustering with the
@@ -122,27 +122,56 @@ for design decisions and conventions.
 - `main.py` deliberately left as a Phase 1 demonstration only, matching
   the precedent set by Milestones 2–5
 
+## Milestone 7 — AI Resolution Framework ✅ Complete
+
+- `astra/resolution/models.py` — `ResolutionCandidate`,
+  `ResolutionSet` (composes `FourDArhac`, not a field on it)
+- `astra/resolution/candidates.py` — pure: `select_target_aircraft()`,
+  `heading_lever_applicable()`, `generate_candidates()` (speed / FL
+  always; heading only when a conflict component is present); builds
+  hypothetical `TrafficSnapshot`s, never mutates the live one
+- `astra/resolution/engine.py` — `ResolutionEngine.resolve()` /
+  `.resolve_many()`, stateless; evaluates each candidate by replaying
+  `TrajectoryEngine` → `ClusterEngine` → `ComplexityEngine` on the
+  hypothetical snapshot at the track's single closest horizon to
+  `predicted_onset_s`, then re-associates via
+  `astra.tracking.association.best_cluster_match`
+- `ASTRAConfig` — `resolution_speed_step_kt`,
+  `resolution_altitude_step_ft`, `resolution_heading_step_deg`,
+  `resolution_weight_complexity/deviation/fuel` (validated to sum to
+  `1.0`), `resolution_max_tracks_per_cycle` (all validated)
+- Design rationale, including the five design decisions resolved from
+  the original design review and the pre-formal-test smoke test that
+  confirmed pipeline wiring: `docs/milestone_7_resolution.md`
+- Verification: `tests/test_resolution.py` — 39/39 checks pass
+- `demo_resolution.py` — extends `demo_forecast.py`'s scripted scenario
+  with a converging 3-aircraft geometry that crosses the forecast onset
+  threshold on its 5-minute predicted horizon, printing
+  `ResolutionEngine`'s ranked candidate clearances each cycle
+- `main.py` deliberately left as a Phase 1 demonstration only, matching
+  the precedent set by Milestones 2–6
+
 ---
 
 ## Remaining work (this milestone)
 
-- [x] `demo_forecast.py`
-- [x] `tests/test_forecast.py`
-- [x] `docs/milestone_6_forecast.md`
+- [x] `demo_resolution.py`
+- [x] `tests/test_resolution.py`
+- [x] `docs/milestone_7_resolution.md`
 - [x] Update `README.md`, `docs/architecture.md`, `Developer_Handover.md`,
       `PROJECT_STATUS.md` (this file)
-- [x] Final verification (157/157 checks across Milestones 3–6;
-      287/287 across all six milestones)
+- [x] Final verification (39/39 new checks; 196/196 across Milestones
+      3–7 combined)
 
-**Milestone 6 is complete.** No further work remains for this phase of
+**Milestone 7 is complete.** No further work remains for this phase of
 the project.
 
 ## Next milestone
 
-**Milestone 7 — AI resolution framework.** An engineering design review
-has been prepared and is pending approval before implementation begins —
-see `docs/milestone_7_resolution_design_review.md`. It covers candidate
-clearance generation (speed / FL / direct-to / heading) and
-multi-objective ranking, consuming the `FourDArhac` forecasts Milestone 6
-now produces. Implementation is explicitly on hold until the review is
-approved.
+**Milestone 8 — Live dashboard.** An engineering design review has been
+prepared and is pending approval before implementation begins — see
+`docs/milestone_8_dashboard_design_review.md`. It covers the live
+traffic map, predicted-trajectory overlay, 4DARHAC heatmap/table/
+timeline, and surfacing `ResolutionEngine`'s ranked candidate
+clearances, consuming the outputs Milestones 5–7 now produce.
+Implementation is explicitly on hold until the review is approved.

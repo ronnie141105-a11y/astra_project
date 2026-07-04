@@ -39,8 +39,8 @@ flowchart TD
             FCB["4DARHAC forecast\n· onset / peak / dissipation estimation\n· confidence scoring · urgency ranking\n· stateless — reads tracks, does not own them"]
         end
 
-        subgraph RS["astra/resolution  ── Milestone 7 PLANNED"]
-            RES["ResolutionEngine\n· candidate generation\n  (speed / FL / direct-to / heading)\n· multi-objective scoring\n  (complexity Δ · conflict Δ · fuel · deviation)\n· ranked solution list"]
+        subgraph RS["astra/resolution  ── Milestone 7 COMPLETE"]
+            RES["ResolutionEngine\n· candidate generation (speed / FL / heading)\n· hypothetical-snapshot replay via\n  TrajectoryEngine → ClusterEngine → ComplexityEngine\n· weighted score: complexity Δ · deviation · fuel proxy\n· stateless — reads tracks, does not own them"]
         end
 
         subgraph DB["astra/dashboard  ── Milestone 8 PLANNED"]
@@ -405,3 +405,51 @@ file was deleted. `ForecastEngine`'s logic itself needed no changes.
 statistical/ML calibration of confidence (heuristic only, documented),
 no change to `TrackerEngine`'s public API or to `priority`'s existing
 meaning.
+
+### 6.7 Milestone 7 build plan (as built)
+
+> See `docs/milestone_7_resolution.md` for the full as-built rationale
+> (OQ-1 through OQ-5) and verification results.
+
+**Module:** `astra/resolution/` — `models.py` (`ResolutionCandidate`,
+`ResolutionSet` — composed over `FourDArhac`, not a field on it),
+`candidates.py` (pure: `select_target_aircraft()`,
+`heading_lever_applicable()`, `generate_candidates()` — builds
+hypothetical `TrafficSnapshot`s via `dataclasses.replace`, never
+mutates the live snapshot), and `engine.py` (`ResolutionEngine`,
+stateless — reads tracks and the current cycle's regions, does not own
+either; called once per eligible track per cycle, after
+`ForecastEngine.forecast_many()`).
+
+**Candidates:** speed / flight-level always generated; heading only
+when the matched region has a nonzero MTCA/LTCA component. Direct-to
+deferred — no `MockConnector` stack-command equivalent exists to
+demonstrate it offline.
+
+**Evaluation:** each candidate's hypothetical snapshot is re-run through
+the existing `TrajectoryEngine.predict()` → `ClusterEngine.detect()` at
+the track's single closest configured horizon to `predicted_onset_s`,
+then re-associated to the track's cluster via
+`astra.tracking.association.best_cluster_match` (the same primitive
+`astra.forecast` already uses). No new trajectory/complexity math.
+
+**Config additions (`ASTRAConfig`, Phase 7 section):**
+`resolution_speed_step_kt`, `resolution_altitude_step_ft`,
+`resolution_heading_step_deg`, `resolution_weight_complexity/deviation/fuel`
+(validated to sum to `1.0`), `resolution_max_tracks_per_cycle` — see
+`docs/milestone_7_resolution.md` for defaults and validation.
+
+**Verification:** `tests/test_resolution.py`, 39/39 checks pass.
+Combined with Milestones 3–6 (24/24, 42/42, 44/44, 47/47): 196/196.
+`demo_resolution.py` extends `demo_forecast.py`'s scripted-cycle style
+with a converging 3-aircraft geometry that crosses the forecast onset
+threshold on its 5-minute predicted horizon, then prints
+`ResolutionEngine`'s ranked candidate clearances each cycle.
+
+**Explicit non-goals for Milestone 7:** no dashboard/HMI changes
+(Milestone 8) — candidates are computed and ranked, not displayed or
+issued; no automatic clearance issuance to BlueSky/`MockConnector`
+(advisory only); no real fuel-burn or route-deviation-distance model
+(documented proxies only); no change to `ForecastEngine`,
+`TrackerEngine`, or any earlier package's public API.
+
