@@ -271,7 +271,7 @@ meaningful.
 | 3 | Cluster detection | pure / stateless | Trajectory prediction (Milestone 2) | ✅ Complete |
 | 4 | Complexity assessment | pure / stateless | Cluster detection | ✅ Complete |
 | 5 | 4DARHAC detection (tracking) | **stateful** | Cluster detection (+ complexity, to carry scores onto tracks) | ✅ Complete — see `docs/milestone_5_tracking.md` |
-| 6 | 4DARHAC forecast | stateful, layered on 5 | 4DARHAC detection | ⬜ Design review pending — see `docs/milestone_6_forecast_design_review.md` |
+| 6 | 4DARHAC forecast | stateful, layered on 5 | 4DARHAC detection | ✅ Complete — see `docs/milestone_6_forecast.md` |
 | 7 | Resolution | stateless given a 4DARHAC | 4DARHAC forecast | ⬜ Planned |
 | 8 | Dashboard | presentation | everything above | ⬜ Planned |
 
@@ -355,3 +355,53 @@ driving `MockConnector` through several manual `poll()` cycles to show a
 **Explicit non-goals for Milestone 5:** no onset/peak/dissipation *time*
 prediction (Milestone 6), no confidence modelling beyond a placeholder
 field, no resolution suggestions, no dashboard/HMI changes.
+
+### 6.6 Milestone 6 build plan (as built)
+
+> `docs/milestone_6_forecast_design_review.md` is the original design
+> review; all five open questions (OQ-1 through OQ-5) were approved
+> essentially as recommended. See `docs/milestone_6_forecast.md` for the
+> as-built rationale, the one real defect found while integrating
+> `demo_forecast.py`, and full verification results.
+
+**Module:** `astra/forecast/` — `horizon_series.py` (pure: builds a
+track's per-cycle `(time_s, complexity_score)` series by reusing
+`astra.tracking.association.best_cluster_match`), `projection.py` (pure:
+`linear_crossing_time()`, `predicted_peak()`), and `engine.py`
+(`ForecastEngine`, stateless — mutates the `FourDArhac` objects
+`TrackerEngine` owns, called once per track per cycle after
+`TrackerEngine.update()`). No `astra/forecast/models.py` — see below.
+
+**Schema:** the forecast fields were added directly to the canonical
+`FourDArhac` dataclass in `astra/tracking/models.py` (OQ-1(A)), including
+two new fields beyond the original §6.2 sketch — `predicted_peak_time_s`
+(OQ-2) and `forecast_urgency_rank` (OQ-4, deliberately kept separate from
+`priority`). Both purely additive; `tests/test_tracking.py` (44/44)
+unaffected. See the updated §6.2 sketch above.
+
+**Config additions (`ASTRAConfig`, Phase 6 section):**
+`forecast_onset_threshold`, `forecast_dissipation_threshold`,
+`forecast_min_matched_horizons`, `forecast_confidence_decay_s` — see
+`docs/milestone_6_forecast.md` for defaults and validation.
+
+**Verification:** `tests/test_forecast.py`, 47/47 checks pass.
+Combined with Milestones 3–5 (24/24, 42/42, 44/44): 157/157.
+`demo_forecast.py` extends `demo_tracking.py`'s scripted scenario with
+`ForecastEngine` output (onset/dissipation/peak-time/confidence/urgency
+rank) alongside the existing trend status.
+
+**Real bug found and fixed:** implementation had briefly split across
+two copies of `FourDArhac` — the canonical one in
+`astra/tracking/models.py` and an orphaned, unimported duplicate in
+`astra/forecast/models.py` that had the two new Milestone 6 fields but
+was never wired to anything. `demo_forecast.py` and
+`tests/test_forecast.py` both failed with `AttributeError:
+'FourDArhac' object has no attribute 'forecast_urgency_rank'` until the
+two fields were added to the canonical model and the orphaned duplicate
+file was deleted. `ForecastEngine`'s logic itself needed no changes.
+
+**Explicit non-goals for Milestone 6:** no resolution suggestions
+(Milestone 7), no dashboard/HMI changes (Milestone 8), no genuine
+statistical/ML calibration of confidence (heuristic only, documented),
+no change to `TrackerEngine`'s public API or to `priority`'s existing
+meaning.

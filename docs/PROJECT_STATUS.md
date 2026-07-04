@@ -14,8 +14,8 @@ for design decisions and conventions.
 | 3 | Phase 3 | Cluster detection (DBSCAN, 15 NM / 1 000 ft, stateless) | ✅ Complete |
 | 4 | Phase 4 | Complexity assessment (density, MTCA/LTCA, heading/altitude diversity, type mix) | ✅ Complete |
 | 5 | Phase 5 | 4DARHAC detection — tracking (stateful, persists across cycles) | ✅ Complete |
-| 6 | Phase 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, priority) | ⬜ Design review pending |
-| 7 | Phase 7 | AI resolution framework | ⬜ Planned |
+| 6 | Phase 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, urgency rank) | ✅ Complete |
+| 7 | Phase 7 | AI resolution framework | ⬜ Design review pending |
 | 8 | Phase 8 | Live dashboard | ⬜ Planned |
 
 > **Reorganized by architecture review, July 2026.** The original Phase 3
@@ -95,27 +95,54 @@ for design decisions and conventions.
   the precedent set by Milestones 2–4 (see `docs/milestone_5_tracking.md`
   "`main.py` — deliberately not integrated")
 
+## Milestone 6 — 4DARHAC Forecast ✅ Complete
+
+- `astra/forecast/horizon_series.py` — pure: builds a track's per-cycle
+  `(time_s, complexity_score)` series (observed anchor + matched
+  predicted horizons), reusing `astra.tracking.association.best_cluster_match`
+- `astra/forecast/projection.py` — pure: `linear_crossing_time()`,
+  `predicted_peak()`
+- `astra/forecast/engine.py` — `ForecastEngine.forecast()` /
+  `.forecast_many()`, stateless; mutates the `FourDArhac` objects
+  `TrackerEngine` owns after `TrackerEngine.update()` runs each cycle
+- `astra/tracking/models.py` — `FourDArhac` gains two fields beyond the
+  Milestone 5 schema: `predicted_peak_time_s` and
+  `forecast_urgency_rank` (kept separate from `priority`, see
+  `docs/milestone_6_forecast.md` OQ-4)
+- `ASTRAConfig` — `forecast_onset_threshold`,
+  `forecast_dissipation_threshold`, `forecast_min_matched_horizons`,
+  `forecast_confidence_decay_s` (all validated)
+- Design rationale, including the five design decisions resolved from
+  the original design review and one real defect found while
+  integrating `demo_forecast.py`: `docs/milestone_6_forecast.md`
+- Verification: `tests/test_forecast.py` — 47/47 checks pass
+- `demo_forecast.py` — extends `demo_tracking.py`'s scripted scenario
+  with onset/dissipation/peak-time/confidence/urgency-rank output
+  alongside the existing trend status
+- `main.py` deliberately left as a Phase 1 demonstration only, matching
+  the precedent set by Milestones 2–5
+
 ---
 
 ## Remaining work (this milestone)
 
-- [x] `demo_tracking.py`
-- [x] `tests/test_tracking.py`
-- [x] `docs/milestone_5_tracking.md`
+- [x] `demo_forecast.py`
+- [x] `tests/test_forecast.py`
+- [x] `docs/milestone_6_forecast.md`
 - [x] Update `README.md`, `docs/architecture.md`, `Developer_Handover.md`,
       `PROJECT_STATUS.md` (this file)
-- [x] Final verification (110/110 checks across Milestones 3–5;
-      240/240 across all five milestones)
+- [x] Final verification (157/157 checks across Milestones 3–6;
+      287/287 across all six milestones)
 
-**Milestone 5 is complete.** No further work remains for this phase of
+**Milestone 6 is complete.** No further work remains for this phase of
 the project.
 
 ## Next milestone
 
-**Milestone 6 — 4DARHAC forecast.** An engineering design review has
-been prepared and is pending approval before implementation begins —
-see `docs/milestone_6_forecast_design_review.md`. It covers
-onset/peak/dissipation *time* prediction and a calibrated confidence
-model, layered on top of the `FourDArhac` tracks Milestone 5 now
-produces. Implementation is explicitly on hold until the review is
+**Milestone 7 — AI resolution framework.** An engineering design review
+has been prepared and is pending approval before implementation begins —
+see `docs/milestone_7_resolution_design_review.md`. It covers candidate
+clearance generation (speed / FL / direct-to / heading) and
+multi-objective ranking, consuming the `FourDArhac` forecasts Milestone 6
+now produces. Implementation is explicitly on hold until the review is
 approved.
