@@ -109,10 +109,10 @@ graph LR
     MC2 --> SR2
 ```
 
-Rules enforced in CI (V3):
+Design rules (no CI pipeline exists in this repo; verified manually):
 - `utils` never imports from `interface` or any later phase.
 - `bluesky` is imported **only** in `bluesky_connector.py`.
-- No circular imports (verified by DFS).
+- No circular imports.
 
 ---
 
