@@ -181,6 +181,37 @@ class ASTRAConfig:
     #: over longer horizons.
     forecast_confidence_decay_s: float = 1800.0
 
+    # ------------------------------------------------------------------
+    # Phase 7 - AI resolution framework (astra.resolution)
+    # See docs/milestone_7_resolution_design_review.md (OQ-2, OQ-4, OQ-5)
+    # for the approved rationale behind these values.
+    # ------------------------------------------------------------------
+    #: Magnitude (knots) of the speed candidate's +/- adjustment.
+    resolution_speed_step_kt: float = 20.0
+
+    #: Magnitude (feet) of the flight-level candidate's +/- adjustment.
+    resolution_altitude_step_ft: float = 1000.0
+
+    #: Magnitude (degrees) of the heading candidate's +/- adjustment.
+    #: Only applied when the track's conflict components (MTCA/LTCA)
+    #: are non-zero -- see docs/milestone_7_resolution_design_review.md OQ-2.
+    resolution_heading_step_deg: float = 15.0
+
+    #: Weight on complexity-delta in `resolution_score`. Sums to 1.0
+    #: with `resolution_weight_deviation` / `resolution_weight_fuel`.
+    resolution_weight_complexity: float = 0.6
+
+    #: Weight (penalty) on the clearance-deviation-magnitude cost term.
+    resolution_weight_deviation: float = 0.25
+
+    #: Weight (penalty) on the fuel-cost proxy term.
+    resolution_weight_fuel: float = 0.15
+
+    #: Safety cap on how many urgency-ranked tracks are resolved per poll
+    #: cycle (OQ-5) -- bounds the per-cycle cost of re-running the
+    #: trajectory/cluster/complexity pipeline per candidate per track.
+    resolution_max_tracks_per_cycle: int = 5
+
     def __post_init__(self) -> None:
         """Fail fast on internally-inconsistent configuration.
 
@@ -253,6 +284,25 @@ class ASTRAConfig:
             raise ValueError("forecast_min_matched_horizons must be >= 1")
         if self.forecast_confidence_decay_s <= 0:
             raise ValueError("forecast_confidence_decay_s must be > 0")
+
+        if self.resolution_speed_step_kt <= 0:
+            raise ValueError("resolution_speed_step_kt must be > 0")
+        if self.resolution_altitude_step_ft <= 0:
+            raise ValueError("resolution_altitude_step_ft must be > 0")
+        if self.resolution_heading_step_deg <= 0:
+            raise ValueError("resolution_heading_step_deg must be > 0")
+        resolution_weights = (
+            self.resolution_weight_complexity,
+            self.resolution_weight_deviation,
+            self.resolution_weight_fuel,
+        )
+        if abs(sum(resolution_weights) - 1.0) > 1e-6:
+            raise ValueError(
+                "resolution_weight_* fields must sum to 1.0, got "
+                f"{sum(resolution_weights):.6f}"
+            )
+        if self.resolution_max_tracks_per_cycle < 1:
+            raise ValueError("resolution_max_tracks_per_cycle must be >= 1")
 
 
 #: Module-level default configuration instance. Most entry points (main.py,

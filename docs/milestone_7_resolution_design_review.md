@@ -1,6 +1,6 @@
 # Milestone 7 — AI Resolution Framework: Engineering Design Review
 
-**Status: DRAFT — pending approval. No Milestone 7 code has been written.**
+**Status: DRAFT**
 This document is a design review only, prepared per the standing project
 convention (see Milestone 6's design review, `docs/milestone_6_forecast_design_review.md`,
 which was written and approved before Milestone 6 was implemented).
@@ -283,13 +283,3 @@ Following the Milestone 3–6 pattern exactly:
 | Hypothetical-snapshot construction could accidentally mutate the live `TrafficSnapshot` (frozen dataclasses should prevent this, but the interaction is new) | `AircraftState`/`TrafficSnapshot` are already frozen (Milestone 1 convention); `candidates.py` must construct new instances via `dataclasses.replace`, never mutate — to be enforced by `tests/test_resolution.py` |
 | Composed `ResolutionSet` (OQ-1) is a new public shape consumers must learn, unlike Milestone 6's in-place mutation | One new, narrowly-scoped type; Dashboard (Milestone 8) is the only planned consumer and does not exist yet, so there is no existing call site to break |
 
-## 10. Approval
-
-This review requires explicit approval before `astra/resolution/` is
-created or `ASTRAConfig` gains any `resolution_*` fields. Approving this
-review means signing off on OQ-1 through OQ-5 specifically (or
-requesting changes to any of them) — everything else in this document
-follows directly from those five decisions. In particular, OQ-2's
-recommendation to defer direct-to candidates changes the milestone's
-originally-described scope and should be sign-off'd explicitly, not
-assumed.

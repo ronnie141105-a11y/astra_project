@@ -66,6 +66,11 @@ class FourDArhac:
             ``peak_complexity``.
         predicted_dissipation_s: Reserved for Milestone 6. Always
             ``None`` until that milestone is built.
+        predicted_peak_time_s: Set by ``ForecastEngine`` (Milestone 6) --
+            the time of the highest-scoring matched predicted horizon
+            this cycle, only if it exceeds the previously-known
+            ``peak_complexity``. ``None`` otherwise -- see
+            docs/milestone_6_forecast.md OQ-2.
         confidence: Placeholder strength signal in ``[0, 1]`` that ramps
             up with consecutive detections (see
             ``TrackerEngine._confidence_for``). Not a calibrated
@@ -73,6 +78,12 @@ class FourDArhac:
         priority: FMP triage rank among currently open tracks (1 =
             highest ``peak_complexity``). Recomputed every
             ``update()`` call.
+        forecast_urgency_rank: Set by ``ForecastEngine`` (Milestone 6) --
+            FMP triage rank by soonest ``predicted_onset_s`` among tracks
+            forecast this cycle (1 = soonest onset). ``None`` if the
+            track has no predicted onset this cycle. Deliberately kept
+            separate from ``priority`` -- see
+            docs/milestone_6_forecast.md OQ-4.
         last_updated_cycle_s: ``valid_at_s`` of the most recent
             extending observation; compared against
             ``tracking_stale_cycles`` to detect staleness.
@@ -87,8 +98,10 @@ class FourDArhac:
     peak_complexity: float = 0.0
     peak_time_s: Optional[float] = None
     predicted_dissipation_s: Optional[float] = None
+    predicted_peak_time_s: Optional[float] = None
     confidence: float = 0.0
     priority: int = 0
+    forecast_urgency_rank: Optional[int] = None
     last_updated_cycle_s: float = 0.0
 
     def __len__(self) -> int:
