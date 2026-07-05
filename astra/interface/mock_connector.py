@@ -241,6 +241,121 @@ class MockConnector:
         with self._lock:
             self._aircraft.pop(callsign.upper(), None)
 
+    #: Fields `update_aircraft()` is allowed to set directly. Deliberately
+    #: excludes `callsign` (renaming is a create+delete, not an update).
+    _EDITABLE_FIELDS = frozenset(
+        {
+            "aircraft_type",
+            "lat",
+            "lon",
+            "heading_deg",
+            "altitude_ft",
+            "ground_speed_kt",
+            "vertical_speed_fpm",
+        }
+    )
+
+    def update_aircraft(self, callsign: str, **fields) -> bool:
+        """Directly set one or more fields on an existing aircraft.
+
+        Added for the Scenario Builder HMI page (edit-in-place), which
+        needs to change an aircraft's state without going through the
+        stack-command mini-language `SPD`/`ALT`/`HDG`/`VS` handle one
+        field at a time. Unknown field names are ignored rather than
+        raising, matching this module's existing lenient-parsing style.
+
+        Args:
+            callsign: The aircraft to edit (case-insensitive).
+            **fields: Any of `aircraft_type`, `lat`, `lon`, `heading_deg`,
+                `altitude_ft`, `ground_speed_kt`, `vertical_speed_fpm`.
+                `heading_deg` is normalised into `[0, 360)`.
+
+        Returns:
+            True if the aircraft existed and was updated, False if no
+            aircraft with that callsign is present.
+        """
+        with self._lock:
+            record = self._aircraft.get(callsign.upper())
+            if record is None:
+                return False
+            for name, value in fields.items():
+                if name not in self._EDITABLE_FIELDS or value is None:
+                    continue
+                if name == "heading_deg":
+                    value = float(value) % 360.0
+                elif name == "aircraft_type":
+                    value = str(value).upper()
+                setattr(record, name, value)
+            return True
+
+    def reset(self) -> None:
+        """Clear all aircraft and reset the simulation clock to zero.
+
+        Used by the Scenario Builder's "Reset" control. Leaves the
+        simulation paused (matching the state right after `connect()`)
+        so the operator can build up a new scene before pressing Resume.
+        """
+        with self._lock:
+            self._aircraft.clear()
+            self._simt = 0.0
+            self._running = False
+            self._latest_snapshot = self._build_snapshot()
+
+    def step(self, ticks: int = 1) -> None:
+        """Force `ticks` propagation step(s), regardless of run state.
+
+        Used by the Scenario Builder's "single-step" control so an
+        operator can advance the scenario one `sim_step_s` tick at a
+        time -- including while otherwise paused -- and watch the
+        pipeline (trajectory/hotspot/complexity/tracking/forecast) react
+        cycle by cycle. Each call always advances real simulation time
+        by a positive `sim_step_s`, so it is safe for downstream stages
+        that assume strictly increasing timestamps (unlike, say, forcing
+        a snapshot refresh at an unchanged timestamp would be).
+
+        Args:
+            ticks: Number of `sim_step_s` steps to advance. Defaults to 1.
+        """
+        with self._lock:
+            for _ in range(max(1, ticks)):
+                self._simt += self._sim_step_s
+                self._propagate_positions(self._sim_step_s)
+            self._latest_snapshot = self._build_snapshot()
+
+    def list_aircraft(self) -> List[Dict]:
+        """Return the current raw state of every aircraft, for the builder UI.
+
+        Unlike `latest_snapshot()`, this does not require `poll()` to
+        have been called first and does not go through `AircraftState`
+        -- it is a direct, immediate read of the mock's internal state,
+        so a freshly spawned/edited aircraft always shows up right away
+        in the Scenario Builder's table even while the sim is paused.
+
+        Returns:
+            One dict per aircraft (order not guaranteed), each with
+            `callsign`, `aircraft_type`, `lat`, `lon`, `heading_deg`,
+            `altitude_ft`, `ground_speed_kt`, `vertical_speed_fpm`.
+        """
+        with self._lock:
+            return [
+                {
+                    "callsign": rec.callsign,
+                    "aircraft_type": rec.aircraft_type,
+                    "lat": rec.lat,
+                    "lon": rec.lon,
+                    "heading_deg": rec.heading_deg,
+                    "altitude_ft": rec.altitude_ft,
+                    "ground_speed_kt": rec.ground_speed_kt,
+                    "vertical_speed_fpm": rec.vertical_speed_fpm,
+                }
+                for rec in self._aircraft.values()
+            ]
+
+    def is_running(self) -> bool:
+        """Whether the simulation clock is currently advancing (OP vs HOLD)."""
+        with self._lock:
+            return self._running
+
     def set_running(self, running: bool) -> None:
         """Start or pause the mock simulation clock directly.
 

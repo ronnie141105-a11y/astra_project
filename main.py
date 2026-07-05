@@ -128,7 +128,13 @@ def main() -> None:
     pipeline = Pipeline(config)
     store = CycleStore()
     if not args.no_dashboard:
-        run_dashboard_in_background(store, config)
+        # Pass the same `reader` the poll loop below uses, so the
+        # Scenario Builder page's routes (create/edit/delete aircraft,
+        # pause/resume/step/reset) act on the actual running simulation
+        # rather than a separate copy of it. In --mock mode this also
+        # means a scenario can be built entirely from the browser --
+        # `_setup_mock_traffic()` above just seeds a default scene.
+        run_dashboard_in_background(store, config, reader=reader)
 
     _LOG.info("Running. Press Ctrl+C to stop.")
     try:

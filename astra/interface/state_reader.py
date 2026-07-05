@@ -251,3 +251,50 @@ class StateReader:
                 "SPD KL204 250" or "OP".
         """
         self._connector.send_command(command_text)
+
+    # ------------------------------------------------------------------
+    # Scenario Builder passthroughs (MockConnector only)
+    # ------------------------------------------------------------------
+
+    @property
+    def is_mock(self) -> bool:
+        """True if this reader is backed by `MockConnector`."""
+        from astra.interface.mock_connector import MockConnector
+
+        return isinstance(self._connector, MockConnector)
+
+    def _require_mock(self, action: str):
+        if not self.is_mock:
+            raise TypeError(
+                f"{action} requires a MockConnector-backed StateReader "
+                "(Scenario Builder only works in --mock mode)."
+            )
+        return self._connector
+
+    def remove_aircraft(self, callsign: str) -> None:
+        """Delete one aircraft by callsign. Mock-mode only."""
+        self._require_mock("remove_aircraft").remove_aircraft(callsign)
+
+    def update_aircraft(self, callsign: str, **fields) -> bool:
+        """Edit one or more fields of an existing aircraft. Mock-mode only."""
+        return self._require_mock("update_aircraft").update_aircraft(callsign, **fields)
+
+    def list_aircraft(self) -> List[dict]:
+        """Direct, immediate read of every aircraft's raw state. Mock-mode only."""
+        return self._require_mock("list_aircraft").list_aircraft()
+
+    def reset_simulation(self) -> None:
+        """Delete all aircraft and reset the sim clock to zero. Mock-mode only."""
+        self._require_mock("reset_simulation").reset()
+
+    def step_simulation(self, ticks: int = 1) -> None:
+        """Force the sim forward by `ticks` tick(s), regardless of pause state. Mock-mode only."""
+        self._require_mock("step_simulation").step(ticks)
+
+    def is_simulation_running(self) -> bool:
+        """Whether the sim clock is currently advancing. Mock-mode only."""
+        return self._require_mock("is_simulation_running").is_running()
+
+    def simulation_time_s(self) -> float:
+        """Current simulation clock, in seconds. Mock-mode only."""
+        return self._require_mock("simulation_time_s").simt

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>ASTRA &mdash; Scenario Builder</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='scenario_builder.css') }}">
+</head>
+<body>
+    <!--
+        Scenario Builder page: spawn/edit/delete aircraft, save/load
+        named scenarios, load predefined traffic situations, and
+        pause/resume/single-step/reset the mock simulation this
+        process is running. Talks to /scenario* (astra.dashboard.
+        scenario_routes), never to /state -- it does not read pipeline
+        output at all, only the raw traffic it is itself editing.
+    -->
+    <header id="hmi-header">
+        <div id="hmi-brand">
+            <h1>ASTRA</h1>
+            <span id="hmi-subtitle">Scenario Builder</span>
+        </div>
+        <nav id="hmi-tabs"></nav>
+        <a id="scenario-builder-link" href="/" class="tab-btn tab-link">&#8598; Operations HMI</a>
+    </header>
+
+    <main id="scenario-page" class="tab-page active">
+        {% if not is_mock %}
+        <section class="panel sb-banner sb-banner-warn">
+            <strong>Live BlueSky mode detected.</strong> The Scenario Builder edits an offline mock
+            simulation and has nothing to act on right now &mdash; restart ASTRA with <code>--mock</code>
+            to use this page.
+        </section>
+        {% endif %}
+
+        <section class="panel sb-controls">
+            <div class="sb-controls-row">
+                <div class="sb-clock">
+                    <span id="sb-run-badge" class="badge badge-waiting">PAUSED</span>
+                    <span id="sb-sim-time">t = 00:00:00</span>
+                    <span id="sb-aircraft-count">0 aircraft</span>
+                </div>
+                <div class="sb-buttons">
+                    <button id="sb-btn-pause-resume" class="sb-btn sb-btn-primary">Resume</button>
+                    <button id="sb-btn-step" class="sb-btn">Step &#9654;|</button>
+                    <button id="sb-btn-reset" class="sb-btn sb-btn-danger">Reset</button>
+                </div>
+            </div>
+        </section>
+
+        <div class="sb-grid">
+            <section class="panel sb-panel-aircraft">
+                <div class="panel-head">
+                    <h2>Aircraft</h2>
+                    <button id="sb-btn-add" class="sb-btn sb-btn-primary">+ Spawn aircraft</button>
+                </div>
+                <table id="sb-aircraft-table">
+                    <thead>
+                        <tr>
+                            <th>Callsign</th>
+                            <th>Type</th>
+                            <th>Lat</th>
+                            <th>Lon</th>
+                            <th>Hdg</th>
+                            <th>FL</th>
+                            <th>GS (kt)</th>
+                            <th>VS (fpm)</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="sb-aircraft-tbody">
+                        <tr><td colspan="9" class="empty-row">No aircraft yet &mdash; spawn one or load a preset.</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="panel sb-panel-map">
+                <h2>Scene preview</h2>
+                <canvas id="sb-map-canvas" width="420" height="420"></canvas>
+                <p class="panel-hint">Triangle = heading &middot; label = callsign / FL.</p>
+            </section>
+
+            <section class="panel sb-panel-presets">
+                <h2>Predefined traffic situations</h2>
+                <div id="sb-presets-list" class="sb-presets-list"></div>
+            </section>
+
+            <section class="panel sb-panel-scenarios">
+                <h2>Save &amp; load scenarios</h2>
+                <div class="sb-save-row">
+                    <input type="text" id="sb-save-name" placeholder="scenario name" maxlength="64">
+                    <button id="sb-btn-save" class="sb-btn sb-btn-primary">Save current</button>
+                </div>
+                <div id="sb-saved-list" class="sb-saved-list"></div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Add / edit aircraft dialog -->
+    <div id="sb-modal-backdrop" class="sb-modal-backdrop hidden">
+        <div class="sb-modal">
+            <h3 id="sb-modal-title">Spawn aircraft</h3>
+            <form id="sb-modal-form">
+                <label>Callsign <input type="text" id="sb-f-callsign" maxlength="10" required></label>
+                <label>Type <input type="text" id="sb-f-type" maxlength="8" required value="A320"></label>
+                <label>Latitude <input type="number" id="sb-f-lat" step="0.0001" required></label>
+                <label>Longitude <input type="number" id="sb-f-lon" step="0.0001" required></label>
+                <label>Heading (deg) <input type="number" id="sb-f-hdg" step="1" min="0" max="359" required></label>
+                <label>Altitude (ft) <input type="number" id="sb-f-alt" step="100" required></label>
+                <label>Ground speed (kt) <input type="number" id="sb-f-spd" step="1" required></label>
+                <div class="sb-modal-actions">
+                    <button type="button" id="sb-modal-cancel" class="sb-btn">Cancel</button>
+                    <button type="submit" class="sb-btn sb-btn-primary" id="sb-modal-submit">Spawn</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="sb-toast" class="sb-toast hidden"></div>
+
+    <script src="{{ url_for('static', filename='scenario_builder.js') }}"></script>
+</body>
+</html>

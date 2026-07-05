@@ -1,0 +1,313 @@
+/* Scenario Builder page. Reuses dashboard.css's theme variables/panels. */
+
+.tab-link {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+#scenario-page {
+    display: block;
+    padding: 12px;
+}
+
+.sb-banner {
+    margin-bottom: 12px;
+}
+
+.sb-banner-warn {
+    border-color: var(--amber);
+    color: var(--amber);
+}
+
+.sb-controls {
+    margin-bottom: 12px;
+}
+
+.sb-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.sb-clock {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+}
+
+#sb-sim-time {
+    color: var(--text);
+    font-weight: bold;
+    letter-spacing: 0.03em;
+}
+
+.badge-running {
+    background: #14372f;
+    color: var(--accent);
+}
+
+.sb-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.sb-btn {
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.sb-btn:hover {
+    border-color: var(--blue);
+}
+
+.sb-btn-primary {
+    border-color: var(--accent-dim);
+    color: var(--accent);
+}
+
+.sb-btn-primary:hover {
+    border-color: var(--accent);
+    background: rgba(53, 195, 163, 0.08);
+}
+
+.sb-btn-danger {
+    border-color: #5a2a20;
+    color: var(--red);
+}
+
+.sb-btn-danger:hover {
+    border-color: var(--red);
+    background: rgba(224, 85, 60, 0.08);
+}
+
+.sb-btn-small {
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+.sb-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    grid-template-areas:
+        "aircraft map"
+        "presets  scenarios";
+    gap: 12px;
+}
+
+.sb-panel-aircraft { grid-area: aircraft; }
+.sb-panel-map { grid-area: map; }
+.sb-panel-presets { grid-area: presets; }
+.sb-panel-scenarios { grid-area: scenarios; }
+
+@media (max-width: 1100px) {
+    .sb-grid {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "aircraft"
+            "map"
+            "presets"
+            "scenarios";
+    }
+}
+
+#sb-aircraft-table input {
+    width: 100%;
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 2px 4px;
+    border-radius: 2px;
+}
+
+#sb-aircraft-table input:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+#sb-aircraft-tbody tr.dirty {
+    background: rgba(224, 166, 60, 0.06);
+}
+
+.sb-row-actions {
+    display: flex;
+    gap: 4px;
+}
+
+#sb-map-canvas {
+    width: 100%;
+    height: 380px;
+    background: #060a0f;
+    border: 1px solid var(--grid-line);
+    border-radius: 3px;
+}
+
+.sb-presets-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+}
+
+.sb-preset-card {
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    cursor: pointer;
+}
+
+.sb-preset-card:hover {
+    border-color: var(--accent-dim);
+}
+
+.sb-preset-card .sb-preset-label {
+    font-weight: bold;
+    color: var(--text);
+    margin-bottom: 3px;
+}
+
+.sb-preset-card .sb-preset-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.4;
+}
+
+.sb-preset-card .sb-preset-count {
+    font-size: 10px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+
+.sb-save-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.sb-save-row input {
+    flex: 1;
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: inherit;
+    padding: 6px 8px;
+    border-radius: 3px;
+}
+
+.sb-saved-list .sb-saved-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--panel-border);
+    border-radius: 3px;
+    margin-bottom: 6px;
+}
+
+.sb-saved-row .sb-saved-name {
+    font-weight: bold;
+}
+
+/* ---------------------------------------------------------------- */
+/* Modal (spawn/edit aircraft)                                       */
+/* ---------------------------------------------------------------- */
+
+.sb-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+}
+
+.sb-modal {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 18px 20px;
+    width: 320px;
+}
+
+.sb-modal h3 {
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+}
+
+.sb-modal form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sb-modal label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+.sb-modal input {
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: inherit;
+    padding: 6px 8px;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.sb-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+/* ---------------------------------------------------------------- */
+/* Toast                                                              */
+/* ---------------------------------------------------------------- */
+
+.sb-toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 60;
+    transition: opacity 0.2s ease;
+}
+
+.sb-toast.sb-toast-error {
+    border-color: var(--red);
+    color: var(--red);
+}
+
+.sb-toast.sb-toast-ok {
+    border-color: var(--accent-dim);
+    color: var(--accent);
+}
