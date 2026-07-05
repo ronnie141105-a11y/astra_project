@@ -17,6 +17,7 @@ for design decisions and conventions.
 | 6 | Phase 6 | 4DARHAC forecast (onset/peak/dissipation, confidence, urgency rank) | ✅ Complete |
 | 7 | Phase 7 | AI resolution framework (speed / FL / heading, ranked) | ✅ Complete |
 | 8 | Phase 8 | Dashboard / HMI (Flask, live map + hotspot table + timeline + resolutions) | ✅ Complete |
+| 9 | Phase 9 | HMI redesign — sector complexity, before/after resolution detail, what-if profiles, solution lifecycle | ✅ Complete |
 
 > **Reorganized by architecture review, July 2026.** The original Phase 3
 > ("hotspot detection") conflated stateless spatial clustering with the
@@ -211,14 +212,53 @@ for design decisions and conventions.
   live, browser-visible demonstration (open `http://127.0.0.1:8050/`
   while it runs)
 
+## Milestone 9 — Sector Complexity & HMI Redesign ✅ Complete
+
+- `astra/resolution/models.py` / `engine.py` — `ResolutionCandidate`
+  now also carries `complexity_before_components`,
+  `complexity_after_components`, and `hypothetical_prediction`
+  (previously computed then discarded inside `_evaluate()`)
+- `astra/complexity/sector.py` (new) — `SectorComplexityEngine`, which
+  reuses the unmodified `ComplexityEngine` on a synthetic per-sector
+  `Cluster` each cycle, plus a rolling per-sector history buffer
+- `astra/utils/config.py` — `SectorDefinition` (circular sector),
+  `ASTRAConfig.sectors` (opt-in, empty by default),
+  `sector_bucket_s`, `sector_history_buckets` (all validated)
+- `astra/pipeline.py` — owns one `SectorComplexityEngine`;
+  `CycleResult` gained `sector_regions` / `sector_history`
+  (`default_factory=dict`, no signature break)
+- `astra/dashboard/serializers.py` — serializes all of the above;
+  `/state`'s top-level payload gained `sector_regions` / `sector_history`
+- `astra/dashboard/{index.html,dashboard.css,dashboard.js}` — full
+  frontend rewrite: a tabbed HMI (Operations / Sector Complexity) with
+  a time-horizon map scrubber, an Alerts table (onset/act-by/confidence/
+  sector), an Event & Dissipation panel (confidence ring, before/after
+  complexity, ranked candidates with a client-side solution lifecycle,
+  before/after component bars, what-if vertical/horizontal profiles),
+  a coordination-steps disclosure, and per-sector complexity charts
+- Design rationale, exact data-shape changes, and documented
+  simplifications (circular sectors, ephemeral client-side lifecycle,
+  no pre-configured sectors, "Act by" approximation):
+  `docs/milestone_9_hmi.md`
+- Verification: `tests/test_sector.py` (new, 11/11), extended
+  `test_dashboard.py` (81/81, was 70), full regression suite
+  (Milestones 3–9 combined): **288/288 checks pass**. Frontend verified
+  headlessly with `jsdom` against a real `/state` payload (poll cycle,
+  candidate/lifecycle/tab/scrubber interactions) — zero runtime errors.
+- Live demonstration: `python main.py --mock` (unchanged entry point;
+  sector tab shows its "not configured" placeholder unless
+  `ASTRAConfig.sectors` is populated)
+
 ---
 
 ## Remaining work
 
-**All 8 milestones are complete.** No further work is currently
+**All 9 milestones are complete.** No further work is currently
 planned for this prototype. Natural next steps, out of scope for this
 prototype and explicitly not started (see `docs/milestone_8_dashboard.md`
-"Explicit non-goals" and `docs/architecture.md` §6.8): a live-BlueSky
-demonstration run (vs. today's mock-mode demonstrations), and an
-RL-based `ResolutionEngine` replacement or supplement. Both were
-designed for from Milestone 8's API boundary but neither is built.
+"Explicit non-goals", `docs/milestone_9_hmi.md` "Explicit
+simplifications", and `docs/architecture.md` §6.8): a live-BlueSky
+demonstration run (vs. today's mock-mode demonstrations), an RL-based
+`ResolutionEngine` replacement or supplement, a persisted/multi-user
+solution lifecycle, and real polygon sectorization in place of the
+circular `SectorDefinition` approximation.

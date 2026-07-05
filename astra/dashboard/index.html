@@ -2,20 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>ASTRA &mdash; Live Dashboard</title>
+    <title>ASTRA &mdash; Tactical FMP HMI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
 </head>
 <body>
     <!--
-        Milestone 8 HMI shell. Per the reference ASTRA FRD's HMI
-        requirements (docs/milestone_8_dashboard_design_review.md):
-        a live traffic/projection panel, a 4DARHAC hotspot table with
-        onset/peak/dissipation timeline, and a ranked-resolution panel.
-        Everything below is a read-only view onto /state -- this page
-        never issues a clearance or command anywhere.
+        Milestone 9 HMI shell. A modern interpretation of the reference
+        ASTRA HMI (docs/milestone_9_hmi.md, EUROCONTROL D2.10 Section 2),
+        not a pixel copy. Read-only view onto /state -- this page never
+        issues a clearance or command.
     -->
     <header id="hmi-header">
-        <h1>ASTRA &mdash; Live Dashboard</h1>
+        <div id="hmi-brand">
+            <h1>ASTRA</h1>
+            <span id="hmi-subtitle">Tactical FMP Hotspot Prediction &amp; Resolution</span>
+        </div>
+        <nav id="hmi-tabs">
+            <button class="tab-btn active" data-tab="tab-operations">Operations</button>
+            <button class="tab-btn" data-tab="tab-sectors">Sector Complexity</button>
+        </nav>
         <div id="hmi-status">
             <span id="status-badge" class="badge badge-waiting">WAITING</span>
             <span id="status-time">t = &ndash;</span>
@@ -23,29 +28,36 @@
         </div>
     </header>
 
-    <main id="hmi-grid">
-        <section id="panel-map" class="panel">
-            <h2>Traffic &amp; Predicted Trajectories</h2>
-            <canvas id="map-canvas" width="720" height="560"></canvas>
+    <main id="tab-operations" class="tab-page active">
+        <section id="panel-map" class="panel panel-map">
+            <div class="panel-head">
+                <h2>Traffic Projection Display</h2>
+                <div id="horizon-scrubber" class="scrubber">
+                    <span class="scrubber-label">Horizon</span>
+                    <input type="range" id="horizon-range" min="0" max="0" step="1" value="0">
+                    <span id="horizon-value" class="scrubber-value">observed</span>
+                </div>
+            </div>
+            <canvas id="map-canvas" width="720" height="520"></canvas>
             <p class="panel-hint">
-                Aircraft (observed) &middot; dashed predicted paths (5&ndash;60 min)
-                &middot; shaded circles = 4DARHAC complexity regions
+                Solid marker = traffic at the scrubbed horizon &middot; faint line = full predicted path
+                &middot; shaded circle = 4DARHAC complexity &middot; dashed grey circle = sector boundary
             </p>
         </section>
 
-        <section id="panel-tracks" class="panel">
-            <h2>4DARHAC Hotspots</h2>
+        <section id="panel-alerts" class="panel panel-alerts">
+            <h2>Alerts</h2>
             <table id="tracks-table">
                 <thead>
                     <tr>
                         <th>ARHAC</th>
                         <th>Status</th>
-                        <th>Urgency</th>
-                        <th>Priority</th>
-                        <th>Peak</th>
+                        <th>Onset in</th>
+                        <th>Act by</th>
+                        <th>Flights</th>
+                        <th>Sector</th>
+                        <th>Complexity</th>
                         <th>Confidence</th>
-                        <th>Members</th>
-                        <th>Best clearance</th>
                     </tr>
                 </thead>
                 <tbody id="tracks-tbody">
@@ -54,14 +66,62 @@
             </table>
         </section>
 
-        <section id="panel-timeline" class="panel">
+        <section id="panel-event" class="panel panel-event">
+            <h2>Event &amp; Dissipation Analysis</h2>
+            <div id="event-empty" class="panel-hint">Select an alert above to inspect its dissipation options.</div>
+            <div id="event-body" class="hidden">
+                <div class="event-top">
+                    <div id="complexity-reduction" class="complexity-reduction"></div>
+                    <div id="candidate-list" class="candidate-list"></div>
+                </div>
+                <div class="event-bottom">
+                    <div class="whatif-block">
+                        <h3>Vertical profile (altitude)</h3>
+                        <svg id="whatif-vertical" viewBox="0 0 420 140"></svg>
+                    </div>
+                    <div class="whatif-block">
+                        <h3>Horizontal profile</h3>
+                        <svg id="whatif-horizontal" viewBox="0 0 420 140"></svg>
+                    </div>
+                    <div class="component-block">
+                        <h3>Complexity components (before / after)</h3>
+                        <div id="component-bars"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="panel-timeline" class="panel panel-timeline">
             <h2>Onset &middot; Peak &middot; Dissipation Timeline</h2>
             <div id="timeline-list"></div>
         </section>
 
-        <section id="panel-resolutions" class="panel">
-            <h2>Ranked Resolution Candidates</h2>
-            <div id="resolutions-list"></div>
+        <section id="panel-coordination" class="panel panel-coordination">
+            <button id="coordination-toggle" class="collapsible-toggle">Coordination steps (outside ASTRA) &#9662;</button>
+            <div id="coordination-body" class="collapsible-body hidden">
+                <p>
+                    ASTRA is advisory-only: it never issues a clearance. Once an FMP accepts a
+                    dissipation candidate here, the following steps happen outside this tool,
+                    by phone/radio, per current ATFCM practice:
+                </p>
+                <ol>
+                    <li>FMP-E coordinates the accepted solution with the ACC supervisor (SUP-E).</li>
+                    <li>FMP-E coordinates with FMP-A at the affected upstream ACC(s).</li>
+                    <li>FMP-A briefs the planner controller (PLC-A) of the affected sector.</li>
+                    <li>PLC-A instructs the executive controller (EC-A), who issues the clearance to the pilot.</li>
+                </ol>
+            </div>
+        </section>
+    </main>
+
+    <main id="tab-sectors" class="tab-page">
+        <section class="panel panel-sectors-full">
+            <h2>Sector Complexity Charts</h2>
+            <p class="panel-hint">
+                Rolling 5-minute complexity history per fixed sector (opt-in; configure
+                <code>ASTRAConfig.sectors</code> to populate this page).
+            </p>
+            <div id="sector-charts"></div>
         </section>
     </main>
 

@@ -29,6 +29,7 @@ flowchart TD
 
         subgraph CM["astra/complexity  ── Milestone 4 COMPLETE"]
             CX["ComplexityEngine\n· density · MTCA/LTCA conflicts (CPA)\n· heading diversity (circular std dev)\n· altitude diversity · type mixture\n· → ComplexityRegion, score 0–100"]
+            SECT["SectorComplexityEngine (M9)\n· reuses ComplexityEngine on a\n  synthetic per-sector Cluster\n· rolling 5-min-bucket history\n· opt-in — no-op if no sectors configured"]
         end
 
         subgraph TRK["astra/tracking  ── Milestone 5 COMPLETE"]
@@ -43,8 +44,8 @@ flowchart TD
             RES["ResolutionEngine\n· candidate generation (speed / FL / heading)\n· hypothetical-snapshot replay via\n  TrajectoryEngine → ClusterEngine → ComplexityEngine\n· weighted score: complexity Δ · deviation · fuel proxy\n· stateless — reads tracks, does not own them"]
         end
 
-        subgraph DB["astra/dashboard  ── Milestone 8 COMPLETE"]
-            DASH["Dashboard (Flask, read-only)\n· live traffic map\n· predicted trajectories\n· 4DARHAC heatmap + table + timeline\n· ranked AI resolution candidates\n· advisory display only — no clearances issued"]
+        subgraph DB["astra/dashboard  ── Milestone 8 COMPLETE (redesigned M9)"]
+            DASH["Dashboard (Flask, read-only)\n· live traffic map + horizon scrubber\n· 4DARHAC alerts + event/dissipation panel\n· ranked AI resolution candidates + what-if\n· sector complexity charts (opt-in)\n· advisory display only — no clearances issued"]
         end
     end
 
@@ -504,3 +505,59 @@ mobile/responsive layout requirement; no real-time collaborative
 coordination features; no historical replay/scrubbing beyond today's
 live-only heatmap; no websocket/push channel (polling only); no change
 to any Milestone 1–7 package's public API.
+
+### 6.9 Milestone 9 build plan (as built)
+
+> See `docs/milestone_9_hmi.md` for the full as-built rationale and
+> verification results.
+
+**Module:** `astra/complexity/sector.py` (new) — `SectorComplexityEngine`,
+which reuses the *unmodified* `ComplexityEngine` on a synthetic
+per-sector `Cluster` (every aircraft inside a configured circle) each
+cycle, plus a rolling per-sector `SectorComplexitySample` history
+buffer. `SectorDefinition` itself lives in `astra.utils.config` (not
+this module) to avoid a circular import (`sector.py` needs
+`ASTRAConfig`; `ASTRAConfig.sectors` needs the type).
+
+**Resolution change:** `astra/resolution/models.py` /
+`engine.py` — `ResolutionCandidate` now also carries
+`complexity_before_components`, `complexity_after_components`, and
+`hypothetical_prediction` — all three already computed inside
+`_evaluate()` to score the candidate, previously discarded, now kept
+and exposed (same "hoist an existing value up one level" pattern as
+Milestone 8's `CycleResult.prediction` fix).
+
+**Pipeline change:** `astra/pipeline.py` owns one
+`SectorComplexityEngine` instance (same ownership pattern as
+`TrackerEngine`); `CycleResult` gained `sector_regions: Dict[str,
+ComplexityRegion]` and `sector_history: Dict[str,
+List[SectorComplexitySample]]`, both `default_factory=dict` — a no-op
+for any config with no sectors defined, so no earlier milestone's
+behaviour changes.
+
+**Config additions (`ASTRAConfig`, Phase 9 section):** `sectors:
+List[SectorDefinition]` (default `[]`, opt-in), `sector_bucket_s`
+(default `300.0`), `sector_history_buckets` (default `24`) — all
+validated (unique sector names, positive radius/bucket/history count).
+
+**Dashboard:** `serializers.py` gained
+`serialize_sector_regions`/`serialize_sector_history` and extended
+`serialize_resolution_candidate`; `/state`'s top-level payload gained
+`sector_regions`/`sector_history` keys. The frontend
+(`astra/dashboard/{index.html,dashboard.css,dashboard.js}`) was
+rewritten into a tabbed HMI (Operations / Sector Complexity) — see
+`docs/milestone_9_hmi.md` for the full panel-by-panel rationale.
+
+**Verification:** `tests/test_sector.py` (new), 11/11 checks pass.
+`tests/test_dashboard.py` extended to 81/81 (was 70/70). Combined with
+Milestones 3–8 (24/24, 42/42, 44/44, 47/47, 39/39, 70/70 → 81/81):
+288/288. Frontend additionally verified headlessly with `jsdom` against
+a real `/state` payload (see `docs/milestone_9_hmi.md`).
+
+**Explicit non-goals for Milestone 9:** sectors are circles, not real
+ANSP polygons; the solution lifecycle is client-side/ephemeral, not a
+new persisted backend concept; no sectors are pre-configured in
+`main.py`'s `DEFAULT_CONFIG` (the sector tab is empty until a config
+defines some); "Act by" is approximated as `predicted_onset_s` itself,
+not a distinct backend-modelled action window; no change to any
+Milestone 1–8 package's public API beyond the additive fields above.
