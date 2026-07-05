@@ -206,12 +206,59 @@ body {
     color: var(--text);
 }
 
+.layer-toggles {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 10px;
+    color: var(--text-dim);
+}
+
+.layer-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.layer-toggle input {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
 #map-canvas {
     width: 100%;
     height: 480px;
     background: #060a0f;
     border: 1px solid var(--grid-line);
     border-radius: 3px;
+}
+
+.map-stack {
+    position: relative;
+    width: 100%;
+    height: 480px;
+}
+
+.map-stack canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#map-canvas {
+    z-index: 1;
+}
+
+#map-traffic-canvas {
+    z-index: 2;
+    background: transparent;
+    border: none;
+    pointer-events: none;
 }
 
 /* ---------------------------------------------------------------- */

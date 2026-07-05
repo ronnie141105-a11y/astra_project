@@ -29,6 +29,37 @@
 
     const LIFECYCLE_STAGES = ["DRAFT", "PROPOSED", "ACKNOWLEDGED", "CANCELED"];
 
+    // Shared geo-overlay layer manager (FIRs/sectors/airways/waypoints/
+    // airports/coastlines) -- see geo_layers.js. Own module, own data
+    // files; this dashboard only owns *when* to draw it (in renderMap)
+    // and the toggle checkboxes' UI chrome.
+    const geoLayers = new GeoLayerManager(window.ASTRA_GEO_MANIFEST_URL);
+
+    function setupGeoLayerToggles() {
+        const container = document.getElementById("map-layer-toggles");
+        if (!container) {
+            return;
+        }
+        container.innerHTML = geoLayers
+            .getToggleList()
+            .map(
+                (l) => `
+            <label class="layer-toggle">
+                <input type="checkbox" data-layer-id="${l.id}" ${l.visible ? "checked" : ""}>
+                ${l.label}
+            </label>`
+            )
+            .join("");
+        container.querySelectorAll("input[data-layer-id]").forEach((input) => {
+            input.addEventListener("change", () => {
+                geoLayers.setVisible(input.dataset.layerId, input.checked);
+                if (window.__astraLastCycle) {
+                    renderMap(window.__astraLastCycle);
+                }
+            });
+        });
+    }
+
     // ------------------------------------------------------------------
     // Small shared helpers
     // ------------------------------------------------------------------
@@ -87,6 +118,88 @@
         const dLat = (lat2 - lat1) * 60; // 1 deg lat ~= 60 NM
         const dLon = (lon2 - lon1) * 60 * Math.cos((lat1 * Math.PI) / 180);
         return Math.sqrt(dLat * dLat + dLon * dLon);
+    }
+
+    /** Format a countdown (seconds) as a live-ticking mm:ss, or "-" if unknown/past. */
+    function countdownFmt(seconds) {
+        if (seconds === null || seconds === undefined || seconds < 0) {
+            return "-";
+        }
+        const total = Math.round(seconds);
+        const m = String(Math.floor(total / 60)).padStart(2, "0");
+        const s = String(total % 60).padStart(2, "0");
+        return `${m}:${s}`;
+    }
+
+    /** Bucket a track's onset-in-seconds into an urgency tier, shared by the
+     * alerts table's `onsetClass()` row styling and the map's hotspot-ring /
+     * aircraft-highlight styling -- one urgency definition, several renderers. */
+    function urgencyBucket(onsetInS) {
+        if (onsetInS === null || onsetInS === undefined) {
+            return "none";
+        }
+        if (onsetInS <= 300) {
+            return "soon";
+        }
+        if (onsetInS <= 900) {
+            return "near";
+        }
+        return "far";
+    }
+
+    /** Urgency tier -> a CSS colour, shared by hotspot rings and aircraft highlight labels. */
+    function urgencyColor(bucket) {
+        switch (bucket) {
+            case "soon":
+                return "#e0553c"; // --red
+            case "near":
+                return "#e0a63c"; // --amber
+            case "far":
+                return "#4a90a4"; // --blue
+            default:
+                return "#8494a2"; // neutral, no active track
+        }
+    }
+
+    /** Find the open track (if any) whose centroid is closest to a given
+     * lat/lon, for tying a map element (hotspot ring, aircraft) back to the
+     * track whose forecast should drive its urgency styling. `maxNm` bounds
+     * the match so distant tracks never "claim" an unrelated element. */
+    function nearestTrack(lat, lon, tracks, maxNm) {
+        let best = null;
+        let bestDist = maxNm;
+        tracks.forEach((t) => {
+            if (t.status === "CLOSED" || !t.centroid) {
+                return;
+            }
+            const d = roughDistanceNm(lat, lon, t.centroid.lat, t.centroid.lon);
+            if (d < bestDist) {
+                bestDist = d;
+                best = t;
+            }
+        });
+        return best;
+    }
+
+    /** `{callsign: {color, bucket}}` for every aircraft belonging to an open
+     * track, for the map's aircraft-marker highlight colour. Built once per
+     * poll cycle and reused every animation frame (cheap dict lookup) rather
+     * than recomputed per marker per frame. */
+    function buildAircraftHighlightMap(cycle) {
+        const nowS = cycle.snapshot.timestamp_s;
+        const map = {};
+        cycle.tracks.forEach((t) => {
+            if (t.status === "CLOSED") {
+                return;
+            }
+            const onsetInS = t.predicted_onset_s === null ? null : t.predicted_onset_s - nowS;
+            const bucket = urgencyBucket(onsetInS);
+            const color = urgencyColor(bucket);
+            t.member_aircraft.forEach((callsign) => {
+                map[callsign] = { color, bucket };
+            });
+        });
+        return map;
     }
 
     // ------------------------------------------------------------------
@@ -171,6 +284,31 @@
     // Map panel (plan view: traffic at scrubbed horizon + full predicted paths)
     // ------------------------------------------------------------------
 
+    /** Walk any GeoJSON geometry, calling `fn([lon, lat])` for every coordinate pair. */
+    function forEachCoordinate(geometry, fn) {
+        if (!geometry) {
+            return;
+        }
+        switch (geometry.type) {
+            case "Point":
+                fn(geometry.coordinates);
+                break;
+            case "MultiPoint":
+            case "LineString":
+                geometry.coordinates.forEach(fn);
+                break;
+            case "Polygon":
+            case "MultiLineString":
+                geometry.coordinates.forEach((ring) => ring.forEach(fn));
+                break;
+            case "MultiPolygon":
+                geometry.coordinates.forEach((poly) => poly.forEach((ring) => ring.forEach(fn)));
+                break;
+            default:
+                break;
+        }
+    }
+
     function computeBounds(cycle) {
         const lats = [];
         const lons = [];
@@ -193,6 +331,17 @@
         Object.values(cycle.sector_regions || {}).forEach((region) => {
             lats.push(region.cluster.centroid_lat);
             lons.push(region.cluster.centroid_lon);
+        });
+        geoLayers.layers.forEach((layer) => {
+            if (!layer.visible) {
+                return;
+            }
+            (layer.geojson.features || []).forEach((feature) => {
+                forEachCoordinate(feature.geometry, ([lon, lat]) => {
+                    lats.push(lat);
+                    lons.push(lon);
+                });
+            });
         });
         if (lats.length === 0) {
             return { minLat: -1, maxLat: 1, minLon: -1, maxLon: 1 };
@@ -223,7 +372,9 @@
     }
 
     function drawGrid(ctx, width, height) {
-        ctx.strokeStyle = "#1c2732";
+        // Faint square reference grid (kept subtle -- the range rings below
+        // are the primary "this is a radar" visual cue).
+        ctx.strokeStyle = "#141c24";
         ctx.lineWidth = 1;
         for (let i = 1; i < 8; i++) {
             const x = (width / 8) * i;
@@ -235,6 +386,25 @@
             ctx.lineTo(width, y);
             ctx.stroke();
         }
+
+        // Concentric range rings + crosshair, centred on the canvas --
+        // the classic ATC radar cue that a square lat/lon grid doesn't give.
+        const cx = width / 2;
+        const cy = height / 2;
+        const maxR = Math.min(width, height) / 2 - 6;
+        ctx.strokeStyle = "#1c2a35";
+        ctx.lineWidth = 1;
+        for (let i = 1; i <= 4; i++) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, (maxR / 4) * i, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(cx - maxR, cy);
+        ctx.lineTo(cx + maxR, cy);
+        ctx.moveTo(cx, cy - maxR);
+        ctx.lineTo(cx, cy + maxR);
+        ctx.stroke();
     }
 
     function drawSectorBoundaries(ctx, project, bounds, width, sectorRegions) {
@@ -259,7 +429,13 @@
         });
     }
 
-    function drawComplexityRegions(ctx, project, bounds, width, regions) {
+    /** Hotspot ring style now reflects onset urgency (reusing the same
+     * `urgencyBucket`/`urgencyColor` the alerts table and aircraft
+     * highlighting use), not just the current complexity score -- a
+     * hotspot 2 minutes from onset should look more alarming on the map
+     * than one 40 minutes out, even if their scores happen to match. */
+    function drawComplexityRegions(ctx, project, bounds, width, regions, cycle) {
+        const nowS = cycle.snapshot.timestamp_s;
         (regions || []).forEach((region) => {
             const [cx, cy] = project(region.cluster.centroid_lat, region.cluster.centroid_lon);
             const degPerNm = (bounds.maxLon - bounds.minLon) / 60;
@@ -268,16 +444,52 @@
                 (region.cluster.horizontal_extent_nm * degPerNm * width) /
                     (bounds.maxLon - bounds.minLon || 1)
             );
-            const color = complexityColor(region.complexity_score);
+            const track = nearestTrack(
+                region.cluster.centroid_lat,
+                region.cluster.centroid_lon,
+                cycle.tracks,
+                region.cluster.horizontal_extent_nm * 2 + 5
+            );
+            const onsetInS = track && track.predicted_onset_s !== null ? track.predicted_onset_s - nowS : null;
+            const bucket = urgencyBucket(onsetInS);
+            const ringColor = bucket === "none" ? complexityColor(region.complexity_score) : urgencyColor(bucket);
+            const dash = { soon: [], near: [6, 4], far: [3, 5], none: [3, 5] }[bucket];
+            const lineWidth = bucket === "soon" ? 2.5 : 1.5;
+
             ctx.beginPath();
-            ctx.fillStyle = color.replace("rgb", "rgba").replace(")", ", 0.18)");
+            ctx.fillStyle = ringColor.replace("rgb", "rgba").replace(")", ", 0.16)");
             ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
+            ctx.setLineDash(dash);
+            ctx.strokeStyle = ringColor;
+            ctx.lineWidth = lineWidth;
             ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.setLineDash([]);
+            // A soon-onset ring gets a second, slightly larger ring for a
+            // "target lock" look -- a static stand-in for a pulse animation
+            // that reads clearly even on a once-per-poll redraw.
+            if (bucket === "soon") {
+                ctx.beginPath();
+                ctx.strokeStyle = ringColor.replace("rgb", "rgba").replace(")", ", 0.4)");
+                ctx.lineWidth = 1;
+                ctx.arc(cx, cy, radiusPx + 5, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            if (track && track.forecast_urgency_rank) {
+                ctx.beginPath();
+                ctx.fillStyle = ringColor;
+                ctx.arc(cx + radiusPx - 4, cy - radiusPx + 4, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "#060a0f";
+                ctx.font = "bold 10px monospace";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(String(track.forecast_urgency_rank), cx + radiusPx - 4, cy - radiusPx + 5);
+                ctx.textAlign = "left";
+                ctx.textBaseline = "alphabetic";
+            }
         });
     }
 
@@ -302,28 +514,85 @@
         ctx.setLineDash([]);
     }
 
-    /** Draw traffic *at the scrubbed horizon*: observed triangle markers at
-     * horizon 0, plain position markers (no heading data) at future horizons. */
-    function drawScrubbedTraffic(ctx, project, cycle, horizonMin) {
-        if (horizonMin === 0) {
-            cycle.snapshot.aircraft.forEach((ac) => {
-                const [x, y] = project(ac.lat, ac.lon);
-                const headingRad = (ac.heading_deg * Math.PI) / 180;
-                ctx.save();
-                ctx.translate(x, y);
-                ctx.rotate(headingRad);
-                ctx.beginPath();
-                ctx.moveTo(0, -7);
-                ctx.lineTo(4, 6);
-                ctx.lineTo(-4, 6);
-                ctx.closePath();
-                ctx.fillStyle = "#35c3a3";
-                ctx.fill();
-                ctx.restore();
+    /** One aircraft marker: heading triangle + speed leader line (when
+     * heading/speed are known -- observed/interpolated traffic) or a plain
+     * dot (predicted-horizon points only carry a position, no heading), plus
+     * a boxed data-block label. This is the *only* place aircraft are
+     * drawn -- both the animated "now" layer and the horizon-scrubbed
+     * predicted layer call this, so the two never drift into two different
+     * looks for the same underlying concept.
+     *
+     * @param {object} ac - {callsign, lat, lon, altitude_ft, heading_deg?, ground_speed_kt?}
+     * @param {{color?: string, showHeading?: boolean}} opts
+     */
+    function drawAircraftMarker(ctx, project, ac, opts) {
+        const options = opts || {};
+        const color = options.color || "#35c3a3";
+        const [x, y] = project(ac.lat, ac.lon);
 
-                ctx.fillStyle = "#d7e2ea";
-                ctx.font = "11px monospace";
-                ctx.fillText(`${ac.callsign} FL${Math.round(ac.altitude_ft / 100)}`, x + 8, y + 3);
+        if (options.showHeading && ac.heading_deg !== undefined && ac.heading_deg !== null) {
+            const headingRad = (ac.heading_deg * Math.PI) / 180;
+            // Speed leader line -- standard radar "velocity vector": length
+            // scales with ground speed so a fast jet visibly reaches further
+            // ahead of its own symbol than a slow one, at a glance.
+            const gs = ac.ground_speed_kt || 0;
+            const leaderLen = Math.max(10, Math.min(40, gs / 10));
+            const lx = x + Math.sin(headingRad) * leaderLen;
+            const ly = y - Math.cos(headingRad) * leaderLen;
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.globalAlpha = 0.55;
+            ctx.lineWidth = 1;
+            ctx.moveTo(x, y);
+            ctx.lineTo(lx, ly);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(headingRad);
+            ctx.beginPath();
+            ctx.moveTo(0, -7);
+            ctx.lineTo(4, 6);
+            ctx.lineTo(-4, 6);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.restore();
+        } else {
+            ctx.beginPath();
+            ctx.fillStyle = color;
+            ctx.arc(x, y, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        const label = `${ac.callsign} FL${Math.round(ac.altitude_ft / 100)}`;
+        ctx.font = "11px monospace";
+        const textWidth = ctx.measureText(label).width;
+        const boxX = x + 8;
+        const boxY = y - 9;
+        ctx.fillStyle = "rgba(6, 10, 15, 0.72)";
+        ctx.fillRect(boxX - 3, boxY - 2, textWidth + 6, 16);
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = 0.7;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(boxX - 3, boxY - 2, textWidth + 6, 16);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#d7e2ea";
+        ctx.fillText(label, boxX, y + 3);
+    }
+
+    /** Traffic at the scrubbed horizon: observed/interpolated aircraft (with
+     * heading+leader line) at horizon 0, predicted-position dots (no
+     * heading data) at future horizons. Delegates every marker to
+     * `drawAircraftMarker` so both cases render identically apart from that. */
+    function drawScrubbedTraffic(ctx, project, cycle, horizonMin, aircraftHighlight, observedOverride) {
+        const highlight = aircraftHighlight || {};
+        if (horizonMin === 0) {
+            const list = observedOverride || cycle.snapshot.aircraft;
+            list.forEach((ac) => {
+                const h = highlight[ac.callsign];
+                drawAircraftMarker(ctx, project, ac, { color: h ? h.color : "#35c3a3", showHeading: true });
             });
             return;
         }
@@ -332,21 +601,53 @@
             if (!atHorizon) {
                 return;
             }
-            const [x, y] = project(atHorizon.lat, atHorizon.lon);
-            ctx.beginPath();
-            ctx.fillStyle = "#e0a63c";
-            ctx.arc(x, y, 5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = "#d7e2ea";
-            ctx.font = "11px monospace";
-            ctx.fillText(
-                `${callsign} FL${Math.round(atHorizon.altitude_ft / 100)}`,
-                x + 8,
-                y + 3
+            const h = highlight[callsign];
+            drawAircraftMarker(
+                ctx,
+                project,
+                { callsign, lat: atHorizon.lat, lon: atHorizon.lon, altitude_ft: atHorizon.altitude_ft },
+                { color: h ? h.color : "#e0a63c", showHeading: false }
             );
         });
     }
 
+    /** Linearly interpolate observed-aircraft positions between the previous
+     * and current poll, by wall-clock fraction elapsed -- purely a display
+     * smoothing (§ "smoother animations"); the backend still only ever
+     * ticks once per `poll_interval_s`, this just avoids the traffic layer
+     * visibly jumping every time it does. */
+    function interpolatedObservedAircraft() {
+        const cur = window.__astraLastCycle;
+        if (!cur) {
+            return [];
+        }
+        const curList = cur.snapshot.aircraft;
+        const prevList = ui.prevSnapshotAircraft;
+        if (!prevList) {
+            return curList;
+        }
+        const span = Math.max(1, ui.curCycleAtMs - ui.prevCycleAtMs);
+        const t = Math.max(0, Math.min(1, (performance.now() - ui.curCycleAtMs + span) / span));
+        const prevByCallsign = {};
+        prevList.forEach((ac) => {
+            prevByCallsign[ac.callsign] = ac;
+        });
+        return curList.map((ac) => {
+            const p = prevByCallsign[ac.callsign];
+            if (!p) {
+                return ac; // just spawned -- nothing to interpolate from
+            }
+            return Object.assign({}, ac, {
+                lat: p.lat + (ac.lat - p.lat) * t,
+                lon: p.lon + (ac.lon - p.lon) * t,
+            });
+        });
+    }
+
+    /** Static base layer -- background, geo overlays, sector/hotspot rings,
+     * faint predicted paths. Redrawn once per poll cycle (not per animation
+     * frame): nothing here depends on sub-poll-interval time, so redrawing
+     * it 60x/sec would just burn cycles for an identical picture. */
     function renderMap(cycle) {
         const canvas = document.getElementById("map-canvas");
         const ctx = canvas.getContext("2d");
@@ -356,13 +657,33 @@
 
         const bounds = computeBounds(cycle);
         const project = makeProjector(bounds, width, height);
+        // Cached for the traffic-overlay animation loop, which must reuse
+        // this exact projection rather than recompute bounds every frame
+        // (recomputing from interpolated positions would make the view
+        // visibly "breathe" as aircraft move).
+        ui.mapProject = project;
+        ui.aircraftHighlight = buildAircraftHighlightMap(cycle);
 
         drawGrid(ctx, width, height);
+        geoLayers.draw(ctx, project);
         drawSectorBoundaries(ctx, project, bounds, width, cycle.sector_regions);
         const regionsAtHorizon = cycle.regions_by_horizon[String(ui.selectedHorizon)] || [];
-        drawComplexityRegions(ctx, project, bounds, width, regionsAtHorizon);
+        drawComplexityRegions(ctx, project, bounds, width, regionsAtHorizon, cycle);
         drawFaintPredictedPaths(ctx, project, cycle);
-        drawScrubbedTraffic(ctx, project, cycle, ui.selectedHorizon);
+    }
+
+    /** Animated overlay -- aircraft markers only, redrawn every animation
+     * frame so horizon-0 traffic glides between polls instead of jumping. */
+    function renderTrafficOverlay() {
+        const canvas = document.getElementById("map-traffic-canvas");
+        const cycle = window.__astraLastCycle;
+        if (!canvas || !cycle || !ui.mapProject) {
+            return;
+        }
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const observed = ui.selectedHorizon === 0 ? interpolatedObservedAircraft() : null;
+        drawScrubbedTraffic(ctx, ui.mapProject, cycle, ui.selectedHorizon, ui.aircraftHighlight, observed);
     }
 
     // ------------------------------------------------------------------
@@ -370,16 +691,8 @@
     // ------------------------------------------------------------------
 
     function onsetClass(onsetInS) {
-        if (onsetInS === null) {
-            return "";
-        }
-        if (onsetInS <= 300) {
-            return "onset-soon";
-        }
-        if (onsetInS <= 900) {
-            return "onset-near";
-        }
-        return "onset-far";
+        const bucket = urgencyBucket(onsetInS);
+        return bucket === "none" ? "" : `onset-${bucket}`;
     }
 
     function nearestSectorName(track, cycle) {
@@ -428,7 +741,7 @@
         tbody.innerHTML = sorted
             .map((t) => {
                 const onsetInS = t.predicted_onset_s === null ? null : t.predicted_onset_s - nowS;
-                const onsetLabel = onsetInS === null ? "-" : `${Math.round(onsetInS / 60)} min`;
+                const onsetLabel = onsetInS === null ? "-" : countdownFmt(onsetInS);
                 const actByLabel = t.predicted_onset_s === null ? "-" : clockFmt(t.predicted_onset_s);
                 const complexityNow = t.current_complexity_score !== null ? t.current_complexity_score : t.peak_complexity;
                 const selected = t.arhac_id === ui.selectedArhacId ? "selected" : "";
@@ -862,6 +1175,12 @@
         setupTabs();
         setupCoordinationToggle();
         setupHorizonScrubber();
+        geoLayers.init().then(() => {
+            setupGeoLayerToggles();
+            if (window.__astraLastCycle) {
+                renderMap(window.__astraLastCycle);
+            }
+        });
         poll();
     });
 })();

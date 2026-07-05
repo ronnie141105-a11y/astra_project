@@ -33,16 +33,21 @@
         <section id="panel-map" class="panel panel-map">
             <div class="panel-head">
                 <h2>Traffic Projection Display</h2>
+                <div id="map-layer-toggles" class="layer-toggles"></div>
                 <div id="horizon-scrubber" class="scrubber">
                     <span class="scrubber-label">Horizon</span>
                     <input type="range" id="horizon-range" min="0" max="0" step="1" value="0">
                     <span id="horizon-value" class="scrubber-value">observed</span>
                 </div>
             </div>
-            <canvas id="map-canvas" width="720" height="520"></canvas>
+            <div id="map-stack" class="map-stack">
+                <canvas id="map-canvas" width="720" height="520"></canvas>
+                <canvas id="map-traffic-canvas" width="720" height="520"></canvas>
+            </div>
             <p class="panel-hint">
-                Solid marker = traffic at the scrubbed horizon &middot; faint line = full predicted path
-                &middot; shaded circle = 4DARHAC complexity &middot; dashed grey circle = sector boundary
+                Solid marker = traffic at the scrubbed horizon &middot; leader line = heading/speed vector
+                &middot; faint line = full predicted path &middot; shaded ring = 4DARHAC complexity
+                (ring style reflects onset urgency) &middot; dashed grey ring = sector boundary
             </p>
         </section>
 
@@ -129,9 +134,14 @@
     <script>
         // Server-provided constants -- the frontend never hard-codes
         // these (design review OQ-5(B): poll at poll_interval_s, not an
-        // arbitrary fixed cadence).
+        // arbitrary fixed cadence). Also true of the geo-manifest URL:
+        // this app's static prefix is derived from its folder name
+        // (`/dashboard/...`, not the Flask default `/static/...`), so
+        // geo_layers.js must be told the real URL rather than assume one.
         window.ASTRA_POLL_INTERVAL_S = {{ poll_interval_s }};
+        window.ASTRA_GEO_MANIFEST_URL = "{{ url_for('static', filename='geo/manifest.json') }}";
     </script>
+    <script src="{{ url_for('static', filename='geo_layers.js') }}"></script>
     <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 </body>
 </html>

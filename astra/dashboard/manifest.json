@@ -1,0 +1,67 @@
+{
+    "_meta": {
+        "description": "Registry of pluggable geographic overlays for the ASTRA map renderer (astra/dashboard/geo_layers.js). Each entry names a layer, its geometry kind, its data file, its default style, and whether it is shown by default. The renderer has ZERO hardcoded geometry -- it only knows how to draw whatever this manifest points it at. Layer files start out as empty GeoJSON FeatureCollections; converting the Vietnam AIP into these files (later) is the only step needed to populate the map -- no renderer/architecture change.",
+        "coordinate_order": "Every layer file is standard GeoJSON: coordinates are [lon, lat], not [lat, lon].",
+        "adding_a_layer": "To add a new overlay type, add one entry here plus one new (initially empty) FeatureCollection file. No JS change needed unless the geometry/marker kind is genuinely new (polygon/line/point are already generic)."
+    },
+    "layers": [
+        {
+            "id": "coastlines",
+            "label": "Coastlines",
+            "kind": "line",
+            "file": "geo/coastlines.json",
+            "default_visible": true,
+            "z_index": 0,
+            "style": { "stroke": "#2b3742", "width": 1, "dash": [] }
+        },
+        {
+            "id": "firs",
+            "label": "FIR boundaries",
+            "kind": "polygon",
+            "file": "geo/firs.json",
+            "default_visible": true,
+            "z_index": 1,
+            "label_field": "name",
+            "style": { "stroke": "#5a6b78", "fill": "rgba(90, 107, 120, 0.05)", "width": 1.5, "dash": [] }
+        },
+        {
+            "id": "sectors",
+            "label": "Sectors",
+            "kind": "polygon",
+            "file": "geo/sectors.json",
+            "default_visible": true,
+            "z_index": 2,
+            "label_field": "name",
+            "style": { "stroke": "#4a5866", "fill": "rgba(74, 88, 102, 0.05)", "width": 1, "dash": [5, 5] }
+        },
+        {
+            "id": "airways",
+            "label": "Airways",
+            "kind": "line",
+            "file": "geo/airways.json",
+            "default_visible": false,
+            "z_index": 3,
+            "style": { "stroke": "#33424e", "width": 1, "dash": [2, 4] }
+        },
+        {
+            "id": "waypoints",
+            "label": "Waypoints",
+            "kind": "point",
+            "file": "geo/waypoints.json",
+            "default_visible": false,
+            "z_index": 4,
+            "label_field": "name",
+            "style": { "marker": "star", "fill": "#8494a2", "size": 4 }
+        },
+        {
+            "id": "airports",
+            "label": "Airports",
+            "kind": "point",
+            "file": "geo/airports.json",
+            "default_visible": true,
+            "z_index": 5,
+            "label_field": "name",
+            "style": { "marker": "square", "fill": "#d7e2ea", "size": 3 }
+        }
+    ]
+}
