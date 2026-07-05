@@ -1,0 +1,35 @@
+{
+  "name": "merge",
+  "aircraft": [
+    {
+      "callsign": "HVN301",
+      "aircraft_type": "A359",
+      "lat": 11.82,
+      "lon": 105.67,
+      "heading_deg": 135.0,
+      "altitude_ft": 36000,
+      "ground_speed_kt": 470,
+      "vertical_speed_fpm": 0.0
+    },
+    {
+      "callsign": "VJC402",
+      "aircraft_type": "A321",
+      "lat": 11.82,
+      "lon": 107.67,
+      "heading_deg": 225.0,
+      "altitude_ft": 36000,
+      "ground_speed_kt": 460,
+      "vertical_speed_fpm": 0.0
+    },
+    {
+      "callsign": "PIC503",
+      "aircraft_type": "B789",
+      "lat": 9.42,
+      "lon": 106.67,
+      "heading_deg": 0.0,
+      "altitude_ft": 36000,
+      "ground_speed_kt": 480,
+      "vertical_speed_fpm": 0.0
+    }
+  ]
+}

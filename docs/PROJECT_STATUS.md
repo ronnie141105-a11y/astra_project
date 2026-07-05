@@ -255,9 +255,7 @@ for design decisions and conventions.
 
 **All 9 milestones are complete.** No further work is currently
 planned for this prototype. Natural next steps, out of scope for this
-prototype and explicitly not started (see `docs/milestone_8_dashboard.md`
-"Explicit non-goals", `docs/milestone_9_hmi.md` "Explicit
-simplifications", and `docs/architecture.md` §6.8): a live-BlueSky
+prototype and explicitly not started: a live-BlueSky
 demonstration run (vs. today's mock-mode demonstrations), an RL-based
 `ResolutionEngine` replacement or supplement, a persisted/multi-user
 solution lifecycle, and real polygon sectorization in place of the

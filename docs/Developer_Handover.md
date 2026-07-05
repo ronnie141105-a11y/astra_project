@@ -83,14 +83,6 @@ astra_project/
 │
 ├── docs/
 │   ├── architecture.md            Mermaid diagrams (full system + dep graph + domain model)
-│   ├── milestone_3_hotspot.md     Milestone 3 design rationale
-│   ├── milestone_4_complexity.md  Milestone 4 design rationale
-│   ├── milestone_5_tracking.md    Milestone 5 design rationale
-│   ├── milestone_6_forecast.md    Milestone 6 design rationale
-│   ├── milestone_6_forecast_design_review.md  Milestone 6 original design review (approved)
-│   ├── milestone_7_resolution.md  Milestone 7 design rationale (as built)
-│   ├── milestone_8_dashboard_design_review.md  Milestone 8 original design review (superseded)
-│   ├── milestone_8_dashboard.md   Milestone 8 design rationale (as built)
 │   ├── PROJECT_STATUS.md          Overall milestone status
 │   └── Developer_Handover.md      This file
 │
@@ -98,13 +90,6 @@ astra_project/
 │   └── phase1_demo.scn        BlueSky scenario file (4 aircraft, live mode)
 │
 ├── tests/
-│   ├── demo_phase1.py             Offline demo: 5 aircraft, full snapshot print
-│   ├── demo_trajectory.py         Offline demo: trajectory prediction tables
-│   ├── demo_hotspot.py            Offline demo: cluster detection
-│   ├── demo_complexity.py         Offline demo: complexity assessment
-│   ├── demo_tracking.py           Offline demo: 4DARHAC tracking lifecycle
-│   ├── demo_forecast.py           Offline demo: 4DARHAC forecast (onset/peak/dissipation)
-│   ├── demo_resolution.py         Offline demo: AI resolution candidate ranking
 │   ├── test_hotspot.py            Milestone 3 regression suite (24 checks)
 │   ├── test_complexity.py         Milestone 4 regression suite (42 checks)
 │   ├── test_tracking.py           Milestone 5 regression suite (44 checks)
@@ -179,42 +164,6 @@ BlueSky console or a third terminal:
 IC scenarios/phase1_demo.scn
 ```
 
-### Option C — offline demonstration scripts
-
-```bash
-python tests/demo_phase1.py       # Milestone 1 — state interface
-python tests/demo_trajectory.py   # Milestone 2 — trajectory prediction
-python tests/demo_hotspot.py      # Milestone 3 — cluster detection
-python tests/demo_complexity.py   # Milestone 4 — complexity assessment
-python tests/demo_tracking.py     # Milestone 5 — 4DARHAC tracking
-python tests/demo_forecast.py     # Milestone 6 — 4DARHAC forecast
-python tests/demo_resolution.py   # Milestone 7 — AI resolution framework
-```
-
-`demo_phase1.py` creates 5 aircraft across Swiss/German upper airspace,
-polls five times (each tick = 60 simulated seconds), and prints a
-formatted `TrafficSnapshot` with inter-aircraft separations. The
-Milestone 3/4 demos each run a high- and low-complexity scenario across
-the observed snapshot and every predicted horizon. `demo_tracking.py`
-drives several manual `poll()` cycles with scripted stack commands to
-show a `FourDArhac` moving through its full lifecycle (`CANDIDATE →
-CONFIRMED → GROWING → PEAK → DISSIPATING → CLOSED`). `demo_forecast.py`
-extends that same scripted scenario, running `ForecastEngine` alongside
-`TrackerEngine` each cycle to print predicted onset/peak/dissipation
-times, confidence, and urgency rank. `demo_resolution.py` uses a
-converging 3-aircraft geometry (observed complexity below the forecast
-onset threshold, 5-minute predicted horizon above it) so
-`ResolutionEngine` has an eligible track from the first confirmed cycle,
-printing ranked candidate clearances (speed / FL / heading) each cycle.
-None require BlueSky; each completes in under one second.
-
-Milestone 8 has no separate `demo_dashboard.py` — `main.py` (Option A/B
-above) *is* its live, browser-visible demonstration; a second script
-driving the same scenario through the same `Pipeline` would only
-duplicate it. Open `http://127.0.0.1:8050/` while `python main.py
---mock` runs to see the live map, hotspot table, timeline, and ranked
-resolution candidates update every `poll_interval_s`.
-
 ---
 
 ## Running the verification suite
@@ -276,86 +225,6 @@ python tests/test_dashboard.py    # Milestone 8 — 70/70 checks PASS
 
 **Grand total across all eight milestones: 396/396 checks pass.**
 
----
-
-## Key design decisions
-
-### 1. Anti-corruption layer (`astra/interface`)
-
-`BlueSkyConnector` is the ONLY file allowed to import from `bluesky.*`.
-Everything outside `interface/` receives `TrafficSnapshot` / `AircraftState`
-objects — plain frozen dataclasses with zero BlueSky dependency. This is
-enforced by V3 and means swapping BlueSky for another simulator requires
-changing exactly one file.
-
-### 2. `typing.Protocol` for connector interface
-
-`BlueSkyConnector` already inherits from BlueSky's `Client`. Adding another
-explicit base class (ABC) would risk MRO collisions with BlueSky's own
-metaclass machinery. `ConnectorProtocol` uses structural subtyping instead:
-both connectors satisfy it automatically through duck typing.
-
-### 3. Dependency injection in `StateReader`
-
-`StateReader.__init__` accepts any `ConnectorProtocol`. Factory classmethods
-(`for_bluesky()`, `for_mock()`) provide convenient one-liners for the two
-common cases. This makes every downstream phase (trajectory, hotspot, ...)
-testable without a running BlueSky process.
-
-### 4. `AircraftState` is frozen
-
-An aircraft state is a historical fact. Making it immutable prevents any
-later phase from accidentally modifying a snapshot that is also stored in
-the history buffer. Predicted future states (Phase 2) are new `AircraftState`
-objects rather than mutations of current ones.
-
-### 5. Aircraft type workaround
-
-BlueSky's `ACDATA` publish function (`bluesky.simulation.screenio`) does not
-include the aircraft type string. This was verified by reading the installed
-package source. `TypeRegistry` caches `callsign → type` at `create_aircraft()`
-time. Aircraft created by hand-written scenario files (not through ASTRA)
-receive `aircraft_type = "UNKNOWN"`.
-
-### 6. `geodesy.py` in Phase 1
-
-`MockConnector.poll()` propagates positions via `move_position()` — so the
-geodesy module is needed in Phase 1, not Phase 3. Placing it in `utils/`
-also means Phase 3's DBSCAN implementation can import it without creating a
-dependency from `hotspot` on `trajectory`.
-
----
-
-## Phase 2 — trajectory prediction (complete)
-
-Phase 2 is implemented in `astra/trajectory/`:
-
-```python
-from astra.trajectory.engine import TrajectoryEngine
-from astra.trajectory.models import PredictedSnapshot, PredictionResult
-```
-
-`TrajectoryEngine(config)` takes a `TrafficSnapshot` (from
-`StateReader.current()` / `.poll()`) and returns a `PredictionResult`
-containing one `PredictedSnapshot` per horizon in
-`ASTRAConfig.prediction_horizons_min` (default: 5, 10, 15, 30, 60 minutes).
-
-The model is deterministic constant-velocity dead-reckoning: horizontal
-displacement reuses `astra.utils.geodesy.move_position()` — the same
-function `MockConnector.poll()` uses — and vertical displacement is linear
-extrapolation from `vertical_speed_fpm`. This means a prediction at horizon
-H minutes is mathematically reproducible against H×60/`sim_step_s`
-`MockConnector.poll()` calls, which is how the engine was numerically
-verified.
-
-`PredictedSnapshot` mirrors the `TrafficSnapshot` accessor API (`get()`,
-`as_list()`, `callsigns()`, `__len__`, `__iter__`) by design, so Milestone 3
-(DBSCAN clustering) consumes predicted and observed snapshots through
-identical code paths — confirmed by `test_hotspot.py`'s API-parity check.
-
-Run `python tests/demo_trajectory.py` for a worked example.
-
----
 
 ## Architecture review (July 2026) — 4DARHAC domain model
 

@@ -29,36 +29,11 @@ open-source Air Traffic Simulator.
 > clustering with the stateful problem of tracking a 4DARHAC's identity
 > across prediction horizons and poll cycles. See
 > [`docs/architecture.md §6`](docs/architecture.md#6-4darhac-domain-model-and-revised-pipeline)
-> for the domain model and rationale, and `docs/milestone_3_hotspot.md` /
-> `docs/milestone_4_complexity.md` / `docs/milestone_5_tracking.md` /
-> `docs/milestone_6_forecast.md` / `docs/milestone_7_resolution.md` /
-> `docs/milestone_8_dashboard.md` for the as-built design of Milestones 3–8.
+
 
 ---
 
 ## Quick start
-
-### Offline demos (no BlueSky needed)
-
-```bash
-pip install -r requirements.txt
-python tests/demo_phase1.py         # Milestone 1 — state interface
-python tests/demo_trajectory.py     # Milestone 2 — trajectory prediction
-python tests/demo_hotspot.py        # Milestone 3 — cluster detection
-python tests/demo_complexity.py     # Milestone 4 — complexity assessment
-python tests/demo_tracking.py       # Milestone 5 — 4DARHAC tracking
-python tests/demo_forecast.py       # Milestone 6 — 4DARHAC forecast
-python tests/demo_resolution.py     # Milestone 7 — AI resolution framework
-```
-
-Run each from the project root (all demo scripts add the project root to
-`sys.path` themselves).
-
-Each script is self-contained: it creates a small synthetic traffic
-scenario with `MockConnector`, runs that milestone's pipeline stage (and
-every stage before it), and prints formatted results to the console.
-Milestone 8 has no `demo_dashboard.py` — its live demonstration is
-`main.py` itself (see "Main loop — mock mode" below).
 
 ### Regression tests
 
@@ -123,22 +98,7 @@ astra/
     utils/              Config, unit conversion, geodesy, logging
 
 docs/architecture.md            System architecture + Mermaid diagrams
-docs/milestone_3_hotspot.md     Milestone 3 design rationale
-docs/milestone_4_complexity.md  Milestone 4 design rationale
-docs/milestone_5_tracking.md    Milestone 5 design rationale
-docs/milestone_6_forecast.md    Milestone 6 design rationale
-docs/milestone_7_resolution.md  Milestone 7 design rationale (as built)
-docs/milestone_8_dashboard_design_review.md  Milestone 8 original design review (superseded)
-docs/milestone_8_dashboard.md   Milestone 8 design rationale (as built)
-tests/                          Regression tests + offline demos (Milestones 1–8)
-tests/demo_phase1.py            Milestone 1 offline demonstration
-tests/demo_trajectory.py        Milestone 2 offline demonstration
-tests/demo_hotspot.py           Milestone 3 offline demonstration
-tests/demo_complexity.py        Milestone 4 offline demonstration
-tests/demo_tracking.py          Milestone 5 offline demonstration
-tests/demo_forecast.py          Milestone 6 offline demonstration
-tests/demo_resolution.py        Milestone 7 offline demonstration
-tests/test_dashboard.py         Milestone 8 regression suite (70 checks)
+tests/                          Regression tests (Milestones 1–8)
 main.py                         Real application entry point (python main.py [--mock] [--no-dashboard])
 docs/Developer_Handover.md      Full developer guide, design decisions, conventions
 docs/PROJECT_STATUS.md          Overall milestone status
@@ -196,10 +156,4 @@ See `astra/utils/config.py` for the full field list (validated in
 | `README.md` | This file — setup and usage |
 | `docs/Developer_Handover.md` | Full developer guide, design decisions, conventions |
 | `docs/architecture.md` | Mermaid system architecture diagrams + domain model |
-| `docs/milestone_3_hotspot.md` | Milestone 3 (cluster detection) design rationale |
-| `docs/milestone_4_complexity.md` | Milestone 4 (complexity assessment) design rationale |
-| `docs/milestone_5_tracking.md` | Milestone 5 (4DARHAC tracking) design rationale |
-| `docs/milestone_6_forecast.md` | Milestone 6 (4DARHAC forecast) design rationale |
-| `docs/milestone_7_resolution.md` | Milestone 7 (AI resolution) design rationale (as built) |
-| `docs/milestone_8_dashboard.md` | Milestone 8 (dashboard / HMI) design rationale (as built) |
 | `docs/PROJECT_STATUS.md` | Overall milestone status |
