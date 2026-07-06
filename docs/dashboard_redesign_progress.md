@@ -19,15 +19,25 @@ during the redesign.
 - Phase in progress: **HMI redesign**, driven by
   `ASTRA_report_HMI_pictures.pdf` (EUROCONTROL D2.10 Annex A.8 — Figures
   24-35), treated as the UI/UX spec, not documentation to summarize.
-- **Status: feature audit complete (this document, §2). No redesign
-  code has been written yet** — per instruction, coding does not start
-  until the audit is reviewed.
-- A separate, already-started thread of work: making the map's
-  geographic layers (FIR/sector/airway/waypoint/airport) pluggable and
-  JSON-file-driven, with **no Vietnam geometry hardcoded**, so the AIP
-  can be dropped in later without an architecture change. Track that
-  work in §3 below; it is scoped independently of the figure audit but
-  the Traffic Projection Display (Fig 32) is its main consumer.
+- **Status:**
+  1. Feature audit — **done** (§2).
+  2. Map architecture (pluggable geo-layers) — **done** (§3).
+  3. Operations screen visual pass (radar/aircraft/labels/hotspot/
+     urgency/countdown/animation) — **done** (§3a). Per explicit
+     instruction, this had to be "essentially complete" before starting
+     any additional page, so **nothing in §6's remaining items has been
+     started yet** — no two-page IA split, no sector-forecast backend
+     extension, no complexity-reference serializer change, no act-by/
+     rationale fields.
+  4. **Waiting on the user to hand over the Vietnam AIP GeoJSON files**
+     (they've said these are already prepared) — the moment they arrive,
+     drop them straight into `astra/dashboard/geo/*.json` (§3 tells you
+     exactly which file is which layer) and they'll render with zero
+     code changes, per the architecture built in this phase.
+- **Next action for a new session, in order:** (a) if the geo files
+  have arrived, plug them in and screenshot-verify per §3's checklist;
+  (b) otherwise, move on to §6 item 3 (two-page IA split), since the
+  Operations Workspace visual pass is done and that was the blocker.
 
 ---
 
@@ -38,25 +48,28 @@ Single-page app, two tabs, all in `astra/dashboard/`:
 - `index.html` — tab shell: **Operations** (map + alerts table + event
   panel + timeline + coordination disclosure) and **Sector Complexity**
   (rolling per-sector history charts).
-- `dashboard.js` (867 lines) — polls `/state` every `poll_interval_s`;
-  canvas map (`renderMap`), alerts table (`renderTracksTable`), event
-  panel (complexity-reduction ring, ranked candidate list, before/after
-  component bars, what-if vertical/horizontal SVG profiles), SVG
-  onset/peak/dissipation timeline, sector charts tab.
+- `dashboard.js` (~1200 lines now) — polls `/state` every
+  `poll_interval_s`; canvas map (see §3a for the current architecture),
+  alerts table (`renderTracksTable`), event panel (complexity-reduction
+  ring, ranked candidate list, before/after component bars, what-if
+  vertical/horizontal SVG profiles), SVG onset/peak/dissipation
+  timeline, sector charts tab.
 - `dashboard.css` — dark ATC-radar theme (`--bg`, `--accent`, `--amber`,
   `--red` CSS vars already established; reuse these, don't invent a
   second palette).
+- `geo_layers.js` + `geo/*.json` — pluggable geo-overlay layer manager,
+  see §3.
 - Backend surface it reads: **one** endpoint, `GET /state`
   (`astra/dashboard/routes.py` → `serializers.serialize_dashboard_snapshot`).
   Pure read-only consumer of `CycleResult` — computes nothing.
-- Scenario Builder (`/scenario`, separate page, done in the prior phase)
+- Scenario Builder (`/scenario`, separate page, done in a prior phase)
   is unaffected by this redesign and out of scope here except that its
   nav link stays working.
 
 This baseline already implements a lot of what the PDF asks for, just
-in a different information architecture (one page, not two) and a
-plainer visual style. The audit below is about the *gap*, not a
-green-field build.
+in a different information architecture (one page, not two) and (until
+this phase) a plainer visual style. The audit in §2 is about the *gap*,
+not a green-field build.
 
 ---
 
@@ -425,86 +438,262 @@ built unless asked).
 
 ---
 
-## 3. Map architecture (pluggable geographic layers) — tracked here, built alongside
+## 3. Map architecture (pluggable geographic layers) — DONE
 
-Requirement (repeated across two messages): geographic overlays (FIRs,
+Requirement (repeated across three messages): geographic overlays (FIRs,
 sectors, airways, waypoints, airports, coastlines) must load from
 external JSON files; the renderer must not hardcode Vietnam (or any
 other) geometry; when the AIP is supplied later, it gets converted into
 these data files and just plugs in — no architecture change at that
 point.
 
-**Status: not yet designed/built** (this document was written to
-complete the figure audit first, per instruction). Will design as:
-- A small `GeoLayerManager` (or similarly named) module owned by the
-  dashboard frontend, independent of `dashboard.js`'s pipeline-data
-  rendering — it has no opinion about tracks/candidates/complexity, it
-  only knows how to fetch, cache, and draw named layers.
-- Each layer type (fir, sector, airway, waypoint, airport, coastline)
-  gets its own JSON schema (GeoJSON-flavoured — likely literal GeoJSON
-  `Feature`/`FeatureCollection` for polygon/line layers so we're not
-  inventing a bespoke format) and its own default style, but shares one
-  loader/cache/toggle mechanism.
-- Files live under a new `astra/dashboard/static/geo/*.json` (or
-  similar) directory, served as static files — reading them is a
-  `fetch()`, not a new Flask route, unless we want server-side
-  validation on load (undecided, will revisit when the AIP arrives).
-- Zero coordinates for Vietnam (or anywhere) are hardcoded in the
-  renderer; an empty/missing layer file simply means that layer draws
-  nothing, not an error. This is enforceable by construction: the
-  renderer only ever receives a manifest of "layer name → file path"
-  plus generic draw code, never a literal polygon.
-- The Traffic Projection Display (Fig 32) and any future Operations
-  map both consume the same `GeoLayerManager`, so building it once
-  benefits both screens.
+**Built as:**
+- `astra/dashboard/geo_layers.js` — `GeoLayerManager` class. Has zero
+  geographic knowledge: no coordinates, no place names, nothing. It
+  only knows how to fetch a manifest + each layer's GeoJSON file and
+  draw `Polygon`/`MultiPolygon`/`LineString`/`MultiLineString`/
+  `Point`/`MultiPoint` generically given any `project(lat, lon) ->
+  [x, y]` function. One shared instance (constructed once in
+  `dashboard.js`) is intended to be reused by every map the dashboard
+  ever has — today that's the Operations map; when the Dissipation
+  Workspace's Traffic Projection Display (§6 item 3 / Fig 32) is built,
+  it must construct its `project()` the same way and call
+  `geoLayers.draw(ctx, project)` on the *same* `geoLayers` instance —
+  **do not instantiate a second `GeoLayerManager`**, that would be
+  exactly the "duplicate widget" the last two messages said to avoid.
+- `astra/dashboard/geo/manifest.json` — the layer registry: for each
+  layer, its `id`, `label` (used by the toggle checkboxes), `kind`
+  (`polygon`/`line`/`point` — this is the only vocabulary the renderer
+  understands, by design), `file`, `default_visible`, `z_index`,
+  `label_field` (which GeoJSON `properties` key to draw as a text
+  label, if any), and a `style` dict (stroke/fill/width/dash for
+  polygon+line, marker/fill/size for point). **This manifest is the
+  entire "how do I add a layer" interface** — adding a new overlay type
+  is "add one entry here + one new GeoJSON file," never a renderer
+  change, as long as it's a polygon/line/point (it always will be for
+  FIR/sector/airway/waypoint/airport/coastline).
+- `astra/dashboard/geo/{firs,sectors,airways,waypoints,airports,coastlines}.json`
+  — one empty (`"features": []`) `FeatureCollection` per layer today,
+  each with a `_meta` block describing its expected schema. **These six
+  files are exactly where the Vietnam AIP conversion output goes.**
+  Standard GeoJSON, coordinates `[lon, lat]` (not `[lat, lon]` — the
+  renderer assumes this and flips it internally when calling `project`).
+- Served as plain static files — `fetch()`, no new Flask route. One
+  gotcha already hit and fixed: this app's Flask static prefix is
+  `/dashboard/...`, **not** the Flask default `/static/...` (because
+  `create_app()` passes `static_folder=<astra/dashboard dir>` without an
+  explicit `static_url_path`, so Flask derives the prefix from the
+  folder's basename). `index.html` injects the *real* URL as
+  `window.ASTRA_GEO_MANIFEST_URL` via `url_for('static', ...)` at
+  render time — `geo_layers.js` never hardcodes `/static/`. If a future
+  page (e.g. the Dissipation Workspace) needs the manifest URL too, use
+  the same `url_for` injection pattern, don't hardcode a path there either.
+- Wired into `dashboard.js`: `geoLayers.draw(ctx, project)` is called
+  from `renderMap()` between the background grid and the sector/hotspot
+  overlays (so basemap layers sit visually underneath traffic and
+  complexity rings). `computeBounds()` also walks every visible layer's
+  feature coordinates via a small `forEachCoordinate()` GeoJSON-geometry
+  walker, so once real FIR/sector polygons load, the map auto-fits them
+  — this was *not* optional: without it, a real FIR polygon bigger than
+  the current traffic extent would render partially off-screen. A
+  layer-toggle checkbox row (`#map-layer-toggles`, built from
+  `geoLayers.getToggleList()`) lets the operator show/hide each layer;
+  built generically off the manifest, so it needed zero changes to
+  support any future 7th layer type.
 
-Will expand this section with the concrete module/file layout once
-implementation starts.
+**How to plug in the Vietnam AIP once the files arrive:**
+1. Convert AIP FIR polygons → `astra/dashboard/geo/firs.json` (GeoJSON
+   `Polygon`/`MultiPolygon` `Feature`s, `properties.name` = FIR name).
+2. Convert sectors → `geo/sectors.json` the same way,
+   `properties.name` should match `ASTRAConfig.sectors[].name` so the
+   existing sector-complexity overlay (`drawSectorBoundaries`, which
+   still draws the *circular* `sector_regions` from the pipeline) and
+   the new polygon layer visually correspond to the same named sectors.
+   (Migrating `SectorDefinition` itself from circles to polygons is a
+   separate, not-yet-scoped decision — see §9 — this layer can render
+   real polygons *visually* before that migration happens; they just
+   won't yet be the thing the complexity engine's clustering tests
+   against.)
+3. Waypoints/airports/airways/coastlines → their same-named files, same
+   pattern.
+4. Reload the page. That's the entire integration step — no JS, no
+   manifest change, no Python change, unless a genuinely new geometry
+   kind or style is needed (unlikely for these six layer types).
+5. Verify with the same check used to build this (see §3a's testing
+   notes): open `/`, confirm the layer toggles list the right 6 names,
+   toggle each on/off and confirm the canvas changes, and confirm
+   `computeBounds()` widened to include the new geometry (the whole FIR
+   should be visible, not cropped).
 
 ---
 
-## 4. Decisions needed before/while coding (do not proceed silently on these)
+## 3a. Operations screen visual pass — DONE
 
-1. **"Act by" window** (Fig 30/31/32) — is it `[onset - lead, onset]`,
-   `[onset, dissipation]`, or something else? Needs a definition before
-   any backend field is added.
-2. **Sectorisation-change notifications** (Fig 26/27) — build only the
-   alert-diff half now, or also fake/stub sector-merge events? Leaning
-   toward "alert half only," see §2.
+Scope: everything in the original "improve every visual component" list
+that applies to the *Operations* tab specifically (radar rendering,
+aircraft symbols/labels, hotspot visualization, confidence/urgency
+indicators, countdown timers, smoother animations, responsive layout).
+Per instruction, this had to be "essentially complete" before starting
+the two-page IA split or any new page — it is; see the checklist below.
+Everything here is **frontend-only**, reusing data already in `/state`;
+no backend/serializer change was needed for any of it.
+
+- **Radar rendering** (`drawGrid`) — kept the existing faint square
+  lat/lon grid (dimmed further) and added concentric range rings +
+  crosshair centred on the canvas, the actual visual cue that reads as
+  "radar" rather than "map." Purely cosmetic, no data dependency.
+- **Aircraft symbols/labels** — unified into one function,
+  `drawAircraftMarker(ctx, project, ac, opts)`, used by *every* place an
+  aircraft gets drawn (observed/interpolated traffic at horizon 0,
+  predicted-position dots at other horizons) — **this is the "don't
+  duplicate widgets" principle applied to the marker itself**: one
+  drawing routine, callers only vary `{color, showHeading}`. Adds: a
+  heading-triangle + speed leader line (length scales with
+  `ground_speed_kt`, standard ATC "velocity vector") when heading is
+  known; a plain dot when it isn't (predicted-horizon points carry no
+  heading); a boxed, semi-opaque label background so the callsign/FL
+  text stays legible over the radar background/hotspot rings instead of
+  floating as bare text.
+- **Hotspot visualization / urgency indicators** — `drawComplexityRegions`
+  now derives its ring styling from **onset urgency**, not just the
+  complexity score: a new shared `urgencyBucket(onsetInS)` /
+  `urgencyColor(bucket)` pair (soon ≤5 min → red solid + a second outer
+  "target lock" ring, near ≤15 min → amber dashed, far → blue dashed,
+  no linked track → falls back to the old complexity-score colour).
+  `onsetClass()` (used by the alerts table's row styling) now calls the
+  *same* `urgencyBucket()` instead of duplicating its own thresholds —
+  one urgency definition, two renderers, per "reuse wherever
+  appropriate." A hotspot ring finds "its" track via a new
+  `nearestTrack(lat, lon, tracks, maxNm)` centroid match (same
+  distance-heuristic pattern as the existing `nearestSectorName`), and
+  if that track has a `forecast_urgency_rank`, draws it as a small
+  numbered badge on the ring — reusing data that already existed in the
+  payload but wasn't shown on the map before.
+- **Aircraft-level urgency highlight** — `buildAircraftHighlightMap(cycle)`
+  builds a one-time-per-poll `{callsign: {color, bucket}}` map from every
+  open track's `member_aircraft`, so an aircraft that's part of an
+  urgent hotspot is drawn in that hotspot's urgency colour instead of
+  the flat default teal — ties the traffic layer and the hotspot ring
+  together visually without new data.
+- **Countdown timers** — the alerts table's "Onset in" column changed
+  from a once-a-minute `"N min"` label to a live `mm:ss` via a new
+  `countdownFmt(seconds)`. Since `poll_interval_s` defaults to 1s, this
+  already ticks smoothly once per second with no extra timer/animation
+  loop needed — deliberately the cheapest correct fix rather than adding
+  a second, sub-poll-interval ticking mechanism for no visible benefit.
+- **Smoother animations** — the map is now **two stacked canvases**
+  (`#map-canvas` static base layer, `#map-traffic-canvas` transparent
+  overlay, same pixel dimensions, absolutely positioned via a new
+  `.map-stack` wrapper). `renderMap()` draws the static
+  background/geo-layers/sector+hotspot rings/faint predicted paths
+  **once per poll** and caches its `project()` function + the aircraft
+  highlight map on `ui.mapProject`/`ui.aircraftHighlight`. A separate
+  `requestAnimationFrame` loop (`animateTrafficOverlay` →
+  `renderTrafficOverlay`) redraws *only* the traffic-marker canvas every
+  frame, linearly interpolating each observed aircraft's position
+  between the previous and current poll (`interpolatedObservedAircraft()`,
+  driven by wall-clock fraction elapsed via `ui.prevCycleAtMs`/
+  `ui.curCycleAtMs`) — so aircraft glide instead of visibly jumping once
+  a second. Bounds/projection are deliberately *not* recomputed per
+  animation frame (that would make the view "breathe" as interpolated
+  positions shift slightly) — confirmed by test that the base canvas's
+  pixels are byte-identical between animation frames within the same
+  poll, while the traffic canvas's pixels differ frame-to-frame.
+- **Confidence visualization** — left as-is (`confidenceRingSvg`);
+  already generic/reused per the original audit, no gap to close here.
+- **Responsive layout** — already had a `@media (max-width: 1100px)`
+  single-column collapse; the new `.map-stack` uses percentage
+  width/fixed height so it degrades the same way without any new
+  breakpoint.
+
+**Verification performed** (headless Chromium via Playwright, run
+against `python3 main.py --mock`):
+- Zero console/page errors on load, on horizon-scrubbing, and on
+  toggling a geo layer.
+- `#map-layer-toggles` renders exactly the 6 manifest layers with
+  correct labels.
+- `#map-canvas.toDataURL()` identical across two animation frames
+  within one poll (static layer not needlessly redrawn).
+- `#map-traffic-canvas.toDataURL()` *differs* across animation frames
+  400ms apart (interpolation loop actually running).
+- `tests/test_dashboard.py` (81/81) and the other milestone regression
+  scripts still pass unmodified — nothing here touched backend code.
+- `node --check` on both `dashboard.js` and `geo_layers.js`.
+
+---
+
+## 4. Decisions needed before/while coding — resolved (recommended option used unless noted)
+
+Per instruction: use the recommended option for each, unless doing so
+would require a substantial architectural change (in which case: defer,
+noted below). **None of these are implemented yet** — they're decided,
+not built; building them is §6 items 4-6, after the two-page IA split.
+
+1. **"Act by" window** (Fig 30/31/32) — **decided:**
+   `[predicted_onset_s - lead_time, predicted_onset_s]`, a new
+   `ASTRAConfig` knob (e.g. `resolution_act_by_lead_min`, default TBD at
+   implementation time). Computable entirely in the serializer from
+   data the track already has — no new pipeline stage.
+2. **Sectorisation-change notifications** (Fig 26/27) — **decided:**
+   build only the "new alert appeared" half (frontend-only diffing of
+   `track.arhac_id` across polls). Sector-merge/unmerge events are *not*
+   simulated — the PDF's own caption says that's external to ASTRA.
 3. **Level-capping / trajectory-change rationale strings** (Fig 31) —
-   OK to add one descriptive string field to `ResolutionCandidate` (via
-   `astra/resolution/candidates.py`), or keep it a pure frontend
-   heuristic? Leaning toward the small backend field (more honest),
-   see §2.
-4. **"No-go zone" pairwise proximity forecast** (Fig 34) — build now as
-   a new pure-function module, or defer? This is the biggest net-new
-   piece of logic in the whole audit; flagging explicitly rather than
-   deciding unilaterally.
-5. **Multi-aircraft single-solution candidates** (Fig 31, SWR002 +
-   SWR004 both modified) — confirmed *not* building this (out of M7's
-   explicit single-aircraft-lever scope); noted so nobody re-litigates
-   it as a "missing feature" later.
-6. **2-hour forecast horizon** (Fig 24) vs. current 60-min max — widen
-   `prediction_horizons_min`/`max_prediction_horizon_min`, and accept
-   whatever accuracy dead-reckoning gives at that range? Config-only
-   change, but changes what the chart implies about model confidence.
+   **decided:** small backend field. Add one descriptive string to
+   `ResolutionCandidate` (populated in `astra/resolution/candidates.py`
+   from data the candidate already has — `clearance_type` + sign of
+   `delta_value` — at construction time), threaded through
+   `serialize_resolution_candidate`. One field on an already-frozen
+   dataclass + one serializer line; not a scoring/algorithm change.
+4. **"No-go zone" pairwise proximity forecast** (Fig 34) — **deferred,
+   not building in this pass.** This is the one item that *would* be a
+   substantial architectural change (a new pairwise-separation-forecast
+   computation across every aircraft pair and horizon exists nowhere
+   today) — per "use recommended unless substantial," this is the
+   explicit exception. The vertical profile modal will still gain the
+   *other* two Fig-34 improvements (every aircraft's altitude band,
+   approximate sector-crossing markers) since those are frontend-only;
+   just not the no-go rectangle. Revisit only on explicit request.
+5. **Multi-aircraft single-solution candidates** (Fig 31) — **decided:
+   not building.** Outside Milestone 7's explicit single-aircraft-lever
+   scope; noted so it doesn't get re-litigated as a "missing feature."
+6. **2-hour forecast horizon** (Fig 24) — **decided:** widen
+   `prediction_horizons_min`/`max_prediction_horizon_min` via config
+   when building the sector-forecast feature (§6 item 4); dead-reckoning
+   accuracy at that range is accepted as a known limitation, not a
+   blocker, consistent with "config-only change."
 
 ## 5. Completed features
 
-*(none yet — audit phase only so far)*
+1. **Map architecture** — pluggable `GeoLayerManager` + manifest + 6
+   empty layer files. See §3.
+2. **Operations screen visual pass** — radar background, unified
+   aircraft marker (heading triangle/leader line/label box or dot),
+   urgency-driven hotspot rings + aircraft highlighting, live mm:ss
+   countdown, two-canvas animated traffic interpolation. See §3a.
 
-## 6. Pending features (in rough build order once decisions above land)
+## 6. Pending features (in rough build order)
 
-1. Map architecture — pluggable geo-layers (§3), no Vietnam geometry.
-2. Visual pass on existing Operations screen: radar background, aircraft
-   symbols/labels, hotspot region rendering, confidence/urgency visuals
-   — reusing existing data, no backend change.
-3. Information-architecture split into two pages (Complexity Forecast /
-   Dissipation Workspace) per Figs 24-32, reusing existing panels.
-4. Sector complexity **forecast** (small backend extension, §2 Fig 24) —
-   `SectorComplexityEngine.forecast()`.
+1. ~~Map architecture~~ — done, §3.
+2. ~~Visual pass on Operations screen~~ — done, §3a.
+3. **Next up:** Information-architecture split into two pages
+   (Complexity Forecast / Dissipation Workspace) per Figs 24-32, reusing
+   existing panels (alerts table, event panel, map) rather than
+   rebuilding them — this is a layout/routing change, not a new-widget
+   change. The Traffic Projection Display for the Dissipation Workspace
+   must reuse the *same* `geoLayers` instance and the *same*
+   `drawAircraftMarker`/`drawComplexityRegions` functions as the
+   Operations map — extract them out of the current single-page
+   `dashboard.js` into a shared module if the two-page split needs them
+   in two different JS files; do not fork copies.
+4. Sector complexity **forecast** (small backend extension, §2 Fig 24,
+   decision §4.6) — `SectorComplexityEngine.forecast()`, reusing
+   `_sector_cluster` on each horizon's `PredictedSnapshot`.
 5. Complexity-reference constants through the serializer (§2 Fig 33).
-6. Everything gated behind §4's open decisions.
+6. Act-by window field (§4.1) and resolution rationale string (§4.3).
+7. Notification panel (new-alert half only, §4.2) and coordination-steps
+   checklist restyle (Fig 35) — both frontend-only, can happen alongside
+   the IA split in item 3 rather than as a separate pass.
 
 ## 7. Design decisions log
 
@@ -518,12 +707,43 @@ implementation starts.
   coordination checklist) follows the precedent already set by
   `ui.lifecycle` in `dashboard.js` — no backend persistence added for
   session-local UI state unless a specific reason to persist emerges.
+- **One drawing function per visual concept, regardless of how many
+  figures/screens reference it.** Concretely: one `drawAircraftMarker`
+  for every aircraft drawn anywhere; one `GeoLayerManager` instance for
+  every map; one `urgencyBucket`/`urgencyColor` pair used by both the
+  map and the alerts table. When the two-page IA split (§6 item 3)
+  creates a second map (Traffic Projection Display), it must import/
+  reuse these, not re-implement them — this was an explicit instruction,
+  not just a style preference.
+- Static geometry (bounds, base layers) is redrawn once per poll cycle;
+  only genuinely time-varying display state (interpolated aircraft
+  position) is redrawn per animation frame. Don't recompute anything
+  per-frame that doesn't need sub-poll-interval freshness — it's wasted
+  cycles at best and visually jittery ("breathing" bounds) at worst.
+- Flask's static URL prefix in this app is `/dashboard/...`, not the
+  default `/static/...` (derived from `static_folder`'s basename, since
+  `create_app()` doesn't set an explicit `static_url_path`). Any new
+  frontend code that needs a static asset URL must get it from the
+  server via `url_for(...)` injected into the page, never hardcode
+  `/static/`.
 
 ## 8. Backend additions made so far
 
-*(none yet)*
+*(none yet — everything through §3a was frontend/static-data-file only.
+§6 items 4-6 will be the first genuine backend touches of this phase,
+each already scoped in §2/§4 as either a serializer change or a small,
+non-algorithmic extension.)*
 
 ## 9. Remaining work / open questions
 
-See §4. Nothing else outstanding beyond "get answers to §4, then start
-on §6 in order."
+- Execute §6 items 3-7 in order.
+- New, not-yet-scoped question surfaced while building §3: once the
+  Vietnam AIP's *sectors* land as real polygons (`geo/sectors.json`),
+  should `ASTRAConfig.sectors` (currently circles, used by the
+  complexity-scoring pipeline) eventually migrate to polygons too, so
+  the visual sector layer and the scoring engine's sector membership
+  test are the same geometry? Not needed for this redesign (the visual
+  layer and the scoring circles can coexist, as they do today for the
+  existing circular sectors), but flag it rather than silently letting
+  the two permanently diverge. No action needed unless/until asked.
+- Otherwise see §4 for already-resolved decisions and their rationale.

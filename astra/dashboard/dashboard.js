@@ -25,6 +25,12 @@
         lifecycle: {}, // arhac_id -> "DRAFT" | "PROPOSED" | "ACKNOWLEDGED" | "CANCELED"
         selectedHorizon: 0,
         availableHorizons: [0],
+        // Map-animation state (see interpolatedObservedAircraft/renderTrafficOverlay):
+        mapProject: null, // cached projector from the last static renderMap() pass
+        aircraftHighlight: {}, // callsign -> {color, bucket}, from buildAircraftHighlightMap()
+        prevSnapshotAircraft: null, // observed aircraft list from the *previous* poll
+        prevCycleAtMs: 0,
+        curCycleAtMs: 0,
     };
 
     const LIFECYCLE_STAGES = ["DRAFT", "PROPOSED", "ACKNOWLEDGED", "CANCELED"];
@@ -627,7 +633,7 @@
             return curList;
         }
         const span = Math.max(1, ui.curCycleAtMs - ui.prevCycleAtMs);
-        const t = Math.max(0, Math.min(1, (performance.now() - ui.curCycleAtMs + span) / span));
+        const t = Math.max(0, Math.min(1, (performance.now() - ui.curCycleAtMs) / span));
         const prevByCallsign = {};
         prevList.forEach((ac) => {
             prevByCallsign[ac.callsign] = ac;
@@ -1141,6 +1147,14 @@
             return;
         }
         const cycle = payload.cycle;
+        // Shift current -> previous *before* overwriting, so the traffic
+        // overlay's animation loop can interpolate between the two exact
+        // snapshots the poll loop actually saw (not a guess).
+        if (window.__astraLastCycle) {
+            ui.prevSnapshotAircraft = window.__astraLastCycle.snapshot.aircraft;
+            ui.prevCycleAtMs = ui.curCycleAtMs || performance.now();
+        }
+        ui.curCycleAtMs = performance.now();
         window.__astraLastCycle = cycle;
 
         if (ui.selectedArhacId && !cycle.tracks.some((t) => t.arhac_id === ui.selectedArhacId)) {
@@ -1171,6 +1185,11 @@
             .finally(() => setTimeout(poll, POLL_INTERVAL_MS));
     }
 
+    function animateTrafficOverlay() {
+        renderTrafficOverlay();
+        requestAnimationFrame(animateTrafficOverlay);
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         setupTabs();
         setupCoordinationToggle();
@@ -1181,6 +1200,7 @@
                 renderMap(window.__astraLastCycle);
             }
         });
+        requestAnimationFrame(animateTrafficOverlay);
         poll();
     });
 })();
