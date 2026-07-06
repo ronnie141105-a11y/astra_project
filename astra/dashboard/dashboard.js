@@ -31,6 +31,10 @@
         prevSnapshotAircraft: null, // observed aircraft list from the *previous* poll
         prevCycleAtMs: 0,
         curCycleAtMs: 0,
+        // Map view state (see "Map view state" section below): {minLat,
+        // maxLat, minLon, maxLon} or null until first initialized (from
+        // localStorage or a fit-to-FIR/traffic computation).
+        view: null,
     };
 
     const LIFECYCLE_STAGES = ["DRAFT", "PROPOSED", "ACKNOWLEDGED", "CANCELED"];
@@ -59,6 +63,7 @@
         container.querySelectorAll("input[data-layer-id]").forEach((input) => {
             input.addEventListener("change", () => {
                 geoLayers.setVisible(input.dataset.layerId, input.checked);
+                savePersistedLayerVisibility();
                 if (window.__astraLastCycle) {
                     renderMap(window.__astraLastCycle);
                 }
@@ -313,6 +318,127 @@
             default:
                 break;
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Map view state: pan/zoom persistence + fit-to-FIR
+    //
+    // The map used to recompute its lat/lon bounds from scratch every
+    // poll (computeBounds() below), which is fine for an auto-fit view
+    // but incompatible with letting the operator pan/zoom -- any
+    // interaction would just get wiped out on the next poll's redraw.
+    // `ui.view` is now the single source of truth for what's on screen;
+    // it's computed once (fit-to-FIR, or a restored localStorage value)
+    // and only ever changed by an explicit pan/zoom/reset action, never
+    // silently recomputed from traffic on a timer.
+    // ------------------------------------------------------------------
+
+    const VIEW_STORAGE_KEY = "astra_map_view_v1";
+    const LAYER_VISIBILITY_STORAGE_KEY = "astra_map_layer_visibility_v1";
+    const MIN_SPAN_DEG = 0.05;
+    const MAX_SPAN_DEG = 60;
+
+    function loadPersistedView() {
+        try {
+            const raw = localStorage.getItem(VIEW_STORAGE_KEY);
+            if (!raw) {
+                return null;
+            }
+            const v = JSON.parse(raw);
+            if (
+                typeof v.minLat === "number" &&
+                typeof v.maxLat === "number" &&
+                typeof v.minLon === "number" &&
+                typeof v.maxLon === "number"
+            ) {
+                return v;
+            }
+        } catch (err) {
+            // Corrupt/old-format value -- ignore and fall back to auto-fit.
+        }
+        return null;
+    }
+
+    function savePersistedView(view) {
+        try {
+            localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(view));
+        } catch (err) {
+            // Storage unavailable (private browsing, quota, ...) -- the map
+            // still works, it just won't remember the view across reloads.
+        }
+    }
+
+    function loadPersistedLayerVisibility() {
+        try {
+            const raw = localStorage.getItem(LAYER_VISIBILITY_STORAGE_KEY);
+            return raw ? JSON.parse(raw) : {};
+        } catch (err) {
+            return {};
+        }
+    }
+
+    function savePersistedLayerVisibility() {
+        try {
+            const state = {};
+            geoLayers.layers.forEach((l) => {
+                state[l.id] = l.visible;
+            });
+            localStorage.setItem(LAYER_VISIBILITY_STORAGE_KEY, JSON.stringify(state));
+        } catch (err) {
+            // Non-fatal -- see savePersistedView.
+        }
+    }
+
+    /** Bounding box (with the same padding convention as computeBounds) of
+     * one geo layer's own geometry, or null if that layer has no features
+     * yet (e.g. still an empty placeholder). */
+    function geoLayerBounds(layerId, pad) {
+        const layer = geoLayers.layers.find((l) => l.id === layerId);
+        if (!layer) {
+            return null;
+        }
+        const lats = [];
+        const lons = [];
+        (layer.geojson.features || []).forEach((feature) => {
+            forEachCoordinate(feature.geometry, ([lon, lat]) => {
+                lats.push(lat);
+                lons.push(lon);
+            });
+        });
+        if (lats.length === 0) {
+            return null;
+        }
+        const p = pad === undefined ? 0.08 : pad;
+        const minLat = Math.min(...lats);
+        const maxLat = Math.max(...lats);
+        const minLon = Math.min(...lons);
+        const maxLon = Math.max(...lons);
+        const latSpan = Math.max(maxLat - minLat, MIN_SPAN_DEG);
+        const lonSpan = Math.max(maxLon - minLon, MIN_SPAN_DEG);
+        return {
+            minLat: minLat - latSpan * p,
+            maxLat: maxLat + latSpan * p,
+            minLon: minLon - lonSpan * p,
+            maxLon: maxLon + lonSpan * p,
+        };
+    }
+
+    /** The view "Reset" (double-click) and first-load fit to: the FIR
+     * layer's own extent if it's loaded and populated, else falling back
+     * to fitting the current traffic (computeBounds) -- so the map is
+     * never a blank/degenerate view before real geometry arrives. */
+    function fitToDataView(cycle) {
+        return geoLayerBounds("firs") || computeBounds(cycle);
+    }
+
+    function makeUnprojector(bounds, width, height) {
+        const latSpan = bounds.maxLat - bounds.minLat || 1;
+        const lonSpan = bounds.maxLon - bounds.minLon || 1;
+        return function unproject(x, y) {
+            const lon = bounds.minLon + (x / width) * lonSpan;
+            const lat = bounds.minLat + ((height - y) / height) * latSpan;
+            return [lat, lon];
+        };
     }
 
     function computeBounds(cycle) {
@@ -653,7 +779,11 @@
     /** Static base layer -- background, geo overlays, sector/hotspot rings,
      * faint predicted paths. Redrawn once per poll cycle (not per animation
      * frame): nothing here depends on sub-poll-interval time, so redrawing
-     * it 60x/sec would just burn cycles for an identical picture. */
+     * it 60x/sec would just burn cycles for an identical picture.
+     *
+     * Also called directly (not just per-poll) after a pan/zoom/reset, so
+     * the view updates instantly without waiting for the next tick --
+     * `cycle` is always `window.__astraLastCycle` in that case. */
     function renderMap(cycle) {
         const canvas = document.getElementById("map-canvas");
         const ctx = canvas.getContext("2d");
@@ -661,7 +791,10 @@
         const height = canvas.height;
         ctx.clearRect(0, 0, width, height);
 
-        const bounds = computeBounds(cycle);
+        if (!ui.view) {
+            ui.view = loadPersistedView() || fitToDataView(cycle);
+        }
+        const bounds = ui.view;
         const project = makeProjector(bounds, width, height);
         // Cached for the traffic-overlay animation loop, which must reuse
         // this exact projection rather than recompute bounds every frame
@@ -1190,12 +1323,148 @@
         requestAnimationFrame(animateTrafficOverlay);
     }
 
+    /** Restore any saved per-layer show/hide state onto `geoLayers` --
+     * called once, right after `geoLayers.init()` resolves and before the
+     * toggle checkboxes are built, so the checkboxes' initial `checked`
+     * state already reflects what was persisted. */
+    function applyPersistedLayerVisibility() {
+        const saved = loadPersistedLayerVisibility();
+        geoLayers.layers.forEach((l) => {
+            if (Object.prototype.hasOwnProperty.call(saved, l.id)) {
+                l.visible = saved[l.id];
+            }
+        });
+    }
+
+    /** Wheel-to-zoom (anchored under the cursor), drag-to-pan, and
+     * double-click-to-reset (fit to FIR extent) on the map. Attached to
+     * `#map-stack` (the wrapper around both canvases) so it doesn't
+     * matter which of the two stacked canvases is on top. Every
+     * interaction only ever touches `ui.view` + triggers an immediate
+     * `renderMap()` -- the animated traffic overlay is untouched by any
+     * of this, since it only ever reads `ui.mapProject`, whatever set it. */
+    function setupMapInteraction() {
+        const stack = document.getElementById("map-stack");
+        const canvas = document.getElementById("map-canvas");
+        if (!stack || !canvas) {
+            return;
+        }
+
+        function currentCycleOrEmpty() {
+            return window.__astraLastCycle;
+        }
+
+        function redraw() {
+            const cycle = currentCycleOrEmpty();
+            if (cycle) {
+                renderMap(cycle);
+            }
+        }
+
+        function toCanvasPx(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            return [
+                ((clientX - rect.left) / rect.width) * canvas.width,
+                ((clientY - rect.top) / rect.height) * canvas.height,
+            ];
+        }
+
+        stack.addEventListener(
+            "wheel",
+            (evt) => {
+                evt.preventDefault();
+                if (!ui.view) {
+                    return;
+                }
+                const [px, py] = toCanvasPx(evt.clientX, evt.clientY);
+                const unproject = makeUnprojector(ui.view, canvas.width, canvas.height);
+                const [anchorLat, anchorLon] = unproject(px, py);
+                // Continuous (not stepped) scale factor per wheel notch --
+                // "smooth zoom" as fine-grained zoom, not an eased tween.
+                const factor = evt.deltaY > 0 ? 1.15 : 1 / 1.15;
+                const curLatSpan = ui.view.maxLat - ui.view.minLat;
+                const curLonSpan = ui.view.maxLon - ui.view.minLon;
+                const newLatSpan = Math.max(MIN_SPAN_DEG, Math.min(MAX_SPAN_DEG, curLatSpan * factor));
+                const newLonSpan = Math.max(MIN_SPAN_DEG, Math.min(MAX_SPAN_DEG, curLonSpan * factor));
+                // Keep the point under the cursor fixed on screen: it should
+                // sit at the same fractional position within the new span.
+                const fracX = px / canvas.width;
+                const fracY = 1 - py / canvas.height;
+                ui.view = {
+                    minLon: anchorLon - fracX * newLonSpan,
+                    maxLon: anchorLon + (1 - fracX) * newLonSpan,
+                    minLat: anchorLat - fracY * newLatSpan,
+                    maxLat: anchorLat + (1 - fracY) * newLatSpan,
+                };
+                savePersistedView(ui.view);
+                redraw();
+            },
+            { passive: false }
+        );
+
+        let dragging = false;
+        let dragStartPx = null;
+        let dragStartView = null;
+        stack.addEventListener("mousedown", (evt) => {
+            if (!ui.view) {
+                return;
+            }
+            dragging = true;
+            dragStartPx = [evt.clientX, evt.clientY];
+            dragStartView = Object.assign({}, ui.view);
+            stack.classList.add("map-dragging");
+        });
+        window.addEventListener("mousemove", (evt) => {
+            if (!dragging) {
+                return;
+            }
+            const rect = canvas.getBoundingClientRect();
+            const dxPx = ((evt.clientX - dragStartPx[0]) / rect.width) * canvas.width;
+            const dyPx = ((evt.clientY - dragStartPx[1]) / rect.height) * canvas.height;
+            const lonSpan = dragStartView.maxLon - dragStartView.minLon;
+            const latSpan = dragStartView.maxLat - dragStartView.minLat;
+            const dLon = -(dxPx / canvas.width) * lonSpan;
+            const dLat = (dyPx / canvas.height) * latSpan;
+            ui.view = {
+                minLon: dragStartView.minLon + dLon,
+                maxLon: dragStartView.maxLon + dLon,
+                minLat: dragStartView.minLat + dLat,
+                maxLat: dragStartView.maxLat + dLat,
+            };
+            redraw();
+        });
+        window.addEventListener("mouseup", () => {
+            if (!dragging) {
+                return;
+            }
+            dragging = false;
+            stack.classList.remove("map-dragging");
+            savePersistedView(ui.view);
+        });
+
+        stack.addEventListener("dblclick", () => {
+            const cycle = currentCycleOrEmpty();
+            ui.view = fitToDataView(cycle || { snapshot: { aircraft: [] }, prediction: { paths: {} }, regions_by_horizon: {}, sector_regions: {} });
+            savePersistedView(ui.view);
+            redraw();
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         setupTabs();
         setupCoordinationToggle();
         setupHorizonScrubber();
+        setupMapInteraction();
         geoLayers.init().then(() => {
+            applyPersistedLayerVisibility();
             setupGeoLayerToggles();
+            // Prefer a fresh fit-to-FIR over whatever bounds an even-earlier
+            // render used (e.g. the very first poll landing before geo
+            // layers finished loading, which can only have fit to traffic) --
+            // unless the operator already has a saved view, which wins.
+            if (!loadPersistedView()) {
+                ui.view = null;
+            }
             if (window.__astraLastCycle) {
                 renderMap(window.__astraLastCycle);
             }

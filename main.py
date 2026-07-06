@@ -60,11 +60,22 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _setup_mock_traffic(reader: StateReader) -> None:
-    """Populate the mock connector with a small converging traffic scenario."""
-    reader.create_aircraft("KL204", "A320", 52.30, 4.80, 90.0, 30000, 250)
-    reader.create_aircraft("BAW123", "B738", 52.32, 4.50, 270.0, 31000, 280)
-    reader.create_aircraft("DLH456", "A319", 52.10, 4.90, 0.0, 29000, 260)
-    reader.create_aircraft("EZY789", "A320", 52.28, 4.75, 180.0, 30500, 255)
+    """Populate the mock connector with a small converging traffic scenario.
+
+    Anchored in the Ho Chi Minh FIR (~10.8N, 106.7E) rather than the
+    original Netherlands-based demo coordinates -- the dashboard's map
+    now loads real Vietnam AIP-derived FIR/sector/airway/waypoint/navaid
+    geometry (astra/dashboard/geo/*.json), and `computeBounds()` fits the
+    view to the union of that geometry and observed traffic. Demo
+    aircraft on the other side of the planet from the loaded FIR would
+    make that bounding box degenerate (both the FIR and the traffic
+    reduced to specks, thousands of NM apart). Matches the same area
+    `astra/dashboard/scenario_presets.py`'s presets already use.
+    """
+    reader.create_aircraft("HVN204", "A321", 10.90, 106.30, 90.0, 30000, 250)
+    reader.create_aircraft("VJC123", "A320", 10.92, 106.10, 270.0, 31000, 280)
+    reader.create_aircraft("PIC456", "A319", 10.70, 106.40, 0.0, 29000, 260)
+    reader.create_aircraft("AXJ789", "A320", 10.88, 106.20, 180.0, 30500, 255)
     reader.send_command("OP")
     _LOG.info("Mock traffic created (4 aircraft). Simulation clock started.")
 

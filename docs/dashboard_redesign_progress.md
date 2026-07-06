@@ -23,21 +23,48 @@ during the redesign.
   1. Feature audit — **done** (§2).
   2. Map architecture (pluggable geo-layers) — **done** (§3).
   3. Operations screen visual pass (radar/aircraft/labels/hotspot/
-     urgency/countdown/animation) — **done** (§3a). Per explicit
-     instruction, this had to be "essentially complete" before starting
-     any additional page, so **nothing in §6's remaining items has been
-     started yet** — no two-page IA split, no sector-forecast backend
-     extension, no complexity-reference serializer change, no act-by/
-     rationale fields.
-  4. **Waiting on the user to hand over the Vietnam AIP GeoJSON files**
-     (they've said these are already prepared) — the moment they arrive,
-     drop them straight into `astra/dashboard/geo/*.json` (§3 tells you
-     exactly which file is which layer) and they'll render with zero
-     code changes, per the architecture built in this phase.
-- **Next action for a new session, in order:** (a) if the geo files
-  have arrived, plug them in and screenshot-verify per §3's checklist;
-  (b) otherwise, move on to §6 item 3 (two-page IA split), since the
-  Operations Workspace visual pass is done and that was the blocker.
+     urgency/countdown/animation) — **done** (§3a).
+  4. **Real Vietnam AIP geo data integrated — done** (§3b): FIR, sectors,
+     airways, waypoints, and a new navaids layer are populated and
+     rendering (`astra/dashboard/geo/*.json`, sourced by a separate
+     extraction task — see `astra/dashboard/geo/EXTRACTION_LOG.md` for
+     provenance/confidence per feature, not duplicated here).
+  5. **Interactive map — done** (§3b): pan (drag), wheel zoom anchored
+     under the cursor, double-click reset to fit-to-FIR, per-layer
+     visibility + view position both persisted in `localStorage` across
+     reloads. Polygon labels now place at true centroid, point/line
+     labels declutter (skip if they'd overlap an already-placed label),
+     airway designators label optionally (layer is off by default,
+     toggle-controlled, per the audit's Fig-32 note).
+  - Per explicit instruction, nothing in §6's remaining items has been
+    started yet — no two-page IA split, no sector-forecast backend
+    extension, no complexity-reference serializer change, no act-by/
+    rationale fields. Docs (other than this file) have not been touched,
+    also per instruction.
+- **airports.json and coastlines.json remain empty placeholders** — out
+  of scope for the extraction work done so far (confirmed: origin/main
+  has no such files; EXTRACTION_LOG.md doesn't mention them). Toggling
+  them currently draws nothing, which was verified as *expected*
+  behavior (not a bug) — see §3b's validation notes.
+- **airways.json was fully rebuilt once already** (the user flagged the
+  first drop's routes as wrong; the second drop replaced all 9 routes
+  from scratch, see EXTRACTION_LOG.md's "Update" section) and
+  **navaids.json is new** in this same drop. Both are integrated as of
+  this session. A `BMT` coordinate discrepancy between `navaids.json`
+  (ENR 4.1) and `waypoints.json` (ENR 3.1) — one arc-second apart, almost
+  certainly a rounding artifact — was intentionally left as-is per the
+  extraction log; not something this session's integration work should
+  silently "fix" either.
+- **I do not have push access to the user's GitHub repo.** All of this
+  session's work is committed locally (in this sandbox) but *not*
+  pushed to `origin/main` — `git push` fails with no credentials
+  available. **The user needs to pull/apply these commits themselves**
+  if they want them in their actual GitHub repo; I cannot publish there.
+- **Next action for a new session:** wait for the user's next round of
+  UI-element instructions (they've said more are coming: "simpler and
+  prettier and functional" changes), or otherwise move on to §6 item 3
+  (two-page IA split), since both the map architecture and the
+  Operations Workspace visual pass are done.
 
 ---
 
@@ -622,7 +649,162 @@ against `python3 main.py --mock`):
 
 ---
 
-## 4. Decisions needed before/while coding — resolved (recommended option used unless noted)
+## 3b. Real Vietnam AIP geo data integrated + interactive map — DONE
+
+A separate task extracted real Ho Chi Minh FIR/ACC geometry from the
+AIP and committed it straight into `astra/dashboard/geo/*.json` (the
+exact files §3's architecture was built to accept). This session's job
+was purely integration/validation/styling — **no geometry was
+generated, edited, or "fixed" here**; provenance, confidence-per-feature,
+and known approximations are all in `astra/dashboard/geo/EXTRACTION_LOG.md`,
+which this doc intentionally does not duplicate (read that file for any
+question about *why a specific vertex is where it is*).
+
+**What's populated now:** `firs.json` (Ho Chi Minh FIR, 1 polygon),
+`sectors.json` (10 polygons: Sectors 1a/1b, 2a/2b, 5a/5b/5c, 6a/6b, 7),
+`waypoints.json` (68 points), `airways.json` (9 routes — W1/W2/W15/W7/
+W12/W9/W16/L637/W19; this file was fully discarded and rebuilt once
+already after the first drop's routes were wrong, per the user).
+`airports.json` and `coastlines.json` remain empty placeholders — not
+in scope for the extraction done so far.
+
+**New this session:**
+- **`navaids.json` registered as a new layer.** It didn't exist when §3
+  designed the manifest; the extraction task added it because navaids
+  (physical stations with frequency/channel/hours/elevation) are
+  structurally different from route waypoints and the user wanted them
+  kept separate rather than folded into `waypoints.json`. Adding it was
+  exactly the "add one manifest entry + the schema needs one genuinely
+  new marker kind" case the manifest's own `_meta.adding_a_layer` note
+  anticipated: `kind: "point"`, `label_field: "ident"`, and a **new
+  `"diamond"` marker shape** added to `geo_layers.js`'s `_drawPoint`
+  (the only actual renderer code change this whole integration needed).
+- **Airway labels enabled** (`label_field: "designator"` on the
+  `airways` manifest entry) — satisfies the audit's "optional airway
+  labels" note from Fig 32; still off by default (toggle-controlled),
+  matching the layer's own `default_visible: false`.
+- **Per-layer color/style differentiation**, now that overlapping real
+  geometry actually exists to differentiate: FIR is a cool blue
+  (`--blue`-family) solid boundary, sectors are teal/accent dashed
+  (visually tied to the "this is the operational unit" color already
+  used elsewhere in the HMI), airways a muted amber dotted line,
+  navaids amber diamonds. Previously (all-empty-file placeholders) any
+  color choice was arbitrary; this was the first point styling choices
+  had real geometry to be judged against.
+- **Polygon labels moved to true centroid** (`_ringCentroid`, a
+  shoelace-formula area-weighted centroid) instead of "first vertex" —
+  the audit's Fig-32-inspired "sector label placement at polygon
+  centroid" item. First-vertex placement looked fine on an empty file
+  (nothing to compare against) but is visibly wrong on a real 10-vertex
+  sector boundary, landing on a corner instead of inside the shape.
+- **Label decluttering** — one shared `_labelRects` registry per
+  `GeoLayerManager.draw()` call (i.e. per frame, across *every* layer,
+  not per-layer): a label is skipped (marker/line itself never is) if
+  its box would overlap one already placed. Necessary the moment 68
+  waypoints + 10 navaids + 10 sector polygons' labels are all real and
+  visible at once — was a non-issue against empty files.
+- **Map became genuinely interactive** (`ui.view`, a persistent
+  `{minLat, maxLat, minLon, maxLon}`, replaces the old "recompute bounds
+  from data every poll" behavior):
+  - **Fit-to-FIR-extent auto view** — `fitToDataView(cycle)` prefers
+    `geoLayerBounds("firs")` (the real FIR's own bounding box) and only
+    falls back to the old traffic-based `computeBounds(cycle)` if the
+    FIR layer has no features yet. This was *necessary*, not optional
+    polish: the default mock demo traffic used to be Netherlands
+    coordinates (~52N, 4.8E); with a real Vietnam FIR (~10.8N, 106.7E)
+    also in the bounds union, the old "union of everything visible"
+    bounds calculation would have produced a degenerate view spanning
+    two continents. Fixed in two parts: (a) `fitToDataView` now fits to
+    the FIR alone rather than a union, matching the explicit "automatic
+    fit-to-data using FIR extents" instruction; (b) `main.py`'s
+    `_setup_mock_traffic()` demo aircraft were moved from Netherlands to
+    the Ho Chi Minh FIR area (matching `scenario_presets.py`'s existing
+    center) — a demo-data constant change, not a pipeline/algorithm
+    change, done because it was required to make the newly-integrated
+    geo data usable/testable at all, not speculative scope creep.
+  - **Wheel-to-zoom**, anchored under the cursor (the lat/lon under the
+    mouse stays under the mouse after zooming), continuous scale factor
+    per notch (1.15×) rather than discrete zoom levels — "smooth zoom"
+    interpreted as fine-grained/continuous, not an eased animation
+    (avoids adding an animation-easing dependency for marginal benefit).
+    Clamped to `[0.05°, 60°]` span so it can't zoom into/out of a
+    degenerate view.
+  - **Drag-to-pan** (`mousedown`+`mousemove`+`mouseup` on `#map-stack`,
+    the wrapper around both canvases — so it doesn't matter which
+    stacked canvas is on top). Cursor switches to `grab`/`grabbing` via
+    a `.map-dragging` class.
+  - **Double-click-to-reset** — recomputes `fitToDataView` fresh
+    (ignoring whatever's currently persisted) and immediately persists
+    that as the new saved view.
+  - **Persistence** — two `localStorage` keys, `astra_map_view_v1`
+    (the bounds) and `astra_map_layer_visibility_v1` (per-layer
+    show/hide), both restored on load before the first paint (with the
+    fit-to-FIR path only running if no saved view exists — a returning
+    operator's pan/zoom is never silently overridden by a fresh
+    auto-fit). This is a real browser app (not a claude.ai Artifact),
+    so `localStorage` is an appropriate, dependency-free choice here —
+    the Artifacts-sandbox restriction on `localStorage` doesn't apply to
+    this project.
+  - **Aircraft animation confirmed unaffected** — the traffic-overlay
+    interpolation loop only ever reads whatever `ui.mapProject` currently
+    is; it doesn't care whether that projector came from a fresh
+    `computeBounds()` call (old behavior) or from the persistent
+    `ui.view` (new behavior). Verified explicitly (see validation below)
+    rather than assumed.
+
+**Validation performed** (headless Chromium via Playwright, against
+`python3 main.py --mock` with the real geo data loaded):
+- Zero console/page errors through every check below.
+- Manifest now lists 7 layers (`coastlines, firs, sectors, airways,
+  waypoints, navaids, airports`); all 7 toggle checkboxes present and
+  clickable with no error.
+- **Per-layer render proof, not assumption:** toggled each layer and
+  diffed `#map-canvas.toDataURL()` before/after. `firs`, `sectors`,
+  `airways`, `waypoints`, `navaids` all changed the canvas (proof they
+  draw real content); `airports`/`coastlines` did *not* change it —
+  **confirmed expected** (still-empty placeholder files), not a defect.
+- **FIR footprint sanity-checked quantitatively, not just eyeballed:**
+  toggling `firs` changes 38.7% of canvas pixels — a real, substantial
+  shape, not a near-invisible speck (which is what the old
+  Netherlands/Vietnam bounds-union bug would have produced).
+- Traffic overlay confirmed non-empty (2621 non-transparent pixels for
+  4 aircraft's markers+leader-lines+labels) and positioned sensibly
+  alongside the FIR (both visible together, at a sane shared scale).
+- Wheel zoom, drag pan, and double-click reset each independently
+  confirmed to change `#map-canvas`'s pixels (i.e. each control does
+  something) with zero console errors across the whole interaction
+  sequence.
+- `localStorage` persistence confirmed end-to-end: panned the view,
+  toggled a layer off, read back both `localStorage` keys, **reloaded
+  the page**, and confirmed both the saved view bounds and the
+  unchecked layer's checkbox state survived the reload.
+- Animation-still-works confirmed the same way §3a originally did:
+  `#map-traffic-canvas` differs frame-to-frame (100ms apart) while
+  `#map-canvas` is byte-identical frame-to-frame *within* one poll
+  cycle (only changes when a new poll actually lands) — i.e. exactly
+  the same behavior as before this phase, not just "didn't crash."
+- Full regression suite re-run after all of the above: `tests/test_dashboard.py`
+  (81/81), `test_hotspot.py` (24/24), `test_tracking.py` (44/44),
+  `test_forecast.py` (47/47), `test_resolution.py` (39/39),
+  `test_complexity.py` (42/42) — 277/277 total, all unmodified by this
+  phase. `node --check` clean on both `dashboard.js` and `geo_layers.js`.
+
+**Not done / explicitly out of scope for this phase** (per instruction
+— "do NOT redesign anything yet"):
+- No per-feature styling by `confidence` (e.g. dashing Sector 5a
+  differently since `EXTRACTION_LOG.md` flags it `confidence: "low"`).
+  The manifest only supports per-*layer* style today, not per-*feature*
+  overrides; adding that would be a small renderer extension, not
+  "just styling," so it's noted here rather than done silently.
+- No migration of `ASTRAConfig.sectors` (still circles, drives the
+  complexity-scoring pipeline) to use the new real sector polygons —
+  already flagged as an open question in §9, unchanged by this phase.
+  The visual sector layer and the scoring engine's circles coexist as
+  two independent things, same as before real geometry existed.
+- `airports.json`/`coastlines.json` are still empty; nothing to
+  integrate until/unless that extraction happens.
+
+
 
 Per instruction: use the recommended option for each, unless doing so
 would require a substantial architectural change (in which case: defer,

@@ -240,6 +240,11 @@ body {
     position: relative;
     width: 100%;
     height: 480px;
+    cursor: grab;
+}
+
+.map-stack.map-dragging {
+    cursor: grabbing;
 }
 
 .map-stack canvas {

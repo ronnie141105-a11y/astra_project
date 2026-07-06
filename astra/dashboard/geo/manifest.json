@@ -12,7 +12,7 @@
             "file": "geo/coastlines.json",
             "default_visible": true,
             "z_index": 0,
-            "style": { "stroke": "#2b3742", "width": 1, "dash": [] }
+            "style": { "stroke": "#24313d", "width": 1, "dash": [] }
         },
         {
             "id": "firs",
@@ -22,7 +22,7 @@
             "default_visible": true,
             "z_index": 1,
             "label_field": "name",
-            "style": { "stroke": "#5a6b78", "fill": "rgba(90, 107, 120, 0.05)", "width": 1.5, "dash": [] }
+            "style": { "stroke": "#4a90a4", "fill": "rgba(74, 144, 164, 0.04)", "width": 1.75, "dash": [] }
         },
         {
             "id": "sectors",
@@ -32,7 +32,7 @@
             "default_visible": true,
             "z_index": 2,
             "label_field": "name",
-            "style": { "stroke": "#4a5866", "fill": "rgba(74, 88, 102, 0.05)", "width": 1, "dash": [5, 5] }
+            "style": { "stroke": "#35c3a3", "fill": "rgba(53, 195, 163, 0.04)", "width": 1, "dash": [6, 4] }
         },
         {
             "id": "airways",
@@ -41,7 +41,8 @@
             "file": "geo/airways.json",
             "default_visible": false,
             "z_index": 3,
-            "style": { "stroke": "#33424e", "width": 1, "dash": [2, 4] }
+            "label_field": "designator",
+            "style": { "stroke": "#8a7248", "width": 1, "dash": [1, 4] }
         },
         {
             "id": "waypoints",
@@ -51,7 +52,17 @@
             "default_visible": false,
             "z_index": 4,
             "label_field": "name",
-            "style": { "marker": "star", "fill": "#8494a2", "size": 4 }
+            "style": { "marker": "star", "fill": "#8494a2", "size": 3.5 }
+        },
+        {
+            "id": "navaids",
+            "label": "Navaids",
+            "kind": "point",
+            "file": "geo/navaids.json",
+            "default_visible": false,
+            "z_index": 4,
+            "label_field": "ident",
+            "style": { "marker": "diamond", "fill": "#e0a63c", "size": 5 }
         },
         {
             "id": "airports",
