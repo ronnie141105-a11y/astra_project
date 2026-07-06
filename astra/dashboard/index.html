@@ -54,23 +54,32 @@
 
         <section id="panel-alerts" class="panel panel-alerts">
             <h2>Alerts</h2>
-            <table id="tracks-table">
-                <thead>
-                    <tr>
-                        <th>ARHAC</th>
-                        <th>Status</th>
-                        <th>Onset in</th>
-                        <th>Act by</th>
-                        <th>Flights</th>
-                        <th>Sector</th>
-                        <th>Complexity</th>
-                        <th>Confidence</th>
-                    </tr>
-                </thead>
-                <tbody id="tracks-tbody">
-                    <tr><td colspan="8" class="empty-row">No open tracks.</td></tr>
-                </tbody>
-            </table>
+            <div class="table-scroll">
+                <table id="tracks-table">
+                    <thead>
+                        <tr>
+                            <th>ARHAC</th>
+                            <th>Status</th>
+                            <th>Onset in</th>
+                            <th>Act by</th>
+                            <th>Flights</th>
+                            <th>Sector</th>
+                            <th>Complexity</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tracks-tbody">
+                        <tr><td colspan="8" class="empty-row">No open tracks.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="panel-aircraft" class="panel panel-aircraft">
+            <h2>Aircraft</h2>
+            <div id="aircraft-list" class="aircraft-list">
+                <p class="empty-row">No aircraft in view.</p>
+            </div>
         </section>
 
         <section id="panel-event" class="panel panel-event">

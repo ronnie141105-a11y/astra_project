@@ -88,6 +88,13 @@ class GeoLayerManager {
      * @param {(lat: number, lon: number) => [number, number]} project
      */
     draw(ctx, project) {
+        // Label decluttering: one shared registry of already-placed label
+        // boxes for this whole draw pass (across every layer, not just
+        // within one) -- a waypoint label and a sector label are both
+        // just "text on the map" competing for the same screen space.
+        // Greedy "skip if it would overlap something already placed"; the
+        // marker/line itself is never skipped, only its text label.
+        this._labelRects = [];
         this.layers.forEach((layer) => {
             if (!layer.visible) {
                 return;
@@ -111,10 +118,10 @@ class GeoLayerManager {
                 geometry.coordinates.forEach((poly) => this._drawPolygon(ctx, project, layer.style, poly, label));
                 break;
             case "LineString":
-                this._drawLine(ctx, project, layer.style, geometry.coordinates);
+                this._drawLine(ctx, project, layer.style, geometry.coordinates, label);
                 break;
             case "MultiLineString":
-                geometry.coordinates.forEach((line) => this._drawLine(ctx, project, layer.style, line));
+                geometry.coordinates.forEach((line) => this._drawLine(ctx, project, layer.style, line, label));
                 break;
             case "Point":
                 this._drawPoint(ctx, project, layer.style, geometry.coordinates, label);
@@ -127,7 +134,57 @@ class GeoLayerManager {
         }
     }
 
-    /** GeoJSON polygon coordinates: `[ring, ...]`, each ring `[[lon, lat], ...]`, first ring = exterior. */
+    /** Would a label box at (x, y) sized (w, h) overlap one already placed
+     * this draw pass? If not, reserve it and return true (caller may draw). */
+    _reserveLabelSpace(x, y, w, h) {
+        const pad = 2;
+        const box = { x1: x - pad, y1: y - h - pad, x2: x + w + pad, y2: y + pad };
+        const overlaps = this._labelRects.some(
+            (r) => box.x1 < r.x2 && box.x2 > r.x1 && box.y1 < r.y2 && box.y2 > r.y1
+        );
+        if (overlaps) {
+            return false;
+        }
+        this._labelRects.push(box);
+        return true;
+    }
+
+    /** Draw `text` at (x, y) (baseline-left) if it doesn't collide with an
+     * already-placed label this pass; always a no-op on the marker/line
+     * itself, only ever skips the *text*. */
+    _drawDeclutteredLabel(ctx, text, x, y) {
+        const width = ctx.measureText(text).width;
+        if (!this._reserveLabelSpace(x, y, width, 10)) {
+            return;
+        }
+        ctx.fillText(text, x, y);
+    }
+
+    /** Area-weighted centroid of a closed polygon ring (shoelace formula) --
+     * a far better label anchor than "first vertex," which tends to land
+     * on a boundary corner rather than inside the shape. */
+    _ringCentroid(ring) {
+        let area = 0;
+        let cx = 0;
+        let cy = 0;
+        for (let i = 0; i < ring.length - 1; i++) {
+            const [x0, y0] = ring[i];
+            const [x1, y1] = ring[i + 1];
+            const cross = x0 * y1 - x1 * y0;
+            area += cross;
+            cx += (x0 + x1) * cross;
+            cy += (y0 + y1) * cross;
+        }
+        area *= 0.5;
+        if (Math.abs(area) < 1e-9) {
+            // Degenerate ring (all points ~collinear) -- fall back to a
+            // simple vertex average rather than dividing by ~0.
+            const n = ring.length - 1 || 1;
+            const sum = ring.slice(0, -1).reduce((acc, [x, y]) => [acc[0] + x, acc[1] + y], [0, 0]);
+            return [sum[0] / n, sum[1] / n];
+        }
+        return [cx / (6 * area), cy / (6 * area)];
+    }
     _drawPolygon(ctx, project, style, rings, label) {
         if (!rings || rings.length === 0) {
             return;
@@ -154,15 +211,15 @@ class GeoLayerManager {
         ctx.stroke();
         ctx.setLineDash([]);
         if (label) {
-            const [lon0, lat0] = rings[0][0];
-            const [lx, ly] = project(lat0, lon0);
+            const [clon, clat] = this._ringCentroid(rings[0]);
+            const [lx, ly] = project(clat, clon);
             ctx.fillStyle = style.stroke || "#8494a2";
             ctx.font = "10px monospace";
-            ctx.fillText(label, lx + 4, ly - 4);
+            this._drawDeclutteredLabel(ctx, label, lx - ctx.measureText(label).width / 2, ly);
         }
     }
 
-    _drawLine(ctx, project, style, points) {
+    _drawLine(ctx, project, style, points, label) {
         if (!points || points.length === 0) {
             return;
         }
@@ -180,6 +237,14 @@ class GeoLayerManager {
         ctx.lineWidth = style.width || 1;
         ctx.stroke();
         ctx.setLineDash([]);
+
+        if (label) {
+            const mid = points[Math.floor(points.length / 2)];
+            const [mx, my] = project(mid[1], mid[0]);
+            ctx.fillStyle = style.stroke || "#8494a2";
+            ctx.font = "9px monospace";
+            this._drawDeclutteredLabel(ctx, label, mx + 3, my - 3);
+        }
     }
 
     _drawPoint(ctx, project, style, coord, label) {
@@ -194,6 +259,15 @@ class GeoLayerManager {
             case "square":
                 ctx.fillRect(x - size, y - size, size * 2, size * 2);
                 break;
+            case "diamond":
+                ctx.beginPath();
+                ctx.moveTo(x, y - size);
+                ctx.lineTo(x + size, y);
+                ctx.lineTo(x, y + size);
+                ctx.lineTo(x - size, y);
+                ctx.closePath();
+                ctx.fill();
+                break;
             default:
                 ctx.beginPath();
                 ctx.arc(x, y, size, 0, Math.PI * 2);
@@ -203,7 +277,7 @@ class GeoLayerManager {
         if (label) {
             ctx.fillStyle = style.fill || "#8494a2";
             ctx.font = "9px monospace";
-            ctx.fillText(label, x + size + 3, y + 3);
+            this._drawDeclutteredLabel(ctx, label, x + size + 3, y + 3);
         }
     }
 
