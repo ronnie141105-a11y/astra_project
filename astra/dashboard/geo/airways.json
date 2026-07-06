@@ -1,0 +1,363 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            108.024444,
+            14.006111
+          ],
+          [
+            107.4,
+            14.333333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "B202",
+        "sectors": "Sector 1",
+        "waypoints": [
+          "PLK",
+          "BOMPA"
+        ],
+        "note": "Sector 1 Ho Chi Minh ACC. BOMPA is COP: HCM ACC transfers to Vientiane ACC.",
+        "acc": "Ho Chi Minh ACC",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            107.416667,
+            13.983333
+          ],
+          [
+            107.843611,
+            13.999444
+          ],
+          [
+            108.024444,
+            14.006111
+          ],
+          [
+            108.153611,
+            14.0
+          ],
+          [
+            109.042778,
+            13.957222
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "G474",
+        "sectors": "Sector 1",
+        "waypoints": [
+          "ANINA",
+          "DADEN",
+          "PLK",
+          "MUMGA",
+          "PCA"
+        ],
+        "note": "Sector 1 Ho Chi Minh ACC. ANINA is COP with Phnom Penh ACC; PLK/MUMGA/PCA are COPs with Da Nang CTL.",
+        "acc": "Ho Chi Minh ACC",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            107.5,
+            13.666667
+          ],
+          [
+            108.024444,
+            14.006111
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "R588",
+        "sectors": "Sector 1",
+        "waypoints": [
+          "GONLY",
+          "PLK"
+        ],
+        "note": "Sector 1 Ho Chi Minh ACC.",
+        "acc": "Ho Chi Minh ACC",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            108.123056,
+            12.666389
+          ],
+          [
+            107.574722,
+            12.548056
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "M505",
+        "sectors": "Sector 2",
+        "waypoints": [
+          "BMT",
+          "MULAD"
+        ],
+        "note": "Sector 2 Ho Chi Minh ACC. MULAD is COP with Phnom Penh ACC.",
+        "acc": "Ho Chi Minh ACC",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            107.188333,
+            10.939167
+          ],
+          [
+            107.146944,
+            10.775833
+          ],
+          [
+            107.075556,
+            10.493333
+          ],
+          [
+            106.858056,
+            9.639444
+          ],
+          [
+            106.626389,
+            8.732778
+          ],
+          [
+            106.81,
+            7.0
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "L644",
+        "sectors": "Sector 2/3",
+        "waypoints": [
+          "AC",
+          "LEDUP",
+          "LOSON",
+          "BODOD",
+          "CN",
+          "DUDIS"
+        ],
+        "note": "Ho Chi Minh ACC Sector 2 up to FL265 inclusive / Sector 3 above FL265. LEDUP is COP Sector2/3 (<=FL265); BODOD is COP Sector3/4.",
+        "acc": "Ho Chi Minh ACC",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            107.188333,
+            10.939167
+          ],
+          [
+            107.6075,
+            11.233056
+          ],
+          [
+            108.355278,
+            11.754167
+          ],
+          [
+            108.640833,
+            11.833889
+          ],
+          [
+            109.22,
+            11.994444
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W15",
+        "sectors": "Sector 2/5",
+        "waypoints": [
+          "AC",
+          "VETOM",
+          "LKH",
+          "SOSPA",
+          "CRA"
+        ],
+        "note": "Ho Chi Minh ACC Sector 2 up to FL265 inclusive / Sector 5 above. VETOM is COP Sector3/5 above FL265; SOSPA is COP Sector1/2 (<=FL265).",
+        "acc": "Ho Chi Minh ACC",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            109.042778,
+            13.957222
+          ],
+          [
+            109.521389,
+            13.9625
+          ],
+          [
+            110.0,
+            13.966667
+          ],
+          [
+            111.51,
+            13.978333
+          ],
+          [
+            113.045,
+            13.98
+          ],
+          [
+            114.45,
+            13.973333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "L628",
+        "sectors": "Sector 1/5",
+        "waypoints": [
+          "PCA",
+          "VIMUT",
+          "VEPAM",
+          "DAMEL",
+          "MESOX",
+          "ARESI"
+        ],
+        "note": "Sector 1 Ho Chi Minh ACC (PCA-VIMUT). VIMUT is COP Sector1/5; remainder is Sector 5.",
+        "acc": "Ho Chi Minh ACC",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            109.22,
+            11.994444
+          ],
+          [
+            109.496111,
+            12.140556
+          ],
+          [
+            110.640278,
+            12.741944
+          ],
+          [
+            113.045,
+            13.98
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q15",
+        "sectors": "Sector 1/5",
+        "waypoints": [
+          "CRA",
+          "ATVIT",
+          "NITOM",
+          "MESOX"
+        ],
+        "note": "Ho Chi Minh ACC Sector 1 up to FL265 inclusive / Sector 5 above. ATVIT is COP Sector1/5 (<=FL265).",
+        "acc": "Ho Chi Minh ACC",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            114.0,
+            11.635
+          ],
+          [
+            112.205,
+            10.948333
+          ],
+          [
+            110.335,
+            10.218333
+          ],
+          [
+            109.2525,
+            9.788333
+          ],
+          [
+            108.441667,
+            9.463333
+          ],
+          [
+            106.626389,
+            8.732778
+          ],
+          [
+            105.369444,
+            7.995556
+          ],
+          [
+            104.118333,
+            7.256667
+          ],
+          [
+            103.585,
+            6.936667
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "M765",
+        "sectors": "Sector 4/5",
+        "waypoints": [
+          "PANDI",
+          "ALDAS",
+          "MAPNO",
+          "SAMAP",
+          "DAGAG",
+          "CN",
+          "VIGEN",
+          "BITOD",
+          "IGARI"
+        ],
+        "note": "Sector 5 Ho Chi Minh ACC (PANDI-SAMAP). SAMAP is COP Sector4/5; VIGEN is COP Sector3/4. Continues to AIP Singapore beyond IGARI.",
+        "acc": "Ho Chi Minh ACC",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+      }
+    }
+  ]
+}

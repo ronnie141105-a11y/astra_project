@@ -1,0 +1,74 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              103.733333,
+              10.366667
+            ],
+            [
+              102.666667,
+              9.0
+            ],
+            [
+              103.0,
+              7.0
+            ],
+            [
+              108.0,
+              7.0
+            ],
+            [
+              114.0,
+              10.5
+            ],
+            [
+              114.0,
+              16.666667
+            ],
+            [
+              114.25,
+              17.0
+            ],
+            [
+              111.5,
+              17.0
+            ],
+            [
+              109.666667,
+              17.666667
+            ],
+            [
+              108.0,
+              17.216667
+            ],
+            [
+              107.3,
+              17.0
+            ],
+            [
+              106.4,
+              17.0
+            ],
+            [
+              103.733333,
+              10.366667
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "VVHM",
+        "name": "Ho Chi Minh FIR",
+        "confidence": "medium",
+        "note": "12 vertices exact per AIP ENR 2.1 text. Closing segment (last vertex back to first) approximates the Vietnam-Laos/Vietnam-Cambodia land border, which the AIP describes only as 'along the border' with no coordinate list -- prototype-level approximation.",
+        "source": "VV-ENR-2_1-en.pdf ENR 2.1, FIR HO CHI MINH (VVHM) lateral limits"
+      }
+    }
+  ]
+}

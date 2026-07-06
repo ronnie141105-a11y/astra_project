@@ -1,0 +1,639 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.648611,
+              12.509722
+            ],
+            [
+              108.640833,
+              11.833889
+            ],
+            [
+              109.1575,
+              11.458056
+            ],
+            [
+              109.492778,
+              11.904444
+            ],
+            [
+              109.521389,
+              13.9625
+            ],
+            [
+              110.698056,
+              15.679444
+            ],
+            [
+              110.345278,
+              16.0
+            ],
+            [
+              108.704444,
+              15.412222
+            ],
+            [
+              107.556667,
+              14.686111
+            ],
+            [
+              107.607778,
+              13.305556
+            ],
+            [
+              108.506111,
+              13.363889
+            ],
+            [
+              108.6575,
+              13.260556
+            ],
+            [
+              108.648611,
+              12.509722
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sector_1a",
+        "name": "Sector 1 Ho Chi Minh ACC",
+        "acc": "Ho Chi Minh ACC",
+        "vertical_layer": "GND-FL265",
+        "confidence": "high",
+        "vertex_source": [
+          "DN4",
+          "SOSPA",
+          "D20",
+          "D21",
+          "VIMUT",
+          "D05",
+          "D04",
+          "NDB_CQ",
+          "D02",
+          "D01",
+          "D23",
+          "D24"
+        ],
+        "note": "Closing edge D02->D01 approximates the Vietnam-Cambodia border ('along the border' in AIP).",
+        "source": "VV-ENR-2_1-en.pdf ENR 2.1, textual lateral limits"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.556667,
+              14.686111
+            ],
+            [
+              107.607778,
+              13.305556
+            ],
+            [
+              108.506111,
+              13.363889
+            ],
+            [
+              108.6575,
+              13.260556
+            ],
+            [
+              108.648611,
+              12.509722
+            ],
+            [
+              109.521389,
+              13.9625
+            ],
+            [
+              110.698056,
+              15.679444
+            ],
+            [
+              110.345278,
+              16.0
+            ],
+            [
+              108.704444,
+              15.412222
+            ],
+            [
+              107.556667,
+              14.686111
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sector_1b",
+        "name": "Sector 1 Ho Chi Minh ACC",
+        "acc": "Ho Chi Minh ACC",
+        "vertical_layer": "FL265-FL460",
+        "confidence": "high",
+        "vertex_source": [
+          "D02",
+          "NDB_CQ",
+          "D04",
+          "D05",
+          "VIMUT",
+          "DN4",
+          "D24",
+          "D23",
+          "D01"
+        ],
+        "note": "Closing edge D01->D02 approximates the Vietnam-Cambodia border.",
+        "source": "VV-ENR-2_1-en.pdf ENR 2.1, textual lateral limits"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.607778,
+              13.305556
+            ],
+            [
+              105.910278,
+              11.2625
+            ],
+            [
+              106.638333,
+              11.088056
+            ],
+            [
+              106.979167,
+              10.879167
+            ],
+            [
+              107.972778,
+              12.298333
+            ],
+            [
+              108.361944,
+              12.028056
+            ],
+            [
+              108.648611,
+              12.509722
+            ],
+            [
+              108.6575,
+              13.260556
+            ],
+            [
+              108.506111,
+              13.363889
+            ],
+            [
+              107.990833,
+              13.330833
+            ],
+            [
+              107.607778,
+              13.305556
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sector_2a",
+        "name": "Sector 2 Ho Chi Minh ACC",
+        "acc": "Ho Chi Minh ACC",
+        "vertical_layer": "GND-FL460",
+        "confidence": "high",
+        "vertex_source": [
+          "D01",
+          "E01",
+          "D23",
+          "D24",
+          "DN4",
+          "E04",
+          "E02",
+          "E03",
+          "RUNOP",
+          "D15"
+        ],
+        "note": "Closing edge D15->D01 approximates the Vietnam-Cambodia border.",
+        "source": "VV-ENR-2_1-en.pdf ENR 2.1, textual lateral limits"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.648611,
+              12.509722
+            ],
+            [
+              108.361944,
+              12.028056
+            ],
+            [
+              108.640833,
+              11.833889
+            ],
+            [
+              108.648611,
+              12.509722
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sector_2b",
+        "name": "Sector 2 Ho Chi Minh ACC",
+        "acc": "Ho Chi Minh ACC",
+        "vertical_layer": "GND-FL305 (additional area)",
+        "confidence": "high",
+        "vertex_source": [
+          "DN4",
+          "SOSPA",
+          "E04"
+        ],
+        "note": "Small triangular addition to Sector 2's footprint, valid only up to FL305 inclusive.",
+        "source": "VV-ENR-2_1-en.pdf ENR 2.1, textual lateral limits"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              110.698056,
+              15.679444
+            ],
+            [
+              109.521389,
+              13.9625
+            ],
+            [
+              109.492778,
+              11.904444
+            ],
+            [
+              109.1575,
+              11.458056
+            ],
+            [
+              108.246944,
+              10.237222
+            ],
+            [
+              109.843889,
+              9.522222
+            ],
+            [
+              112.368889,
+              9.564722
+            ],
+            [
+              114.0,
+              14.703333
+            ],
+            [
+              110.698056,
+              15.679444
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sector_5a",
+        "name": "Sector 5 Ho Chi Minh ACC",
+        "acc": "Ho Chi Minh ACC",
+        "vertical_layer": "GND-FL460",
+        "confidence": "low",
+        "vertex_source": [
+          "D05",
+          "VIMUT",
+          "D21",
+          "D20",
+          "D19",
+          "OSIXA",
+          "D08"
+        ],
+        "note": "APPROXIMATED: AIP closes this boundary via 'along HCM/Singapore FIR bdry - along HCM/Manila FIR bdry (114E) - crossing pt lat 14 42'12\"N - along that latitude - DONDA - EXOTO - D05'. DONDA/EXOTO coordinates were not available in the supplied AIP extracts, so this edge is approximated as two straight segments: D08 -> (114E, 14 42'12\"N) -> D05, per explicit user instruction.",
+        "source": "VV-ENR-2_1-en.pdf ENR 2.1, textual lateral limits"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.648611,
+              12.509722
+            ],
+            [
+              108.361944,
+              12.028056
+            ],
+            [
+              108.090833,
+              11.570278
+            ],
+            [
+              107.896667,
+              11.275556
+            ],
+            [
+              107.447222,
+              10.590833
+            ],
+            [
+              108.246944,
+              10.237222
+            ],
+            [
+              109.1575,
+              11.458056
+            ],
+            [
+              108.640833,
+              11.833889
+            ],
+            [
+              108.648611,
+              12.509722
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sector_5b",
+        "name": "Sector 5 Ho Chi Minh ACC",
+        "acc": "Ho Chi Minh ACC",
+        "vertical_layer": "FL305-FL460",
+        "confidence": "high",
+        "vertex_source": [
+          "DN4",
+          "SOSPA",
+          "D20",
+          "D19",
+          "D18",
+          "DN7",
+          "DN6",
+          "E04"
+        ],
+        "note": "",
+        "source": "VV-ENR-2_1-en.pdf ENR 2.1, textual lateral limits"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              109.521389,
+              13.9625
+            ],
+            [
+              108.648611,
+              12.509722
+            ],
+            [
+              108.640833,
+              11.833889
+            ],
+            [
+              109.1575,
+              11.458056
+            ],
+            [
+              109.492778,
+              11.904444
+            ],
+            [
+              109.521389,
+              13.9625
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sector_5c",
+        "name": "Sector 5 Ho Chi Minh ACC",
+        "acc": "Ho Chi Minh ACC",
+        "vertical_layer": "FL265-FL460",
+        "confidence": "high",
+        "vertex_source": [
+          "VIMUT",
+          "D21",
+          "D20",
+          "SOSPA",
+          "DN4"
+        ],
+        "note": "",
+        "source": "VV-ENR-2_1-en.pdf ENR 2.1, textual lateral limits"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.972778,
+              12.298333
+            ],
+            [
+              106.979167,
+              10.879167
+            ],
+            [
+              107.447222,
+              10.590833
+            ],
+            [
+              107.896667,
+              11.275556
+            ],
+            [
+              108.090833,
+              11.570278
+            ],
+            [
+              108.361944,
+              12.028056
+            ],
+            [
+              107.972778,
+              12.298333
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sector_6a",
+        "name": "Sector 6 Ho Chi Minh ACC",
+        "acc": "Ho Chi Minh ACC",
+        "vertical_layer": "GND-FL460",
+        "confidence": "high",
+        "vertex_source": [
+          "E02",
+          "E04",
+          "DN6",
+          "DN7",
+          "D18",
+          "E03"
+        ],
+        "note": "",
+        "source": "VV-ENR-2_1-en.pdf ENR 2.1, textual lateral limits"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.361944,
+              12.028056
+            ],
+            [
+              108.090833,
+              11.570278
+            ],
+            [
+              107.896667,
+              11.275556
+            ],
+            [
+              107.447222,
+              10.590833
+            ],
+            [
+              108.246944,
+              10.237222
+            ],
+            [
+              109.1575,
+              11.458056
+            ],
+            [
+              108.640833,
+              11.833889
+            ],
+            [
+              108.361944,
+              12.028056
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sector_6b",
+        "name": "Sector 6 Ho Chi Minh ACC",
+        "acc": "Ho Chi Minh ACC",
+        "vertical_layer": "GND-FL305",
+        "confidence": "high",
+        "vertex_source": [
+          "E04",
+          "SOSPA",
+          "D20",
+          "D19",
+          "D18",
+          "DN7",
+          "DN6"
+        ],
+        "note": "",
+        "source": "VV-ENR-2_1-en.pdf ENR 2.1, textual lateral limits"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              105.910278,
+              11.2625
+            ],
+            [
+              105.094722,
+              10.718611
+            ],
+            [
+              105.133056,
+              9.959444
+            ],
+            [
+              104.559167,
+              8.843333
+            ],
+            [
+              105.889722,
+              8.571667
+            ],
+            [
+              106.772778,
+              8.241389
+            ],
+            [
+              108.246944,
+              10.237222
+            ],
+            [
+              107.447222,
+              10.590833
+            ],
+            [
+              106.638333,
+              11.088056
+            ],
+            [
+              105.910278,
+              11.2625
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "sector_7",
+        "name": "Sector 7 Ho Chi Minh ACC",
+        "acc": "Ho Chi Minh ACC",
+        "vertical_layer": "GND-FL255",
+        "confidence": "high",
+        "vertex_source": [
+          "D15",
+          "RUNOP",
+          "D18",
+          "D19",
+          "D25",
+          "D26",
+          "D27",
+          "NDB_RG",
+          "D28"
+        ],
+        "note": "Closing edge D28->D15 approximates the HCM/Phnom Penh FIR boundary ('along the boundary' in AIP).",
+        "source": "VV-ENR-2_1-en.pdf ENR 2.1, textual lateral limits"
+      }
+    }
+  ]
+}

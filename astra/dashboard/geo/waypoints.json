@@ -1,0 +1,1093 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.607778,
+          13.305556
+        ]
+      },
+      "properties": {
+        "name": "D01",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 1/2 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.556667,
+          14.686111
+        ]
+      },
+      "properties": {
+        "name": "D02",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 1 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.345278,
+          16.0
+        ]
+      },
+      "properties": {
+        "name": "D04",
+        "category": "sector_boundary_point",
+        "note": "Ha Noi/HCM ACC boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.698056,
+          15.679444
+        ]
+      },
+      "properties": {
+        "name": "D05",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 1/5 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.368889,
+          9.564722
+        ]
+      },
+      "properties": {
+        "name": "D08",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 4/5 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.910278,
+          11.2625
+        ]
+      },
+      "properties": {
+        "name": "D15",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 2/7 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.447222,
+          10.590833
+        ]
+      },
+      "properties": {
+        "name": "D18",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 6/7 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.246944,
+          10.237222
+        ]
+      },
+      "properties": {
+        "name": "D19",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 5/6/7 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.1575,
+          11.458056
+        ]
+      },
+      "properties": {
+        "name": "D20",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 1/5/6 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.492778,
+          11.904444
+        ]
+      },
+      "properties": {
+        "name": "D21",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 1/5 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.506111,
+          13.363889
+        ]
+      },
+      "properties": {
+        "name": "D23",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 1/2 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.6575,
+          13.260556
+        ]
+      },
+      "properties": {
+        "name": "D24",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 1/2 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.772778,
+          8.241389
+        ]
+      },
+      "properties": {
+        "name": "D25",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 7 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.889722,
+          8.571667
+        ]
+      },
+      "properties": {
+        "name": "D26",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 7 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.559167,
+          8.843333
+        ]
+      },
+      "properties": {
+        "name": "D27",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 7 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.094722,
+          10.718611
+        ]
+      },
+      "properties": {
+        "name": "D28",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 7 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.843056,
+          7.0
+        ]
+      },
+      "properties": {
+        "name": "DN2",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 3/4 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.648611,
+          12.509722
+        ]
+      },
+      "properties": {
+        "name": "DN4",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 1/2/5 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.090833,
+          11.570278
+        ]
+      },
+      "properties": {
+        "name": "DN6",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 5/6 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.896667,
+          11.275556
+        ]
+      },
+      "properties": {
+        "name": "DN7",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 5/6 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.990833,
+          13.330833
+        ]
+      },
+      "properties": {
+        "name": "E01",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 2 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.972778,
+          12.298333
+        ]
+      },
+      "properties": {
+        "name": "E02",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 2/6 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.979167,
+          10.879167
+        ]
+      },
+      "properties": {
+        "name": "E03",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 2/6 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.361944,
+          12.028056
+        ]
+      },
+      "properties": {
+        "name": "E04",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 2/5/6 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.704444,
+          15.412222
+        ]
+      },
+      "properties": {
+        "name": "NDB_CQ",
+        "category": "navaid_ndb",
+        "note": "Chu Lai NDB (CQ); Sector 1 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.133056,
+          9.959444
+        ]
+      },
+      "properties": {
+        "name": "NDB_RG",
+        "category": "navaid_ndb",
+        "note": "Rach Gia NDB (RG); Sector 7 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.843889,
+          9.522222
+        ]
+      },
+      "properties": {
+        "name": "OSIXA",
+        "category": "sector_boundary_point",
+        "note": "HCM ACC Sector 5 boundary vertex",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.638333,
+          11.088056
+        ]
+      },
+      "properties": {
+        "name": "RUNOP",
+        "category": "significant_point",
+        "note": "Sector 2/7 boundary vertex; on ATS route W12",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.640833,
+          11.833889
+        ]
+      },
+      "properties": {
+        "name": "SOSPA",
+        "category": "significant_point",
+        "note": "Sector 1/2/5/6 boundary vertex; COP on W15",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.897778,
+          9.683056
+        ]
+      },
+      "properties": {
+        "name": "TULTU",
+        "category": "significant_point",
+        "note": "On ATS route W19; near Sector 7",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.369444,
+          7.995556
+        ]
+      },
+      "properties": {
+        "name": "VIGEN",
+        "category": "significant_point",
+        "note": "COP between Sector 3/4 on M765",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.521389,
+          13.9625
+        ]
+      },
+      "properties": {
+        "name": "VIMUT",
+        "category": "significant_point",
+        "note": "COP Sector 1/5 on L628, Q15",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.4,
+          17.0
+        ]
+      },
+      "properties": {
+        "name": "A01",
+        "category": "sector_boundary_point",
+        "note": "Ha Noi ACC internal boundary point",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.3,
+          17.0
+        ]
+      },
+      "properties": {
+        "name": "A02",
+        "category": "sector_boundary_point",
+        "note": "Ha Noi ACC internal boundary point",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.743611,
+          17.419444
+        ]
+      },
+      "properties": {
+        "name": "A03",
+        "category": "sector_boundary_point",
+        "note": "Ha Noi ACC internal boundary point",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.024444,
+          14.006111
+        ]
+      },
+      "properties": {
+        "name": "PLK",
+        "category": "navaid_vordme",
+        "note": "Pleiku DVOR/DME",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.4,
+          14.333333
+        ]
+      },
+      "properties": {
+        "name": "BOMPA",
+        "category": "significant_point",
+        "note": "COP HCM ACC / Vientiane ACC, route B202",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.416667,
+          13.983333
+        ]
+      },
+      "properties": {
+        "name": "ANINA",
+        "category": "significant_point",
+        "note": "COP HCM ACC / Phnom Penh ACC, route G474",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.843611,
+          13.999444
+        ]
+      },
+      "properties": {
+        "name": "DADEN",
+        "category": "significant_point",
+        "note": "Route G474",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.153611,
+          14.0
+        ]
+      },
+      "properties": {
+        "name": "MUMGA",
+        "category": "significant_point",
+        "note": "Route G474",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.042778,
+          13.957222
+        ]
+      },
+      "properties": {
+        "name": "PCA",
+        "category": "navaid_vordme",
+        "note": "Phu Cat DVOR/DME",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.0,
+          13.966667
+        ]
+      },
+      "properties": {
+        "name": "VEPAM",
+        "category": "significant_point",
+        "note": "Route L628",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.51,
+          13.978333
+        ]
+      },
+      "properties": {
+        "name": "DAMEL",
+        "category": "significant_point",
+        "note": "Route L628",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.045,
+          13.98
+        ]
+      },
+      "properties": {
+        "name": "MESOX",
+        "category": "significant_point",
+        "note": "Route L628",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.45,
+          13.973333
+        ]
+      },
+      "properties": {
+        "name": "ARESI",
+        "category": "significant_point",
+        "note": "Route L628, continues to AIP Philippines",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.5,
+          13.666667
+        ]
+      },
+      "properties": {
+        "name": "GONLY",
+        "category": "significant_point",
+        "note": "Route R588",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.159722,
+          14.286111
+        ]
+      },
+      "properties": {
+        "name": "BANSU",
+        "category": "significant_point",
+        "note": "Route W11",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.123056,
+          12.666389
+        ]
+      },
+      "properties": {
+        "name": "BMT",
+        "category": "navaid_vordme",
+        "note": "Buon Ma Thuot DVOR/DME",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.574722,
+          12.548056
+        ]
+      },
+      "properties": {
+        "name": "MULAD",
+        "category": "significant_point",
+        "note": "COP HCM ACC / Phnom Penh ACC, route M505",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.188333,
+          10.939167
+        ]
+      },
+      "properties": {
+        "name": "AC",
+        "category": "navaid_ndb",
+        "note": "An Loc NDB",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.146944,
+          10.775833
+        ]
+      },
+      "properties": {
+        "name": "LEDUP",
+        "category": "significant_point",
+        "note": "COP Sector 2/3 up to FL265, route L644",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.075556,
+          10.493333
+        ]
+      },
+      "properties": {
+        "name": "LOSON",
+        "category": "significant_point",
+        "note": "Route L644 / W68",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.858056,
+          9.639444
+        ]
+      },
+      "properties": {
+        "name": "BODOD",
+        "category": "significant_point",
+        "note": "COP Sector 3/4, route L644",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.626389,
+          8.732778
+        ]
+      },
+      "properties": {
+        "name": "CN",
+        "category": "navaid_ndb",
+        "note": "Con Son NDB",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.81,
+          7.0
+        ]
+      },
+      "properties": {
+        "name": "DUDIS",
+        "category": "significant_point",
+        "note": "Route L644, continues to AIP Singapore",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.355278,
+          11.754167
+        ]
+      },
+      "properties": {
+        "name": "LKH",
+        "category": "navaid_vordme",
+        "note": "Lien Khuong DVOR/DME",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.308611,
+          11.938056
+        ]
+      },
+      "properties": {
+        "name": "ONEBI",
+        "category": "significant_point",
+        "note": "Sector 2/5 COP above FL265, route W7",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.6075,
+          11.233056
+        ]
+      },
+      "properties": {
+        "name": "VETOM",
+        "category": "significant_point",
+        "note": "Route W15",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.22,
+          11.994444
+        ]
+      },
+      "properties": {
+        "name": "CRA",
+        "category": "navaid_vordme",
+        "note": "Cam Ranh DVOR/DME",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.496111,
+          12.140556
+        ]
+      },
+      "properties": {
+        "name": "ATVIT",
+        "category": "significant_point",
+        "note": "COP Sector 1/5 up to FL265, route Q15",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.640278,
+          12.741944
+        ]
+      },
+      "properties": {
+        "name": "NITOM",
+        "category": "significant_point",
+        "note": "Route Q15",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.0,
+          11.635
+        ]
+      },
+      "properties": {
+        "name": "PANDI",
+        "category": "significant_point",
+        "note": "Route M765/N500, continues to AIP Philippines",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.205,
+          10.948333
+        ]
+      },
+      "properties": {
+        "name": "ALDAS",
+        "category": "significant_point",
+        "note": "Route M765",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.335,
+          10.218333
+        ]
+      },
+      "properties": {
+        "name": "MAPNO",
+        "category": "significant_point",
+        "note": "Route M765",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.2525,
+          9.788333
+        ]
+      },
+      "properties": {
+        "name": "SAMAP",
+        "category": "significant_point",
+        "note": "COP Sector 4/5, route M765",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.441667,
+          9.463333
+        ]
+      },
+      "properties": {
+        "name": "DAGAG",
+        "category": "significant_point",
+        "note": "Route M765/M768",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.118333,
+          7.256667
+        ]
+      },
+      "properties": {
+        "name": "BITOD",
+        "category": "significant_point",
+        "note": "Route M765/M753/L637",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.585,
+          6.936667
+        ]
+      },
+      "properties": {
+        "name": "IGARI",
+        "category": "significant_point",
+        "note": "Route M765/N891, continues to AIP Singapore",
+        "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    }
+  ]
+}
