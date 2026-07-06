@@ -1,0 +1,215 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.188333,
+          10.939167
+        ]
+      },
+      "properties": {
+        "ident": "AC",
+        "name": "AN LOC",
+        "type": "NDB",
+        "frequency": "320 KHZ",
+        "channel": null,
+        "hours_of_operation": "H24",
+        "elevation_m": 20,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-4_1-en.pdf ENR 4.1, Radio Navigation Aids - En-Route"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.122778,
+          12.666389
+        ]
+      },
+      "properties": {
+        "ident": "BMT",
+        "name": "BUON MA THUOT",
+        "type": "DVOR/DME",
+        "frequency": "112.100 MHZ",
+        "channel": "58X",
+        "hours_of_operation": "H24",
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-4_1-en.pdf ENR 4.1, Radio Navigation Aids - En-Route"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.094444,
+          10.372778
+        ]
+      },
+      "properties": {
+        "ident": "VTV",
+        "name": "VUNG TAU",
+        "type": "DVOR/DME",
+        "frequency": "114.700 MHZ",
+        "channel": "94X",
+        "hours_of_operation": "HS",
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-4_1-en.pdf ENR 4.1, Radio Navigation Aids - En-Route"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.705556,
+          10.083333
+        ]
+      },
+      "properties": {
+        "ident": "TRN",
+        "name": "CAN THO",
+        "type": "DVOR/DME",
+        "frequency": "113.200 MHZ",
+        "channel": "79X",
+        "hours_of_operation": "H24",
+        "elevation_m": 7,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-4_1-en.pdf ENR 4.1, Radio Navigation Aids - En-Route"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.626389,
+          8.732778
+        ]
+      },
+      "properties": {
+        "ident": "CN",
+        "name": "CON SON",
+        "type": "NDB",
+        "frequency": "375 KHZ",
+        "channel": null,
+        "hours_of_operation": "HO (Hanoi time)",
+        "elevation_m": 12,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-4_1-en.pdf ENR 4.1, Radio Navigation Aids - En-Route"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.355278,
+          11.754167
+        ]
+      },
+      "properties": {
+        "ident": "LKH",
+        "name": "LIEN KHUONG",
+        "type": "DVOR/DME",
+        "frequency": "112.300 MHZ",
+        "channel": "70X",
+        "hours_of_operation": "H24",
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-4_1-en.pdf ENR 4.1, Radio Navigation Aids - En-Route"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.071944,
+          10.928056
+        ]
+      },
+      "properties": {
+        "ident": "PTH",
+        "name": "PHAN THIET",
+        "type": "CVOR/DME",
+        "frequency": "114.100 MHZ",
+        "channel": "88X",
+        "hours_of_operation": "H24",
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-4_1-en.pdf ENR 4.1, Radio Navigation Aids - En-Route"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.176667,
+          9.176111
+        ]
+      },
+      "properties": {
+        "ident": "QL",
+        "name": "CA MAU",
+        "type": "NDB",
+        "frequency": "305 KHZ",
+        "channel": null,
+        "hours_of_operation": "HO",
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-4_1-en.pdf ENR 4.1, Radio Navigation Aids - En-Route"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.024444,
+          14.006111
+        ]
+      },
+      "properties": {
+        "ident": "PLK",
+        "name": "PLEIKU",
+        "type": "DVOR/DME",
+        "frequency": "113.400 MHZ",
+        "channel": "81X",
+        "hours_of_operation": "H24",
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-4_1-en.pdf ENR 4.1, Radio Navigation Aids - En-Route"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.650556,
+          10.818333
+        ]
+      },
+      "properties": {
+        "ident": "TSH",
+        "name": "TAN SON NHAT",
+        "type": "DVOR/DME",
+        "frequency": "116.800 MHZ",
+        "channel": "115X",
+        "hours_of_operation": "H24",
+        "elevation_m": 16,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-4_1-en.pdf ENR 4.1, Radio Navigation Aids - En-Route"
+      }
+    }
+  ]
+}

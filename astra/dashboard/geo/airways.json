@@ -7,121 +7,114 @@
         "type": "LineString",
         "coordinates": [
           [
-            108.024444,
-            14.006111
+            105.835,
+            21.213056
           ],
           [
-            107.4,
-            14.333333
-          ]
-        ]
-      },
-      "properties": {
-        "designator": "B202",
-        "sectors": "Sector 1",
-        "waypoints": [
-          "PLK",
-          "BOMPA"
-        ],
-        "note": "Sector 1 Ho Chi Minh ACC. BOMPA is COP: HCM ACC transfers to Vientiane ACC.",
-        "acc": "Ho Chi Minh ACC",
-        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [
-            107.416667,
-            13.983333
+            105.996667,
+            20.742778
           ],
           [
-            107.843611,
-            13.999444
+            106.117778,
+            20.387222
           ],
           [
-            108.024444,
-            14.006111
+            106.693611,
+            19.228056
           ],
           [
-            108.153611,
-            14.0
+            106.871667,
+            18.847778
           ],
           [
-            109.042778,
-            13.957222
-          ]
-        ]
-      },
-      "properties": {
-        "designator": "G474",
-        "sectors": "Sector 1",
-        "waypoints": [
-          "ANINA",
-          "DADEN",
-          "PLK",
-          "MUMGA",
-          "PCA"
-        ],
-        "note": "Sector 1 Ho Chi Minh ACC. ANINA is COP with Phnom Penh ACC; PLK/MUMGA/PCA are COPs with Da Nang CTL.",
-        "acc": "Ho Chi Minh ACC",
-        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
+            107.048889,
+            18.466944
+          ],
           [
-            107.5,
-            13.666667
+            107.233056,
+            18.07
+          ],
+          [
+            107.677778,
+            17.129722
+          ],
+          [
+            107.888611,
+            16.694722
+          ],
+          [
+            107.965278,
+            16.536389
+          ],
+          [
+            108.198333,
+            16.052778
+          ],
+          [
+            108.111667,
+            15.038611
+          ],
+          [
+            108.101667,
+            14.919444
           ],
           [
             108.024444,
             14.006111
-          ]
-        ]
-      },
-      "properties": {
-        "designator": "R588",
-        "sectors": "Sector 1",
-        "waypoints": [
-          "GONLY",
-          "PLK"
-        ],
-        "note": "Sector 1 Ho Chi Minh ACC.",
-        "acc": "Ho Chi Minh ACC",
-        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
+          ],
+          [
+            108.074167,
+            13.336389
+          ],
           [
             108.123056,
             12.666389
           ],
           [
-            107.574722,
-            12.548056
+            107.323889,
+            11.190833
+          ],
+          [
+            107.188333,
+            10.939167
+          ],
+          [
+            106.963889,
+            10.888611
+          ],
+          [
+            106.650556,
+            10.818333
           ]
         ]
       },
       "properties": {
-        "designator": "M505",
-        "sectors": "Sector 2",
+        "designator": "W1",
         "waypoints": [
+          "NOB",
+          "LOVBI",
+          "NAH",
+          "MAREL",
+          "VIDAD",
+          "HATIN",
+          "XONUS",
+          "HAMIN",
+          "PHULU",
+          "CAHEO",
+          "DAN",
+          "VILOT",
+          "XAQUA",
+          "PLK",
+          "MEVON",
           "BMT",
-          "MULAD"
+          "ENRIN",
+          "AC",
+          "ESDOB",
+          "TSH"
         ],
-        "note": "Sector 2 Ho Chi Minh ACC. MULAD is COP with Phnom Penh ACC.",
-        "acc": "Ho Chi Minh ACC",
-        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+        "levels": "FL285/FL40-70-90-120",
+        "note": "Ha Noi ACC Sectors 1-4 -> Ho Chi Minh ACC Sector 1",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1"
       }
     },
     {
@@ -130,45 +123,114 @@
         "type": "LineString",
         "coordinates": [
           [
+            106.117778,
+            20.387222
+          ],
+          [
+            105.668333,
+            18.734167
+          ],
+          [
+            106.093333,
+            18.253611
+          ],
+          [
+            106.595278,
+            17.681389
+          ],
+          [
+            107.186944,
+            17.0
+          ],
+          [
+            107.627222,
+            16.488611
+          ],
+          [
+            107.701667,
+            16.402222
+          ],
+          [
+            108.198333,
+            16.052778
+          ],
+          [
+            108.704444,
+            15.412222
+          ],
+          [
+            108.8075,
+            14.971389
+          ],
+          [
+            109.042778,
+            13.957222
+          ],
+          [
+            109.101389,
+            13.2875
+          ],
+          [
+            109.156667,
+            12.648889
+          ],
+          [
+            109.201111,
+            12.226389
+          ],
+          [
+            109.22,
+            11.994444
+          ],
+          [
+            108.868056,
+            11.668889
+          ],
+          [
+            108.071944,
+            10.928056
+          ],
+          [
+            107.671667,
+            10.933333
+          ],
+          [
             107.188333,
             10.939167
           ],
           [
-            107.146944,
-            10.775833
-          ],
-          [
-            107.075556,
-            10.493333
-          ],
-          [
-            106.858056,
-            9.639444
-          ],
-          [
-            106.626389,
-            8.732778
-          ],
-          [
-            106.81,
-            7.0
+            106.650556,
+            10.818333
           ]
         ]
       },
       "properties": {
-        "designator": "L644",
-        "sectors": "Sector 2/3",
+        "designator": "W2",
         "waypoints": [
+          "NAH",
+          "VIN",
+          "KAMSU",
+          "DONGI",
+          "KONCO",
+          "BIGBO",
+          "HUE",
+          "DAN",
+          "CQ",
+          "KUMUN",
+          "PCA",
+          "KAMGO",
+          "KARAN",
+          "NHATA",
+          "CRA",
+          "IBUNU",
+          "PTH",
+          "VEPMA",
           "AC",
-          "LEDUP",
-          "LOSON",
-          "BODOD",
-          "CN",
-          "DUDIS"
+          "TSH"
         ],
-        "note": "Ho Chi Minh ACC Sector 2 up to FL265 inclusive / Sector 3 above FL265. LEDUP is COP Sector2/3 (<=FL265); BODOD is COP Sector3/4.",
-        "acc": "Ho Chi Minh ACC",
-        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+        "levels": "FL460/FL80-100",
+        "note": "Ha Noi ACC Sectors 2-4 -> Ho Chi Minh ACC (Sector 1 area)",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1"
       }
     },
     {
@@ -200,7 +262,6 @@
       },
       "properties": {
         "designator": "W15",
-        "sectors": "Sector 2/5",
         "waypoints": [
           "AC",
           "VETOM",
@@ -208,9 +269,40 @@
           "SOSPA",
           "CRA"
         ],
-        "note": "Ho Chi Minh ACC Sector 2 up to FL265 inclusive / Sector 5 above. VETOM is COP Sector3/5 above FL265; SOSPA is COP Sector1/2 (<=FL265).",
-        "acc": "Ho Chi Minh ACC",
-        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+        "levels": "FL460/FL100-110",
+        "note": "Ho Chi Minh ACC Sector 2 (<=FL265) / Sector 5 (>FL265)",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            108.355278,
+            11.754167
+          ],
+          [
+            108.308611,
+            11.938056
+          ],
+          [
+            108.123056,
+            12.666389
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W7",
+        "waypoints": [
+          "LKH",
+          "ONEBI",
+          "BMT"
+        ],
+        "levels": "FL460/FL100",
+        "note": "Ho Chi Minh ACC Sector 2 (<=FL265) / Sector 5 (>FL265)",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1"
       }
     },
     {
@@ -223,41 +315,50 @@
             13.957222
           ],
           [
-            109.521389,
-            13.9625
+            108.581944,
+            13.312222
           ],
           [
-            110.0,
-            13.966667
+            108.123056,
+            12.666389
           ],
           [
-            111.51,
-            13.978333
+            107.81,
+            12.336389
           ],
           [
-            113.045,
-            13.98
+            106.951667,
+            11.423333
           ],
           [
-            114.45,
-            13.973333
+            106.638333,
+            11.088056
+          ],
+          [
+            106.462778,
+            10.899444
+          ],
+          [
+            105.705556,
+            10.083333
           ]
         ]
       },
       "properties": {
-        "designator": "L628",
-        "sectors": "Sector 1/5",
+        "designator": "W12",
         "waypoints": [
           "PCA",
-          "VIMUT",
-          "VEPAM",
-          "DAMEL",
-          "MESOX",
-          "ARESI"
+          "NOBID",
+          "BMT",
+          "PATMA",
+          "DONXO",
+          "RUNOP",
+          "MOXEB",
+          "TRN"
         ],
-        "note": "Sector 1 Ho Chi Minh ACC (PCA-VIMUT). VIMUT is COP Sector1/5; remainder is Sector 5.",
-        "acc": "Ho Chi Minh ACC",
-        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+        "levels": "FL460/FL40-100",
+        "note": "Ho Chi Minh ACC Sector 1",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1"
       }
     },
     {
@@ -266,97 +367,152 @@
         "type": "LineString",
         "coordinates": [
           [
-            109.22,
-            11.994444
+            106.650556,
+            10.818333
           ],
           [
-            109.496111,
-            12.140556
+            106.6425,
+            10.140278
           ],
           [
-            110.640278,
-            12.741944
-          ],
-          [
-            113.045,
-            13.98
-          ]
-        ]
-      },
-      "properties": {
-        "designator": "Q15",
-        "sectors": "Sector 1/5",
-        "waypoints": [
-          "CRA",
-          "ATVIT",
-          "NITOM",
-          "MESOX"
-        ],
-        "note": "Ho Chi Minh ACC Sector 1 up to FL265 inclusive / Sector 5 above. ATVIT is COP Sector1/5 (<=FL265).",
-        "acc": "Ho Chi Minh ACC",
-        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [
-            114.0,
-            11.635
-          ],
-          [
-            112.205,
-            10.948333
-          ],
-          [
-            110.335,
-            10.218333
-          ],
-          [
-            109.2525,
-            9.788333
-          ],
-          [
-            108.441667,
-            9.463333
+            106.633889,
+            9.393333
           ],
           [
             106.626389,
             8.732778
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W9",
+        "waypoints": [
+          "TSH",
+          "XOBAV",
+          "NIXIV",
+          "CN"
+        ],
+        "levels": "FL190/FL70",
+        "note": "Ho Chi Minh ACC Sector 3",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.650556,
+            10.818333
           ],
           [
-            105.369444,
-            7.995556
+            106.111389,
+            10.399722
           ],
+          [
+            105.705556,
+            10.083333
+          ],
+          [
+            105.133056,
+            9.959444
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W16",
+        "waypoints": [
+          "TSH",
+          "ENPAS",
+          "TRN",
+          "RG"
+        ],
+        "levels": "FL460/FL40",
+        "note": "Ho Chi Minh ACC Sector 3",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
           [
             104.118333,
             7.256667
           ],
           [
-            103.585,
-            6.936667
+            105.0,
+            8.5
+          ],
+          [
+            105.908333,
+            9.787222
+          ],
+          [
+            106.248333,
+            10.266389
+          ],
+          [
+            106.650556,
+            10.818333
           ]
         ]
       },
       "properties": {
-        "designator": "M765",
-        "sectors": "Sector 4/5",
+        "designator": "L637",
         "waypoints": [
-          "PANDI",
-          "ALDAS",
-          "MAPNO",
-          "SAMAP",
-          "DAGAG",
-          "CN",
-          "VIGEN",
           "BITOD",
-          "IGARI"
+          "BIBAN",
+          "ANHOA",
+          "BITIS",
+          "TSH"
         ],
-        "note": "Sector 5 Ho Chi Minh ACC (PANDI-SAMAP). SAMAP is COP Sector4/5; VIGEN is COP Sector3/4. Continues to AIP Singapore beyond IGARI.",
-        "acc": "Ho Chi Minh ACC",
-        "source": "VV-ENR-3_1-en.pdf ENR 3.1, lower ATS routes"
+        "levels": "FL460/FL135",
+        "note": "Ho Chi Minh ACC Sector 3; continues to AIP Singapore beyond BITOD",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.650556,
+            10.818333
+          ],
+          [
+            107.094444,
+            10.372778
+          ],
+          [
+            106.897778,
+            9.683056
+          ],
+          [
+            106.701667,
+            8.993611
+          ],
+          [
+            106.626389,
+            8.732778
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W19",
+        "waypoints": [
+          "TSH",
+          "VTV",
+          "TULTU",
+          "LITAM",
+          "CN"
+        ],
+        "levels": "FL460/FL50",
+        "note": "Ho Chi Minh ACC Sector 3",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1"
       }
     }
   ]

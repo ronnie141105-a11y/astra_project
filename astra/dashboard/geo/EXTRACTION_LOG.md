@@ -115,3 +115,64 @@ wins per instruction. Routes are new in this drop, sourced from **ENR 3.1**
 - This is a bachelor's-thesis prototype dataset — good enough for
   visualization and demo logic in ASTRA's dashboard, **not** survey-grade
   and not suitable for operational use.
+
+---
+
+## Update 2026-07-06 (later same day): `airways.json` replaced, `navaids.json` added
+
+**`airways.json` was fully discarded and rebuilt from scratch** per explicit
+request ("the old ones are all over the place"). The previous 9 routes
+(B202, G474, R588, M505, L644, W15, L628, Q15, M765 — picked to cover
+Sectors 1/2/5) are gone. The file now contains exactly the 9 routes
+requested, transcribed point-by-point from `VV-ENR-3_1-en.pdf` (ENR 3.1):
+
+| Designator | Points | Spans |
+|---|---|---|
+| W1 | NOB→LOVBI→NAH→MAREL→VIDAD→HATIN→XONUS→HAMIN→PHULU→CAHEO→DAN→VILOT→XAQUA→PLK→MEVON→BMT→ENRIN→AC→ESDOB→TSH | Ha Noi ACC Sectors 1-4 → Ho Chi Minh ACC Sector 1 |
+| W2 | NAH→VIN→KAMSU→DONGI→KONCO→BIGBO→HUE→DAN→CQ→KUMUN→PCA→KAMGO→KARAN→NHATA→CRA→IBUNU→PTH→VEPMA→AC→TSH | Ha Noi ACC Sectors 2-4 → Ho Chi Minh ACC |
+| W15 | AC→VETOM→LKH→SOSPA→CRA | HCM Sector 2 (≤FL265) / Sector 5 (>FL265) |
+| W7 | LKH→ONEBI→BMT | HCM Sector 2 (≤FL265) / Sector 5 (>FL265) |
+| W12 | PCA→NOBID→BMT→PATMA→DONXO→RUNOP→MOXEB→TRN | HCM Sector 1 |
+| W9 | TSH→XOBAV→NIXIV→CN | HCM Sector 3 |
+| W16 | TSH→ENPAS→TRN→RG | HCM Sector 3 |
+| L637 | BITOD→BIBAN→ANHOA→BITIS→TSH | HCM Sector 3; continues to AIP Singapore |
+| W19 | TSH→VTV→TULTU→LITAM→CN | HCM Sector 3 |
+
+Each feature is a `LineString` with properties `designator`, `waypoints`
+(ordered list of point names), `levels` (upper/lower limits as printed),
+`note` (sector/COP context), `source`. Confidence: **high** — every
+coordinate transcribed directly from the ENR 3.1 tables, no approximation.
+
+**`navaids.json` is a new layer**, added because these are structurally
+different from ordinary route waypoints (they're physical transmitting
+stations with frequency/channel/hours/elevation, not just lat/lon fixes) and
+the user asked for them to sit in a "distinguished section" rather than be
+folded into `waypoints.json`. Contains exactly the 10 requested idents —
+AC, BMT, VTV, TRN, CN, LKH, PTH, QL, PLK, TSH — transcribed from
+`VV-ENR-4_1-en.pdf` (ENR 4.1). Each feature carries `ident`, `name`, `type`
+(NDB / DVOR/DME / CVOR/DME), `frequency`, `channel`, `hours_of_operation`,
+`elevation_m`, `layer_kind: "navaid"`. Confidence: **high**, direct
+transcription.
+
+**Note on a coordinate discrepancy:** ENR 4.1 lists BMT at `123959N
+1080722E`, one arc-second west of the `1080723E` used for BMT elsewhere
+(ENR 3.1 route tables, and thus in `waypoints.json`/old `airways.json`).
+This is almost certainly a rounding artifact between AIP sections, not a
+real navaid relocation. `navaids.json` uses the ENR 4.1 value (its own
+authoritative source); `waypoints.json` still uses the ENR 3.1 value. Left
+as-is rather than silently "fixed," since neither this session nor the
+user has grounds to prefer one AIP table over another — flagging it here
+for awareness.
+
+**Validation performed:** all 9 routes have ≥2 points and unique
+designators; all 10 navaids have unique idents; all coordinates within
+valid lon/lat ranges; every route point name resolves against the local
+point table used to build this file (no dangling references).
+
+**Not done / out of scope of this update:** `waypoints.json`, `firs.json`,
+and `sectors.json` are unchanged from the previous entry above. The
+dashboard's `manifest.json` (which lists which `geo/*.json` files the
+GeoLayerManager loads) has **not** been updated to register the new
+`navaids.json` file — that's an application-config change outside this
+session's remit; whoever owns the dashboard code will need to add a
+`navaids` entry pointing at `geo/navaids.json` for it to actually render.
