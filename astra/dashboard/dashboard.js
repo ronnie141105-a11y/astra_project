@@ -35,6 +35,7 @@
         // maxLat, minLon, maxLon} or null until first initialized (from
         // localStorage or a fit-to-FIR/traffic computation).
         view: null,
+        showAircraftLabels: true,
     };
 
     const LIFECYCLE_STAGES = ["DRAFT", "PROPOSED", "ACKNOWLEDGED", "CANCELED"];
@@ -69,11 +70,60 @@
                 }
             });
         });
+
+        // Add an aircraft label toggle to the same control area
+        const labelToggle = document.createElement("label");
+        labelToggle.className = "layer-toggle";
+        labelToggle.innerHTML = `
+            <input type="checkbox" id="toggle-aircraft-labels" ${ui.showAircraftLabels ? "checked" : ""}>
+            Aircraft labels
+        `;
+        container.appendChild(labelToggle);
+        const lbl = document.getElementById("toggle-aircraft-labels");
+        if (lbl) {
+            lbl.addEventListener("change", () => {
+                ui.showAircraftLabels = lbl.checked;
+                try {
+                    localStorage.setItem("astra_show_aircraft_labels_v1", JSON.stringify(ui.showAircraftLabels));
+                } catch (e) {}
+                if (window.__astraLastCycle) {
+                    renderMap(window.__astraLastCycle);
+                    renderTrafficOverlay();
+                }
+            });
+        }
+    }
+
+    function loadPersistedUiPrefs() {
+        try {
+            const raw = localStorage.getItem("astra_show_aircraft_labels_v1");
+            if (raw !== null) {
+                ui.showAircraftLabels = JSON.parse(raw);
+            }
+        } catch (e) {
+            // ignore
+        }
     }
 
     // ------------------------------------------------------------------
     // Small shared helpers
     // ------------------------------------------------------------------
+
+    /** Ensure a canvas backing store is sized for the current devicePixelRatio
+     * and scale the context so drawing coordinates are in CSS pixels. */
+    function ensureCanvasSize(canvas) {
+        const dpr = window.devicePixelRatio || 1;
+        const cssW = Math.max(1, Math.round(canvas.clientWidth));
+        const cssH = Math.max(1, Math.round(canvas.clientHeight));
+        const backW = Math.round(cssW * dpr);
+        const backH = Math.round(cssH * dpr);
+        if (canvas.width !== backW || canvas.height !== backH) {
+            canvas.width = backW;
+            canvas.height = backH;
+            const ctx = canvas.getContext("2d");
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+    }
 
     /** Map a 0-100 complexity score to a colour on a green->amber->red scale. */
     function complexityColor(score) {
@@ -519,24 +569,8 @@
             ctx.stroke();
         }
 
-        // Concentric range rings + crosshair, centred on the canvas --
-        // the classic ATC radar cue that a square lat/lon grid doesn't give.
-        const cx = width / 2;
-        const cy = height / 2;
-        const maxR = Math.min(width, height) / 2 - 6;
-        ctx.strokeStyle = "#1c2a35";
-        ctx.lineWidth = 1;
-        for (let i = 1; i <= 4; i++) {
-            ctx.beginPath();
-            ctx.arc(cx, cy, (maxR / 4) * i, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-        ctx.beginPath();
-        ctx.moveTo(cx - maxR, cy);
-        ctx.lineTo(cx + maxR, cy);
-        ctx.moveTo(cx, cy - maxR);
-        ctx.lineTo(cx, cy + maxR);
-        ctx.stroke();
+        // Radar-style concentric range rings removed for this HMI layout.
+        // (Previously drawn here; removed per design decision.)
     }
 
     function drawSectorBoundaries(ctx, project, bounds, width, sectorRegions) {
@@ -698,20 +732,22 @@
             ctx.fill();
         }
 
-        const label = `${ac.callsign} FL${Math.round(ac.altitude_ft / 100)}`;
-        ctx.font = "11px monospace";
-        const textWidth = ctx.measureText(label).width;
-        const boxX = x + 8;
-        const boxY = y - 9;
-        ctx.fillStyle = "rgba(6, 10, 15, 0.72)";
-        ctx.fillRect(boxX - 3, boxY - 2, textWidth + 6, 16);
-        ctx.strokeStyle = color;
-        ctx.globalAlpha = 0.7;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(boxX - 3, boxY - 2, textWidth + 6, 16);
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = "#d7e2ea";
-        ctx.fillText(label, boxX, y + 3);
+        if (ui.showAircraftLabels) {
+            const label = `${ac.callsign} FL${Math.round(ac.altitude_ft / 100)}`;
+            ctx.font = "11px monospace";
+            const textWidth = ctx.measureText(label).width;
+            const boxX = x + 8;
+            const boxY = y - 9;
+            ctx.fillStyle = "rgba(6, 10, 15, 0.72)";
+            ctx.fillRect(boxX - 3, boxY - 2, textWidth + 6, 16);
+            ctx.strokeStyle = color;
+            ctx.globalAlpha = 0.7;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(boxX - 3, boxY - 2, textWidth + 6, 16);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = "#d7e2ea";
+            ctx.fillText(label, boxX, y + 3);
+        }
     }
 
     /** Traffic at the scrubbed horizon: observed/interpolated aircraft (with
@@ -786,9 +822,10 @@
      * `cycle` is always `window.__astraLastCycle` in that case. */
     function renderMap(cycle) {
         const canvas = document.getElementById("map-canvas");
+        ensureCanvasSize(canvas);
         const ctx = canvas.getContext("2d");
-        const width = canvas.width;
-        const height = canvas.height;
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
         ctx.clearRect(0, 0, width, height);
 
         if (!ui.view) {
@@ -819,8 +856,11 @@
         if (!canvas || !cycle || !ui.mapProject) {
             return;
         }
+        ensureCanvasSize(canvas);
         const ctx = canvas.getContext("2d");
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        ctx.clearRect(0, 0, width, height);
         const observed = ui.selectedHorizon === 0 ? interpolatedObservedAircraft() : null;
         drawScrubbedTraffic(ctx, ui.mapProject, cycle, ui.selectedHorizon, ui.aircraftHighlight, observed);
     }
@@ -1455,6 +1495,7 @@
         setupCoordinationToggle();
         setupHorizonScrubber();
         setupMapInteraction();
+        loadPersistedUiPrefs();
         geoLayers.init().then(() => {
             applyPersistedLayerVisibility();
             setupGeoLayerToggles();
