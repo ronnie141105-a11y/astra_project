@@ -34,15 +34,44 @@ from astra.interface.state_reader import StateReader
 #: Only these characters may appear in a saved scenario's file-safe name.
 _NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
-_REQUIRED_CREATE_FIELDS = (
-    "callsign",
-    "aircraft_type",
-    "lat",
-    "lon",
-    "heading_deg",
-    "altitude_ft",
-    "speed_kt",
-)
+#: Always required to spawn an aircraft, regardless of how its position
+#: is determined (free-standing lat/lon, or an airway spawn).
+_REQUIRED_CREATE_FIELDS_BASE = ("callsign", "aircraft_type", "altitude_ft", "speed_kt")
+
+#: Required only for a free-standing spawn (no `airway_designator`).
+_REQUIRED_POSITION_FIELDS = ("lat", "lon", "heading_deg")
+
+#: Path to the static airways GeoJSON also used by the map's airway layer.
+_AIRWAYS_PATH = os.path.join(os.path.dirname(__file__), "geo", "airways.json")
+
+#: Lazily-populated cache of `_load_airways()`'s result -- the file never
+#: changes at runtime, so there's no need to re-read/re-parse it per request.
+_airways_cache = None
+
+
+def _load_airways() -> list:
+    """Read the static airways GeoJSON, reshaped for the Scenario Builder.
+
+    Returns:
+        `[{"designator", "waypoint_names", "coordinates": [{"lat", "lon"}, ...]}, ...]`,
+        one entry per airway `LineString` feature.
+    """
+    global _airways_cache
+    if _airways_cache is None:
+        with open(_AIRWAYS_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        _airways_cache = [
+            {
+                "designator": feature.get("properties", {}).get("designator", "?"),
+                "waypoint_names": feature.get("properties", {}).get("waypoints", []),
+                "coordinates": [
+                    {"lat": lat, "lon": lon}
+                    for lon, lat in feature.get("geometry", {}).get("coordinates", [])
+                ],
+            }
+            for feature in data.get("features", [])
+        ]
+    return _airways_cache
 
 
 def _error(message: str, status: int = 400) -> Response:
@@ -113,28 +142,65 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
     # Aircraft CRUD
     # ------------------------------------------------------------------
 
+    @blueprint.route("/scenario/airways")
+    def airways() -> Response:
+        """List airways aircraft can be spawned onto and follow."""
+        return _ok({"airways": _load_airways()})
+
     @blueprint.route("/scenario/aircraft", methods=["POST"])
     def create_aircraft() -> Response:
-        """Spawn one aircraft. Body: the `_REQUIRED_CREATE_FIELDS`."""
+        """Spawn one aircraft.
+
+        Body: callsign, aircraft_type, altitude_ft, speed_kt, plus either
+        lat/lon/heading_deg (free-standing spawn) or airway_designator
+        (+ optional start_index) to spawn onto and follow a named airway.
+        """
         if not _require_mock():
             return _error("Scenario Builder requires --mock mode.", 409)
         body = request.get_json(silent=True) or {}
-        missing = [f for f in _REQUIRED_CREATE_FIELDS if f not in body]
+        missing = [f for f in _REQUIRED_CREATE_FIELDS_BASE if f not in body]
         if missing:
             return _error(f"Missing field(s): {', '.join(missing)}")
+
+        route_waypoints = None
+        airway_designator = body.get("airway_designator")
+        if airway_designator:
+            airway = next(
+                (a for a in _load_airways() if a["designator"] == airway_designator), None
+            )
+            if airway is None:
+                return _error(f"Unknown airway '{airway_designator}'.", 404)
+            coords = airway["coordinates"]
+            if len(coords) < 2:
+                return _error(f"Airway '{airway_designator}' has too few points to follow.")
+            try:
+                start_index = int(body.get("start_index", 0))
+            except (TypeError, ValueError):
+                return _error("start_index must be an integer.")
+            start_index = max(0, min(start_index, len(coords) - 2))
+            lat, lon = coords[start_index]["lat"], coords[start_index]["lon"]
+            route_waypoints = [(p["lat"], p["lon"]) for p in coords[start_index + 1:]]
+            heading_deg = body.get("heading_deg", 0.0)  # MockConnector overrides from the route
+        else:
+            missing_pos = [f for f in _REQUIRED_POSITION_FIELDS if f not in body]
+            if missing_pos:
+                return _error(f"Missing field(s): {', '.join(missing_pos)}")
+            lat, lon, heading_deg = body["lat"], body["lon"], body["heading_deg"]
+
         try:
             reader.create_aircraft(
                 callsign=str(body["callsign"]).strip().upper(),
                 aircraft_type=str(body["aircraft_type"]).strip().upper(),
-                lat=float(body["lat"]),
-                lon=float(body["lon"]),
-                heading_deg=float(body["heading_deg"]),
+                lat=float(lat),
+                lon=float(lon),
+                heading_deg=float(heading_deg),
                 altitude_ft=float(body["altitude_ft"]),
                 speed_kt=float(body["speed_kt"]),
+                route_waypoints=route_waypoints,
             )
         except (TypeError, ValueError) as exc:
             return _error(f"Invalid aircraft field: {exc}")
-        return _ok({"callsign": body["callsign"]})
+        return _ok({"callsign": body["callsign"], "on_route": route_waypoints is not None})
 
     @blueprint.route("/scenario/aircraft/<callsign>", methods=["PATCH"])
     def edit_aircraft(callsign: str) -> Response:

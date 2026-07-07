@@ -590,7 +590,7 @@
             ctx.stroke();
             ctx.setLineDash([]);
             ctx.fillStyle = "#8494a2";
-            ctx.font = "10px monospace";
+            ctx.font = "12px monospace";
             ctx.fillText(name, cx - radiusPx + 4, cy - radiusPx + 12);
         });
     }
@@ -649,7 +649,7 @@
                 ctx.arc(cx + radiusPx - 4, cy - radiusPx + 4, 8, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.fillStyle = "#060a0f";
-                ctx.font = "bold 10px monospace";
+                ctx.font = "bold 11px monospace";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
                 ctx.fillText(String(track.forecast_urgency_rank), cx + radiusPx - 4, cy - radiusPx + 5);
@@ -734,7 +734,7 @@
 
         if (ui.showAircraftLabels) {
             const label = `${ac.callsign} FL${Math.round(ac.altitude_ft / 100)}`;
-            ctx.font = "11px monospace";
+            ctx.font = "12px monospace";
             const textWidth = ctx.measureText(label).width;
             const boxX = x + 8;
             const boxY = y - 9;
@@ -939,6 +939,71 @@
             .join("");
         tbody.querySelectorAll("tr[data-arhac-id]").forEach((row) => {
             row.addEventListener("click", () => onSelect(row.dataset.arhacId));
+        });
+    }
+
+    // ------------------------------------------------------------------
+    // Aircraft panel
+    // ------------------------------------------------------------------
+
+    /** Centre the map view on one lat/lon, keeping the current zoom span. */
+    function panMapTo(lat, lon) {
+        if (!ui.view) {
+            return;
+        }
+        const latSpan = ui.view.maxLat - ui.view.minLat;
+        const lonSpan = ui.view.maxLon - ui.view.minLon;
+        ui.view = {
+            minLat: lat - latSpan / 2,
+            maxLat: lat + latSpan / 2,
+            minLon: lon - lonSpan / 2,
+            maxLon: lon + lonSpan / 2,
+        };
+        savePersistedView(ui.view);
+        if (window.__astraLastCycle) {
+            renderMap(window.__astraLastCycle);
+        }
+    }
+
+    /** All currently-observed aircraft, sorted callsign-wise, each with an
+     * urgency badge colour (shared with the map highlight/hotspot rings)
+     * when the aircraft belongs to an open track. Click a row to pan the
+     * map to that aircraft. */
+    function renderAircraftPanel(cycle) {
+        const container = document.getElementById("aircraft-list");
+        if (!container) {
+            return;
+        }
+        const aircraft = [...cycle.snapshot.aircraft].sort((a, b) => a.callsign.localeCompare(b.callsign));
+        if (aircraft.length === 0) {
+            container.innerHTML = '<p class="empty-row">No aircraft in view.</p>';
+            return;
+        }
+        const highlight = ui.aircraftHighlight || {};
+        container.innerHTML = aircraft
+            .map((ac) => {
+                const h = highlight[ac.callsign];
+                const badgeColor = h ? h.color : "#4a5866";
+                const fl = `FL${Math.round(ac.altitude_ft / 100)}`;
+                const hdg = ac.heading_deg !== null && ac.heading_deg !== undefined ? `${Math.round(ac.heading_deg)}\u00b0` : "-";
+                const gs = ac.ground_speed_kt !== null && ac.ground_speed_kt !== undefined ? `${Math.round(ac.ground_speed_kt)}kt` : "-";
+                return `
+            <div class="aircraft-row" data-callsign="${ac.callsign}">
+                <span class="ac-badge" style="background:${badgeColor}"></span>
+                <span class="ac-callsign">${ac.callsign}</span>
+                <span class="ac-field">${fl}</span>
+                <span class="ac-field">${gs}</span>
+                <span class="ac-field">${hdg}</span>
+            </div>`;
+            })
+            .join("");
+        container.querySelectorAll(".aircraft-row").forEach((row) => {
+            row.addEventListener("click", () => {
+                const ac = aircraft.find((a) => a.callsign === row.dataset.callsign);
+                if (ac) {
+                    panMapTo(ac.lat, ac.lon);
+                }
+            });
         });
     }
 
@@ -1345,6 +1410,7 @@
         syncHorizonScrubber(cycle);
         renderMap(cycle);
         renderTracksTable(cycle, selectTrack);
+        renderAircraftPanel(cycle);
         renderEventPanel(cycle);
         renderTimeline(cycle.tracks);
         renderSectorsTab(cycle);

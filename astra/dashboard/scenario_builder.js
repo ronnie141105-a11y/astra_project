@@ -13,6 +13,7 @@
 
     const POLL_MS = 1000;
     let editingCallsign = null; // non-null while the modal is editing (vs spawning)
+    let airways = []; // [{designator, waypoint_names, coordinates}], loaded once
 
     // ------------------------------------------------------------------
     // Small helpers
@@ -148,6 +149,35 @@
     }
 
     // ------------------------------------------------------------------
+    // Airways
+    // ------------------------------------------------------------------
+
+    async function loadAirways() {
+        try {
+            const body = await api("/scenario/airways");
+            airways = body.airways;
+            const select = document.getElementById("sb-f-airway");
+            select.innerHTML =
+                '<option value="">Custom position</option>' +
+                airways
+                    .map((a) => `<option value="${a.designator}">${a.designator} (${a.waypoint_names.join(" \u2192 ")})</option>`)
+                    .join("");
+        } catch (err) {
+            toast(err.message, "error");
+        }
+    }
+
+    /** Show/hide the free-position fields depending on whether an airway is picked. */
+    function syncAirwayFieldVisibility() {
+        const onAirway = Boolean(document.getElementById("sb-f-airway").value);
+        document.getElementById("sb-position-fields").classList.toggle("hidden", onAirway);
+        document.getElementById("sb-airway-hint").classList.toggle("hidden", !onAirway);
+        ["sb-f-lat", "sb-f-lon", "sb-f-hdg"].forEach((id) => {
+            document.getElementById(id).required = !onAirway;
+        });
+    }
+
+    // ------------------------------------------------------------------
     // Spawn / edit modal
     // ------------------------------------------------------------------
 
@@ -163,6 +193,12 @@
         document.getElementById("sb-f-hdg").value = prefill ? Math.round(prefill.heading_deg) : 90;
         document.getElementById("sb-f-alt").value = prefill ? prefill.altitude_ft : 30000;
         document.getElementById("sb-f-spd").value = prefill ? prefill.ground_speed_kt : 280;
+        // Airway spawning only applies to new aircraft, not in-place edits.
+        const airwaySelect = document.getElementById("sb-f-airway");
+        airwaySelect.value = "";
+        airwaySelect.disabled = Boolean(editingCallsign);
+        document.getElementById("sb-f-airway-label").classList.toggle("hidden", Boolean(editingCallsign));
+        syncAirwayFieldVisibility();
         document.getElementById("sb-modal-backdrop").classList.remove("hidden");
     }
 
@@ -173,15 +209,20 @@
 
     async function submitModal(evt) {
         evt.preventDefault();
+        const airwayDesignator = document.getElementById("sb-f-airway").value;
         const payload = {
             callsign: document.getElementById("sb-f-callsign").value.trim(),
             aircraft_type: document.getElementById("sb-f-type").value.trim(),
-            lat: Number(document.getElementById("sb-f-lat").value),
-            lon: Number(document.getElementById("sb-f-lon").value),
-            heading_deg: Number(document.getElementById("sb-f-hdg").value),
             altitude_ft: Number(document.getElementById("sb-f-alt").value),
             speed_kt: Number(document.getElementById("sb-f-spd").value),
         };
+        if (airwayDesignator && !editingCallsign) {
+            payload.airway_designator = airwayDesignator;
+        } else {
+            payload.lat = Number(document.getElementById("sb-f-lat").value);
+            payload.lon = Number(document.getElementById("sb-f-lon").value);
+            payload.heading_deg = Number(document.getElementById("sb-f-hdg").value);
+        }
         try {
             if (editingCallsign) {
                 await api(`/scenario/aircraft/${encodeURIComponent(editingCallsign)}`, {
@@ -216,6 +257,7 @@
         document.getElementById("sb-btn-add").addEventListener("click", () => openModal(null));
         document.getElementById("sb-modal-cancel").addEventListener("click", closeModal);
         document.getElementById("sb-modal-form").addEventListener("submit", submitModal);
+        document.getElementById("sb-f-airway").addEventListener("change", syncAirwayFieldVisibility);
         document.getElementById("sb-modal-backdrop").addEventListener("click", (evt) => {
             if (evt.target.id === "sb-modal-backdrop") {
                 closeModal();
@@ -439,6 +481,7 @@
         setupControls();
         setupModal();
         document.getElementById("sb-btn-save").addEventListener("click", saveScenario);
+        loadAirways();
         loadPresets();
         loadSavedList();
         poll();

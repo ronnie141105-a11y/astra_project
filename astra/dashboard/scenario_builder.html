@@ -103,9 +103,17 @@
             <form id="sb-modal-form">
                 <label>Callsign <input type="text" id="sb-f-callsign" maxlength="10" required></label>
                 <label>Type <input type="text" id="sb-f-type" maxlength="8" required value="A320"></label>
-                <label>Latitude <input type="number" id="sb-f-lat" step="0.0001" required></label>
-                <label>Longitude <input type="number" id="sb-f-lon" step="0.0001" required></label>
-                <label>Heading (deg) <input type="number" id="sb-f-hdg" step="1" min="0" max="359" required></label>
+                <label id="sb-f-airway-label">Airway
+                    <select id="sb-f-airway">
+                        <option value="">Custom position</option>
+                    </select>
+                </label>
+                <div id="sb-position-fields">
+                    <label>Latitude <input type="number" id="sb-f-lat" step="0.0001" required></label>
+                    <label>Longitude <input type="number" id="sb-f-lon" step="0.0001" required></label>
+                    <label>Heading (deg) <input type="number" id="sb-f-hdg" step="1" min="0" max="359" required></label>
+                </div>
+                <p id="sb-airway-hint" class="panel-hint hidden">Position and heading are set from the airway's first waypoint.</p>
                 <label>Altitude (ft) <input type="number" id="sb-f-alt" step="100" required></label>
                 <label>Ground speed (kt) <input type="number" id="sb-f-spd" step="1" required></label>
                 <div class="sb-modal-actions">

@@ -223,6 +223,7 @@ class StateReader:
         heading_deg: float,
         altitude_ft: float,
         speed_kt: float,
+        route_waypoints: Optional[List] = None,
     ) -> None:
         """Create an aircraft in the simulation.
 
@@ -238,7 +239,19 @@ class StateReader:
             heading_deg: Initial true heading, degrees.
             altitude_ft: Initial altitude, feet AMSL.
             speed_kt: Initial ground speed, knots.
+            route_waypoints: Optional `[(lat, lon), ...]` airway for the
+                aircraft to fly along. Mock-only -- live BlueSky ignores
+                it (logged once) since route injection isn't implemented
+                there.
         """
+        if route_waypoints and self.is_mock:
+            self._connector.create_aircraft(
+                callsign, aircraft_type, lat, lon, heading_deg, altitude_ft, speed_kt,
+                route_waypoints=route_waypoints,
+            )
+            return
+        if route_waypoints:
+            _LOG.warning("route_waypoints given but connector is not MockConnector; ignoring.")
         self._connector.create_aircraft(
             callsign, aircraft_type, lat, lon, heading_deg, altitude_ft, speed_kt
         )

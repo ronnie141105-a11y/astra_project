@@ -276,6 +276,22 @@
     font-size: 13px;
 }
 
+.sb-modal select {
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: inherit;
+    padding: 6px 8px;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+#sb-position-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .sb-modal-actions {
     display: flex;
     justify-content: flex-end;

@@ -22,7 +22,10 @@ body {
     background: var(--bg);
     color: var(--text);
     font-family: "Consolas", "Menlo", "Courier New", monospace;
-    font-size: 13px;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 .hidden {
@@ -132,6 +135,7 @@ body {
     grid-template-columns: 1.5fr 1fr;
     grid-template-areas:
         "map     alerts"
+        "map     aircraft"
         "event   event"
         "timeline coordination";
     gap: 12px;
@@ -139,6 +143,7 @@ body {
 
 #panel-map { grid-area: map; }
 #panel-alerts { grid-area: alerts; }
+#panel-aircraft { grid-area: aircraft; }
 #panel-event { grid-area: event; }
 #panel-timeline { grid-area: timeline; }
 #panel-coordination { grid-area: coordination; }
@@ -211,7 +216,7 @@ body {
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-dim);
 }
 
@@ -275,11 +280,17 @@ table {
     border-collapse: collapse;
 }
 
+#tracks-table {
+    table-layout: fixed;
+}
+
 th, td {
     text-align: left;
     padding: 4px 6px;
     border-bottom: 1px solid var(--grid-line);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 th {
@@ -287,6 +298,31 @@ th {
     font-size: 11px;
     text-transform: uppercase;
 }
+
+/* Alerts table: the scroll wrapper caps panel height for many open
+   tracks; the Flights column (many callsigns) wraps instead of
+   pushing the row width past the panel, everything else stays
+   single-line with an ellipsis if it's ever too long to fit. */
+.table-scroll {
+    max-height: 360px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#tracks-table col.col-flights,
+#tracks-table td:nth-child(5) {
+    white-space: normal;
+    word-break: break-word;
+}
+
+#tracks-table th:nth-child(1), #tracks-table td:nth-child(1) { width: 12%; }
+#tracks-table th:nth-child(2), #tracks-table td:nth-child(2) { width: 12%; }
+#tracks-table th:nth-child(3), #tracks-table td:nth-child(3) { width: 11%; }
+#tracks-table th:nth-child(4), #tracks-table td:nth-child(4) { width: 15%; }
+#tracks-table th:nth-child(5), #tracks-table td:nth-child(5) { width: 22%; }
+#tracks-table th:nth-child(6), #tracks-table td:nth-child(6) { width: 10%; }
+#tracks-table th:nth-child(7), #tracks-table td:nth-child(7) { width: 9%; }
+#tracks-table th:nth-child(8), #tracks-table td:nth-child(8) { width: 9%; }
 
 .empty-row {
     color: var(--text-dim);
@@ -310,6 +346,46 @@ th {
     padding: 1px 6px;
     border-radius: 3px;
     font-size: 11px;
+}
+
+/* ---------------------------------------------------------------- */
+/* Aircraft panel                                                     */
+/* ---------------------------------------------------------------- */
+
+.aircraft-list {
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.aircraft-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--grid-line);
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.aircraft-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.aircraft-row .ac-badge {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.aircraft-row .ac-callsign {
+    font-weight: bold;
+    min-width: 64px;
+}
+
+.aircraft-row .ac-field {
+    color: var(--text-dim);
+    min-width: 52px;
 }
 
 .status-CANDIDATE   { background: #2a3340; color: var(--text-dim); }
@@ -384,7 +460,7 @@ th {
 
 .confidence-ring-caption {
     text-align: center;
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-dim);
     text-transform: uppercase;
     margin-top: 2px;
@@ -406,7 +482,7 @@ th {
 .complexity-scores .cr-arrow { color: var(--text-dim); }
 .complexity-scores .cr-after-up { color: var(--red); font-weight: bold; }
 .complexity-scores .cr-after-down { color: var(--accent); font-weight: bold; }
-.complexity-scores .cr-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
+.complexity-scores .cr-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; }
 
 .candidate-list {
     flex: 1;
@@ -451,7 +527,7 @@ th {
     background: transparent;
     border: 1px solid var(--panel-border);
     color: var(--text-dim);
-    font-size: 10px;
+    font-size: 11px;
     padding: 2px 6px;
     border-radius: 3px;
     cursor: pointer;
@@ -483,7 +559,7 @@ th {
 }
 
 .component-row .component-name {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-dim);
     text-transform: uppercase;
 }
@@ -586,6 +662,7 @@ th {
         grid-template-areas:
             "map"
             "alerts"
+            "aircraft"
             "event"
             "timeline"
             "coordination";

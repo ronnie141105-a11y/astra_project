@@ -51,10 +51,10 @@ Stack commands understood
 
 from dataclasses import dataclass
 from threading import Lock
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from astra.interface.traffic_state import AircraftState, TrafficSnapshot
-from astra.utils.geodesy import move_position
+from astra.utils.geodesy import bearing_deg, haversine_distance_nm, move_position
 from astra.utils.logger import get_logger
 
 _LOG = get_logger(__name__)
@@ -77,6 +77,12 @@ class _AircraftRecord:
     altitude_ft: float
     ground_speed_kt: float
     vertical_speed_fpm: float
+    #: Remaining waypoints (lat, lon) to fly toward, in order, when this
+    #: aircraft was spawned onto an airway. `None`/empty = plain
+    #: constant-heading dead reckoning (the original mock behaviour).
+    route_waypoints: Optional[List[Tuple[float, float]]] = None
+    #: Index into `route_waypoints` of the waypoint currently being flown to.
+    route_index: int = 0
 
 
 class MockConnector:
@@ -191,6 +197,7 @@ class MockConnector:
         heading_deg: float,
         altitude_ft: float,
         speed_kt: float,
+        route_waypoints: Optional[List[Tuple[float, float]]] = None,
     ) -> None:
         """Insert an aircraft directly into the mock state.
 
@@ -203,29 +210,43 @@ class MockConnector:
             aircraft_type: ICAO type designator, e.g. "A320".
             lat: Initial latitude, decimal degrees.
             lon: Initial longitude, decimal degrees.
-            heading_deg: Initial true heading, degrees.
+            heading_deg: Initial true heading, degrees. Ignored (overridden
+                by the bearing to the first waypoint) when
+                `route_waypoints` is given.
             altitude_ft: Initial altitude, feet AMSL.
             speed_kt: Initial ground speed, knots.
+            route_waypoints: Optional `[(lat, lon), ...]` airway to follow
+                -- see `_advance_along_route()`. `None`/empty falls back
+                to plain constant-heading dead reckoning.
         """
+        normalized_route: Optional[List[Tuple[float, float]]] = None
+        initial_heading = heading_deg % 360.0
+        if route_waypoints:
+            normalized_route = [(float(wp_lat), float(wp_lon)) for wp_lat, wp_lon in route_waypoints]
+            initial_heading = bearing_deg(lat, lon, normalized_route[0][0], normalized_route[0][1])
+
         record = _AircraftRecord(
             callsign=callsign.upper(),
             aircraft_type=aircraft_type.upper(),
             lat=lat,
             lon=lon,
-            heading_deg=heading_deg % 360.0,
+            heading_deg=initial_heading,
             altitude_ft=altitude_ft,
             ground_speed_kt=speed_kt,
             vertical_speed_fpm=0.0,
+            route_waypoints=normalized_route,
+            route_index=0,
         )
         with self._lock:
             self._aircraft[callsign.upper()] = record
         _LOG.debug(
-            "MockConnector: created %s (%s) at (%.4f, %.4f) FL%.0f",
+            "MockConnector: created %s (%s) at (%.4f, %.4f) FL%.0f%s",
             callsign.upper(),
             aircraft_type.upper(),
             lat,
             lon,
             altitude_ft / 100.0,
+            f", following {len(normalized_route)}-point route" if normalized_route else "",
         )
 
     # ------------------------------------------------------------------
@@ -347,6 +368,7 @@ class MockConnector:
                     "altitude_ft": rec.altitude_ft,
                     "ground_speed_kt": rec.ground_speed_kt,
                     "vertical_speed_fpm": rec.vertical_speed_fpm,
+                    "on_route": bool(rec.route_waypoints),
                 }
                 for rec in self._aircraft.values()
             ]
@@ -396,11 +418,59 @@ class MockConnector:
         for record in self._aircraft.values():
             # Convert speed to distance: gs_kt * (dt_s / 3600) gives NM.
             distance_nm = record.ground_speed_kt * (dt_s / 3600.0)
-            record.lat, record.lon = move_position(
-                record.lat, record.lon, record.heading_deg, distance_nm
-            )
+            if record.route_waypoints:
+                self._advance_along_route(record, distance_nm)
+            else:
+                record.lat, record.lon = move_position(
+                    record.lat, record.lon, record.heading_deg, distance_nm
+                )
             # Altitude change: vs_fpm * (dt_s / 60) gives feet.
             record.altitude_ft += record.vertical_speed_fpm * (dt_s / 60.0)
+
+    #: Safety cap on legs consumed in one `_advance_along_route()` call, so
+    #: a very large `dt_s` (e.g. scenario fast-forward) with many short
+    #: waypoint legs can never loop unboundedly.
+    _MAX_LEGS_PER_TICK = 50
+
+    def _advance_along_route(self, record: "_AircraftRecord", distance_nm: float) -> None:
+        """Move `record` toward its remaining route waypoints.
+
+        Heads straight for `route_waypoints[route_index]`, consuming one
+        or more legs if `distance_nm` overshoots the current leg. Once the
+        final waypoint is passed, the route is cleared and any leftover
+        distance is flown straight on the last heading -- i.e. the
+        aircraft continues past the end of its filed airway rather than
+        stopping dead.
+
+        Args:
+            record: The aircraft to move (mutated in place).
+            distance_nm: Distance available to travel this tick.
+        """
+        remaining = distance_nm
+        legs = 0
+        while (
+            record.route_waypoints
+            and record.route_index < len(record.route_waypoints)
+            and remaining > 0
+            and legs < self._MAX_LEGS_PER_TICK
+        ):
+            legs += 1
+            target_lat, target_lon = record.route_waypoints[record.route_index]
+            leg_distance_nm = haversine_distance_nm(record.lat, record.lon, target_lat, target_lon)
+            record.heading_deg = bearing_deg(record.lat, record.lon, target_lat, target_lon)
+            if leg_distance_nm <= remaining:
+                record.lat, record.lon = target_lat, target_lon
+                remaining -= leg_distance_nm
+                record.route_index += 1
+            else:
+                record.lat, record.lon = move_position(record.lat, record.lon, record.heading_deg, remaining)
+                remaining = 0.0
+
+        if record.route_waypoints and record.route_index >= len(record.route_waypoints):
+            record.route_waypoints = None  # route flown in full
+
+        if remaining > 0:
+            record.lat, record.lon = move_position(record.lat, record.lon, record.heading_deg, remaining)
 
     def _build_snapshot(self) -> TrafficSnapshot:
         """Convert the current mutable internal state to an immutable snapshot.
