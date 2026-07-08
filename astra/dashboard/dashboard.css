@@ -339,7 +339,7 @@ th {
 }
 
 #tracks-tbody tr.selected {
-    background: rgba(53, 195, 163, 0.10);
+    background: rgba(74, 144, 164, 0.35);
 }
 
 .status-pill {

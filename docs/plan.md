@@ -40,64 +40,138 @@ Summary of what we've done (so Claude doesn't redo work):
 
 Priority next tasks (implement these in order):
 
-1) Fix Alerts Panel Overflow (high priority)
-- Files: `astra/dashboard/index.html`, `astra/dashboard/dashboard.css`, `astra/dashboard/dashboard.js` (optional)
-- Steps for Claude:
-  1. In `index.html`, wrap the alerts table in a scroll container: add `<div class="table-scroll">` around the `<table id="tracks-table">` and close the div after the table.
-  2. In `dashboard.css`, add rules:
-     - `.table-scroll { max-height: 360px; overflow-y: auto; }`
-     - Replace or relax `th, td { white-space: nowrap; }` with a scoped rule targeting only narrow columns (e.g., keep `ARHAC`/`Status` nowrap, make `Flights` allow wrapping). Use `text-overflow: ellipsis` + `overflow:hidden` for columns that must not expand.
-  3. Ensure `renderTracksTable()` still works after DOM changes (it replaces `tbody.innerHTML`) and event listeners are attached correctly.
-- Tests: populate many tracks and verify no overflow beyond panel; table scrolls independently and column widths remain stable.
+1) Fix Alerts Panel Overflow (high priority) -- **DONE**
+- `index.html`'s `#tracks-table` is now wrapped in `<div class="table-scroll">`
+  (`max-height: 360px; overflow-y: auto`). The table itself is
+  `table-layout: fixed` with explicit per-column `%` widths; every column
+  keeps `white-space: nowrap` + ellipsis except `Flights` (5th column),
+  which wraps instead of pushing the row wider than the panel.
 
-2) Aircraft Side Panel (ARHAC/aircraft list) UI
-- Files: `astra/dashboard/index.html`, `astra/dashboard/dashboard.css`, `astra/dashboard/dashboard.js`
-- Steps:
-  1. Add HTML placeholder in `index.html` (e.g., new `<section id="panel-aircraft" class="panel panel-aircraft">` in the operations layout area; update grid-template-areas if needed or collapse into existing layout).
-  2. In `dashboard.css` create styles for `.panel-aircraft`, `.aircraft-row` with `max-height` and `overflow-y:auto` to hold many items.
-  3. Implement `renderAircraftPanel(cycle)` in `dashboard.js`:
-     - Pull `cycle.snapshot.aircraft` and `ui.aircraftHighlight`.
-     - Render rows with callsign, FL, GS, heading, and a small urgency colour badge (reuse `urgencyColor`/`urgencyBucket`).
-     - Add click handler to focus/select aircraft (set `ui.selectedArhacId` or pan to aircraft by updating `ui.view`).
-  4. Call `renderAircraftPanel(cycle)` from the main `render(cycle)` flow.
-- Tests: click rows pan/center map or highlight aircraft; panel scrolls for many aircraft.
+2) Aircraft Side Panel (ARHAC/aircraft list) UI -- **DONE**
+- New `#panel-aircraft` section (below `#panel-alerts`, same grid column)
+  lists every `cycle.snapshot.aircraft`, sorted by callsign, with an
+  urgency-colour badge (reused from `ui.aircraftHighlight` /
+  `buildAircraftHighlightMap`), FL, ground speed, and heading. Implemented
+  as `renderAircraftPanel(cycle)` in `dashboard.js`, called from `render()`
+  right after `renderMap()` (so `ui.aircraftHighlight` is already current
+  for this cycle). Clicking a row calls `panMapTo(lat, lon)`, which
+  re-centres `ui.view` on that aircraft at the current zoom span and
+  persists it.
 
-3) Spawn aircraft along airways (server + mock)
-- Files to change:
-  - Frontend: `astra/dashboard/scenario_builder.js` — add an airway dropdown, fetch `/scenario/airways`.
-  - Server: `astra/dashboard/scenario_routes.py` — add `GET /scenario/airways` to return `static/geo/airways.json` features; extend create endpoint to accept `route` or `airway_designator` and forward to `StateReader.create_aircraft()`.
-  - Connector: `astra/interface/mock_connector.py` — extend `_AircraftRecord` to include `route_waypoints` and implement waypoint-following in `_propagate_positions()` by moving toward current leg and advancing when close.
-  - Optionally: `astra/interface/state_reader.py` signature to accept route metadata and pass to connector.
-- Steps for Claude:
-  1. Add `/scenario/airways` route that reads the static `geo/airways.json` (use Flask `send_from_directory` or `pkg_resources`) and returns a lightweight list of airway names and simplified coordinate arrays.
-  2. Modify `scenario_builder.js` to fetch the airway list on load, populate a `<select>` and include the selected airway's coordinates in spawn payload to POST `/scenario/aircraft`.
-  3. Extend `MockConnector.create_aircraft()` to accept `route_waypoints` (list of `{lat, lon}`) and store in the record; change propagation to compute heading to next waypoint, set `record.heading_deg`, and move along the path by distance = speed * dt.
-  4. Keep backward compatibility: if `route_waypoints` absent, revert to existing spawn behaviour.
-- Tests: spawn a mini-route with 3 points and run the mock; verify aircraft follow airway line approx and arrive at final waypoint.
+3) Spawn aircraft along airways (server + mock) -- **DONE**
+- `GET /scenario/airways` (new, in `scenario_routes.py`) reads and
+  reshapes `astra/dashboard/geo/airways.json` (cached in-process after
+  first read) into `[{designator, waypoint_names, coordinates:[{lat,lon}]}]`.
+- `POST /scenario/aircraft` now accepts an optional `airway_designator`
+  (+ optional `start_index`, default 0) instead of `lat`/`lon`/`heading_deg`;
+  when given, the server looks up the airway, spawns at
+  `coordinates[start_index]`, and passes the remaining points as
+  `route_waypoints` to `StateReader.create_aircraft()` -> `MockConnector`.
+  Free-standing spawns (no `airway_designator`) are unchanged --
+  `lat`/`lon`/`heading_deg` are still required in that case.
+- `MockConnector._AircraftRecord` gained `route_waypoints` / `route_index`.
+  `_advance_along_route()` (called from `_propagate_positions()` when a
+  record has a route) walks the remaining leg distance each tick, can
+  consume multiple short legs in one oversized tick (capped at
+  `_MAX_LEGS_PER_TICK = 50`), and clears the route once the final waypoint
+  is passed -- the aircraft then reverts to plain straight-line dead
+  reckoning on its last heading (flies "off the end" of the airway rather
+  than stopping). Initial heading on spawn is the bearing to the first
+  waypoint, overriding any given `heading_deg`.
+- `scenario_builder.html`/`.js` gained an "Airway" `<select>` in the
+  spawn modal (`loadAirways()` populates it from `/scenario/airways`);
+  picking one hides the lat/lon/heading fields and sends
+  `airway_designator` instead. Only offered for new spawns, not edits
+  (`PATCH` has no route-reassignment support).
+- Regression tests: `tests/test_interface.py` (new, 18 checks) -- no-route
+  baseline unchanged, waypoint-by-waypoint following, route clears +
+  continues straight past the last waypoint, a large-`dt` multi-leg tick,
+  and the two new endpoints (including the unknown-airway 404 case).
 
-4) Label decluttering & font tuning (polish)
-- Files: `astra/dashboard/geo_layers.js`, `astra/dashboard/dashboard.css`, `astra/dashboard/dashboard.js`
-- Steps:
-  1. Improve canvas font crispness by ensuring all `ctx.font` usages use CSS-pixel sizes (DPR scaling already applied). Increase fonts slightly to match ASTRA screenshot (e.g., base 12-13px on UI, 11-12px for canvas labels).
-  2. Implement a simple label declutter in `drawAircraftMarker()` or central label manager: maintain an array of placed label bounding boxes (screen-space) and skip drawing any label that intersects an existing box.
-  3. Consider adjusting label box background alpha and stroke thickness for readability.
-- Tests: Toggle labels on/off; add high-density test case to verify decluttering works without hiding important labels.
+4) Label decluttering & font tuning (polish) -- **DONE**
+- `geo_layers.js` had two copies (`astra/dashboard/geo_layers.js`, the one
+  Flask actually serves per `index.html`'s `url_for('static', ...)`, and
+  a stale duplicate at `astra/dashboard/geo/geo_layers.js` that had the
+  label-declutter/diamond-marker work but was never wired in). Consolidated
+  onto the served path; the stray duplicate is deleted.
+- Base body font 13px -> 14px monospace, `-webkit-font-smoothing:
+  antialiased`; smallest UI labels 10px -> 11px; canvas `ctx.font` sizes
+  bumped ~1-2px across `dashboard.js` and `geo_layers.js` (aircraft labels
+  are now 12px, sector/waypoint labels 10-11px).
 
-5) Conflict/Hotspot bug investigation (diagnostic)
-- Files: `astra/hotspot/distance.py`, `astra/hotspot/engine.py`, `astra/complexity/conflict.py`, `astra/complexity/engine.py`
-- Steps for Claude:
-  1. Instrument (temporarily) the pipeline to log a failing snapshot: print aircraft involved, their headings, speeds, and the computed pairwise CPA values.
-  2. Run unit tests `tests/test_hotspot.py` and `tests/test_complexity.py` to reproduce failure locally.
-  3. If hotspots exist but pairwise conflicts are zero: check that aircraft have non-null `heading_deg` and `ground_speed_kt` in snapshot; missing kinematic data will make CPA detect no conflict.
-  4. Tune DBSCAN `eps` or `min_samples` in `hotspot/engine.py` and the vertical/horizontal gating in `hotspot/distance.py` if clusters are too small/large.
-  5. Re-run tests and add a regression test fixture capturing the failing case.
+5) Known limitation: predicted-only hotspots are dropped (was "diagnostic", now root-caused)
+- **This is very likely what "aircraft conflicting but no hotspot detected"
+  actually is**, now confirmed end-to-end (not a DBSCAN/CPA parameter bug --
+  those checked out fine, see below).
+- Root cause: `astra/tracking/engine.py`'s `TrackerEngine.update()` only
+  ever reads `regions_by_horizon.get(0, [])` (`_IDENTITY_HORIZON_MIN = 0`,
+  by design -- see the comment at the top of that file and the
+  "Only horizon 0..." row in `docs/Developer_Handover.md`'s Known
+  limitations table, now corrected to describe this accurately). Every
+  other horizon (5/10/15/30/60 min) is fully computed each cycle by
+  `Pipeline._build_regions_by_horizon()` and handed to
+  `TrackerEngine.update()`, but silently ignored for opening or matching
+  tracks. `ForecastEngine` (Milestone 6) only *forecasts onset/peak/
+  dissipation for tracks that already opened from a horizon-0 cluster* --
+  it never opens a new one from a predicted horizon, and explicitly
+  excludes `CANDIDATE` tracks (`_FORECASTABLE_STATUSES` in
+  `astra/forecast/engine.py`).
+- Practical effect: two aircraft that are *not yet* within 15 NM / 1000 ft
+  of each other right now, but converging fast enough that they will
+  breach separation within the 60-minute prediction window, generate a
+  perfectly good `ComplexityRegion` at some future horizon -- and then it's
+  thrown away. This is exactly the kind of pair the new airway-spawn
+  feature (item 3) makes easy to create (two aircraft placed on airways
+  that cross downstream).
+- Confirmed reproduction (run as-is, no BlueSky needed):
+  ```python
+  from astra.interface.traffic_state import AircraftState, TrafficSnapshot
+  from astra.pipeline import Pipeline
+  from astra.utils.config import ASTRAConfig
 
-6) Styling & pixel parity with ASTRA screenshot (iterative)
+  def ac(callsign, lat, lon, alt, hdg, gs):
+      return AircraftState(callsign, lat, lon, alt, gs, hdg, 0.0, "A320", 0.0)
+
+  pipeline = Pipeline(ASTRAConfig())
+  snap = TrafficSnapshot(timestamp_s=0.0, aircraft={
+      # ~40 NM apart, closing at 240 kt each -> will meet at ~horizon=5min.
+      "AC5": ac("AC5", 47.00, 7.50, 35000.0, 90.0, 240.0),
+      "AC6": ac("AC6", 47.00, 8.17, 35000.0, 270.0, 240.0),
+  })
+  result = pipeline.run_cycle(snap)
+  print("tracks opened:", len(result.tracks))          # -> 0
+  print(result.regions_by_horizon[5])                  # -> 1 region, complexity=27.2, real cluster
+  ```
+  Case A (aircraft already <15 NM apart *right now*) works correctly and
+  opens a `CANDIDATE` track immediately -- confirmed separately, so the
+  DBSCAN `eps`/`min_samples` (`hotspot/engine.py`, `hotspot/distance.py`)
+  and MTCA/LTCA thresholds (`complexity/conflict.py`) are NOT the bug;
+  don't spend time retuning them.
+- Not attempted in this pass: a correct fix means letting `TrackerEngine`
+  open/extend candidate tracks from predicted horizons too (roughly: when
+  horizon 0 has no match for a track, fall back to the nearest non-empty
+  predicted horizon before giving up), which needs new dedup logic so one
+  real encounter doesn't spawn a separate track per horizon per cycle, and
+  a decision on whether `ForecastEngine` should still exclude
+  horizon-only-detected `CANDIDATE` tracks. This touches identity
+  semantics that `tests/test_tracking.py` (327 lines) and
+  `tests/test_forecast.py` (390 lines) currently assert against -- treat
+  as its own scoped task, not a quick patch. A safer, smaller first step
+  worth considering: surface predicted-horizon conflicts to the dashboard
+  as a separate "predicted conflicts, not yet a hotspot" list (new API
+  field, no `TrackerEngine` changes) rather than folding them into
+  `FourDArhac` tracks at all.
+
+6) Styling & pixel parity with ASTRA screenshot (iterative -- partially done)
 - Files: `astra/dashboard/dashboard.css`, `astra/dashboard/index.html`, optionally new fonts under `static/fonts/`
-- Guidance for Claude:
-  - Use `Consolas` or `Menlo` for monospaced HUD text; adjust `font-size` on `body` to 14px for closer visual weight; use `-webkit-font-smoothing: antialiased` in body to help on macOS.
+- Done: body font bumped to 14px monospace with antialiasing (see item 4);
+  `#tracks-tbody tr.selected` changed from a 10%-opacity teal wash to a
+  35%-opacity `--blue` fill, closer to the reference screenshot's solid
+  blue selected-row highlight.
+- Still open -- guidance for the next pass:
   - Space panels to match screenshot: increase `panel-hint` opacity, tighten panel paddings, and add subtle 1px shadow on raised panels if desired.
-  - Match the ASTRA colour palette: tune `--accent`, `--amber`, `--red`, `--blue` variables in `dashboard.css`.
+  - Match the ASTRA colour palette more closely: tune `--accent`, `--amber`, `--red`, `--blue` variables in `dashboard.css` (current `--accent` is a mint/teal `#35c3a3`; reference leans more blue/magenta).
+  - Consider swapping the map/alerts column order (reference puts the big traffic map on the right, ours has it on the left) -- a bigger layout change, do only if there's time left after the above.
 
 Acceptance tests & QA checklist for Claude
 - Functional:
@@ -120,16 +194,45 @@ Development notes & constraints
 TODO list (current)
 - Implement DPR canvas scaling and sharp fonts (DONE)
 - Remove radar concentric rings (DONE)
-- Add aircraft label toggle and respect in rendering (IN-PROGRESS)
-- Fix alerts panel overflow with scroll wrapper
-- Add airway spawn support (server + mock connector)
-- Add aircraft side panel UI
+- Add aircraft label toggle and respect in rendering (DONE)
+- Fix alerts panel overflow with scroll wrapper (DONE)
+- Add airway spawn support (server + mock connector) (DONE)
+- Add aircraft side panel UI (DONE)
+- Sector toggle: already existed pre-plan via `astra/dashboard/geo/manifest.json`'s
+  layer list + `#map-layer-toggles` -- no work needed, just confirmed working.
+- Root-cause the "conflict but no hotspot" report (DONE -- see item 5 above;
+  the fix itself is deferred, scoped for a follow-up session)
+- Remaining: item 6 styling/pixel-parity polish (open-ended, iterate as time allows)
+- Remaining: `tests/test_dashboard.py`-style Flask test-client coverage for
+  `scenario_routes.py`'s non-airway endpoints (`/scenario/scenarios*`,
+  `/scenario/presets*`, `/scenario/control`) is still a pre-existing gap
+  (not introduced by this pass) -- `tests/test_interface.py` only covers
+  the new airway-related endpoints.
 
 
 ---
 
-If you'd like, I can now:
-- produce the exact diff patches for the next task (alerts table scroll wrapper), or
-- produce the server API spec + example payloads for airway spawn for Claude to implement.
+## Status as of this session (implementation pass following the hand-off above)
 
-Tell me which you prefer and I'll create the precise patch or API spec files.
+All six "priority next tasks" items above were addressed: items 1-4 and 6
+(partially) implemented and verified; item 5 was root-caused with a
+runnable reproduction but the actual fix deferred as its own scoped task
+(see item 5's "Not attempted in this pass" note) -- that's the main thing
+to hand to the next session, along with finishing item 6's remaining
+polish.
+
+Full regression suite after this pass, all green:
+```
+tests/test_hotspot.py      24/24
+tests/test_complexity.py   42/42
+tests/test_forecast.py     47/47
+tests/test_resolution.py   39/39
+tests/test_tracking.py     44/44
+tests/test_dashboard.py    81/81
+tests/test_interface.py    18/18  (new -- airway spawn/follow)
+```
+
+Also fixed in passing (not in the original numbered list): consolidated
+two divergent copies of `geo_layers.js` (see item 4) -- if you go looking
+for `astra/dashboard/geo/geo_layers.js`, it no longer exists; the served
+one is `astra/dashboard/geo_layers.js`.

@@ -43,7 +43,8 @@ python tests/test_complexity.py   # Milestone 4 — 42 checks
 python tests/test_tracking.py     # Milestone 5 — 44 checks
 python tests/test_forecast.py     # Milestone 6 — 47 checks
 python tests/test_resolution.py   # Milestone 7 — 39 checks
-python tests/test_dashboard.py    # Milestone 8 — 70 checks
+python tests/test_dashboard.py    # Milestone 8 — 81 checks
+python tests/test_interface.py    # Airway spawn/follow — 18 checks
 ```
 
 No BlueSky process or third-party test framework required.
@@ -79,6 +80,22 @@ IC scenarios/phase1_demo.scn
 
 As with mock mode, the dashboard opens automatically at
 `http://127.0.0.1:8050/` unless `--no-dashboard` is passed.
+
+### Scenario Builder (mock mode only)
+
+`http://127.0.0.1:8050/scenario` lets you spawn, edit, and remove aircraft
+in a running mock session without restarting the process — useful for
+building repeatable test traffic. Two ways to place an aircraft:
+
+- **Custom position** — set lat/lon/heading/altitude/speed directly.
+- **On an airway** — pick a named airway (from `astra/dashboard/geo/airways.json`,
+  also drawn on the operations map); the aircraft spawns at the airway's
+  first waypoint, heading toward it, and follows the airway leg by leg
+  (`MockConnector._advance_along_route()`) until it passes the last
+  waypoint, then continues straight on its final heading.
+
+Scenarios (aircraft layouts) can be saved/loaded/deleted from the same
+page; see `GET/POST /scenario/scenarios*` in `astra/dashboard/scenario_routes.py`.
 
 ---
 
@@ -157,3 +174,4 @@ See `astra/utils/config.py` for the full field list (validated in
 | `docs/Developer_Handover.md` | Full developer guide, design decisions, conventions |
 | `docs/architecture.md` | Mermaid system architecture diagrams + domain model |
 | `docs/PROJECT_STATUS.md` | Overall milestone status |
+| `docs/plan.md` | HMI-parity UI work: status, remaining tasks, and the confirmed hotspot-prediction gap (see "Known limitations") handed off for follow-up |
