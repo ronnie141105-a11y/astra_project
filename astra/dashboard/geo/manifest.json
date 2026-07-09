@@ -15,6 +15,15 @@
             "style": { "stroke": "#24313d", "width": 1, "dash": [] }
         },
         {
+            "id": "country_borders",
+            "label": "Country borders",
+            "kind": "line",
+            "file": "geo/country_borders.json",
+            "default_visible": true,
+            "z_index": 0.5,
+            "style": { "stroke": "#33404b", "width": 0.75, "dash": [3, 3] }
+        },
+        {
             "id": "firs",
             "label": "FIR boundaries",
             "kind": "polygon",

@@ -86,7 +86,62 @@ during the redesign.
      `create_app().test_client()` at its real Flask static path
      (`/dashboard/geo/...`, not `/static/...` -- static_url_path is
      derived from the static folder's basename here).
-  8. **Hotspot-not-detected report — investigated, no code bug found**
+  8. **Richer basemap — done** (this session, follow-up to item 7): the
+     110m coastline was visibly too coarse. Replaced with Natural
+     Earth 50m coastline (1,428 features) and added a new
+     `country_borders` layer (Natural Earth 50m admin-0 land boundary
+     lines, 390 features, dashed, `z_index: 0.5` -- drawn between
+     coastlines and FIRs) so the background now reads as a real
+     country/world map rather than a coastline squiggle. Both files are
+     coordinate-rounded to 2dp (~1km, plenty at this render scale);
+     ~1.3MB combined, one-time load. No manifest/JS change needed
+     beyond the new entry -- `setupGeoLayerToggles()` already builds
+     one checkbox per manifest entry generically, so "Country borders"
+     just appears.
+  9. **Straight-line predicted paths — investigated, root cause
+      identified, not fixed (needs a scoping decision)**: the on-map
+      predicted path is `TrajectoryEngine`'s constant-velocity
+      extrapolation, which by design never turns at a waypoint --
+      confirmed this is exactly what's documented (its own docstring
+      says "no flight-plan dependency"). More importantly: the real
+      `BlueSkyConnector` only subscribes to BlueSky's `ACDATA` topic
+      (position/speed/heading/vertical-rate) -- it does not read each
+      aircraft's active route/waypoints at all, so there is currently
+      no route data anywhere in `AircraftState` for a real BlueSky run
+      to predict along even if `TrajectoryEngine` were rewritten to use
+      it. `docs/plan.md` already flags this precise gap ("live BlueSky
+      integration [for route/airway-following] is out-of-scope...
+      would require connector/simulator support") -- this is a known,
+      previously-documented limitation, not a regression. Only
+      `MockConnector` (offline/test mode) supports `route_waypoints`
+      end-to-end today. Updated the map's panel-hint text in
+      `index.html` to say this explicitly ("straight-line,
+      constant-velocity... does not turn at waypoints") so a demo
+      audience isn't misled by the wording. No engine change made --
+      pulling real route data over BlueSky's network client is new
+      protocol work (BlueSky doesn't broadcast full-route data on a
+      shared-state topic the way it does `ACDATA`; it'd need a
+      per-aircraft query cycle, e.g. `LISTRTE`, parsed from stack
+      output) and deserves its own scoped milestone rather than a
+      reflexive patch.
+  10. **"No RL/PPO" review — confirmed as a deliberate, documented scope
+      decision, not a gap**: `ResolutionEngine` (astra/resolution/) is
+      a deterministic simulate-and-score heuristic -- for each
+      resolvable track, `resolution/candidates.py` enumerates
+      single-lever speed/flight-level/heading deltas per aircraft, and
+      `ResolutionEngine` scores each by literally replaying
+      `TrajectoryEngine -> ClusterEngine -> ComplexityEngine` on the
+      hypothetical snapshot and re-associating it back to the track.
+      No learned policy, no training data, no PPO. This was already
+      the project's own stated position: `docs/PROJECT_STATUS.md`'s
+      "Remaining work" section explicitly lists "an RL-based
+      ResolutionEngine replacement or supplement" as a natural next
+      step, out of scope for this prototype, and explicitly not
+      started -- alongside a live-BlueSky demo run, a persisted/
+      multi-user lifecycle, and real polygon sectorization. No code
+      changed for this item; see the chat response for the full
+      review/recommendation given to the user.
+  11. **Hotspot-not-detected report — investigated, no code bug found**
      (this session): traced the full path a freshly-spawned aircraft
      (scenario or BlueSky-runtime) takes -- `state_reader` ->
      `TrajectoryEngine.predict` (constant-velocity, no flight-plan/route
