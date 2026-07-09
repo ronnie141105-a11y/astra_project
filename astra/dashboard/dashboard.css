@@ -1,17 +1,17 @@
 :root {
-    --bg: #060b11;
-    --panel-bg: #101923;
-    --panel-bg-raised: #16212b;
-    --panel-border: #243440;
-    --text: #e8f3ff;
-    --text-dim: #86a1b6;
+    --bg: #030507;
+    --panel-bg: #0b0e12;
+    --panel-bg-raised: #14181e;
+    --panel-border: rgba(255, 255, 255, 0.12);
+    --text: #eef2f6;
+    --text-dim: #8b95a1;
     --accent: #5ab6ff;
     --accent-dim: #173b56;
     --amber: #ffbf69;
     --red: #ff5d73;
-    --blue: #6d86ff;
+    --blue: #3b6bf5;
     --grid-line: #1c2a34;
-    --shadow: rgba(0, 0, 0, 0.45);
+    --shadow: rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -20,9 +20,7 @@
 
 body {
     margin: 0;
-    background:
-        radial-gradient(circle at top left, rgba(90, 182, 255, 0.12), transparent 32%),
-        linear-gradient(180deg, #091018 0%, var(--bg) 100%);
+    background: var(--bg);
     color: var(--text);
     font-family: "Consolas", "Menlo", "Courier New", monospace;
     font-size: 14px;
@@ -45,9 +43,8 @@ body {
     justify-content: space-between;
     gap: 16px;
     padding: 12px 20px;
-    background: linear-gradient(90deg, rgba(16, 25, 35, 0.98), rgba(12, 21, 29, 0.98));
+    background: var(--panel-bg);
     border-bottom: 1px solid var(--panel-border);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 #hmi-brand {
@@ -73,20 +70,22 @@ body {
 
 #hmi-tabs {
     display: flex;
-    gap: 4px;
+    gap: 22px;
 }
 
+/* Underline-style nav (matches the reference ASTRA top bar): plain text,
+   active page picked out with a blue underline rather than a filled pill. */
 .tab-btn {
     background: transparent;
-    border: 1px solid var(--panel-border);
+    border: none;
+    border-bottom: 2px solid transparent;
     color: var(--text-dim);
-    padding: 6px 14px;
-    border-radius: 4px;
+    padding: 6px 2px;
     cursor: pointer;
     font-family: inherit;
-    font-size: 12px;
-    letter-spacing: 0.03em;
-    transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    transition: color 180ms ease, border-color 180ms ease;
 }
 
 .tab-btn:hover {
@@ -94,10 +93,14 @@ body {
 }
 
 .tab-btn.active {
-    background: linear-gradient(90deg, rgba(90, 182, 255, 0.14), rgba(109, 134, 255, 0.18));
     color: var(--accent);
-    border-color: rgba(90, 182, 255, 0.35);
-    box-shadow: inset 0 0 0 1px rgba(90, 182, 255, 0.15);
+    border-bottom-color: var(--accent);
+}
+
+.tab-link {
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 6px 14px;
 }
 
 #hmi-status {
@@ -138,34 +141,39 @@ body {
     display: grid;
 }
 
-#tab-operations {
-    grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.95fr);
+/* Dissipation Workspace: alerts + event panel on the left, the traffic
+   projection map on the right (spanning both rows), secondary panels
+   (aircraft/timeline/coordination) in a footer row below. */
+#tab-dissipation {
+    grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.5fr);
     grid-template-areas:
-        "map     alerts"
-        "map     aircraft"
-        "event   event"
-        "timeline coordination";
+        "alerts map"
+        "event  map"
+        "footer footer";
     gap: 14px;
 }
 
-#panel-map { grid-area: map; }
 #panel-alerts { grid-area: alerts; }
-#panel-aircraft { grid-area: aircraft; }
 #panel-event { grid-area: event; }
-#panel-timeline { grid-area: timeline; }
-#panel-coordination { grid-area: coordination; }
+#panel-map { grid-area: map; }
 
-#tab-sectors {
+.dissipation-footer {
+    grid-area: footer;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+}
+
+#tab-forecast {
     grid-template-columns: 1fr;
 }
 
 .panel {
-    background: linear-gradient(180deg, rgba(16, 25, 35, 0.98), rgba(10, 16, 23, 0.98));
+    background: var(--panel-bg);
     border: 1px solid var(--panel-border);
-    border-radius: 8px;
-    padding: 12px 14px;
+    border-radius: 14px;
+    padding: 14px 16px;
     min-width: 0;
-    box-shadow: 0 10px 24px var(--shadow);
     overflow: hidden;
 }
 
@@ -208,13 +216,14 @@ body {
 .scrubber {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     font-size: 11px;
     color: var(--text-dim);
+    margin-top: 10px;
 }
 
 .scrubber input[type="range"] {
-    width: 140px;
+    flex: 1;
     accent-color: var(--accent);
 }
 
@@ -246,6 +255,42 @@ body {
 .layer-toggle input {
     accent-color: var(--accent);
     cursor: pointer;
+}
+
+.sector-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin: 6px 0 4px;
+}
+
+.sector-toggle-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-right: 2px;
+}
+
+.sector-chip {
+    font-family: inherit;
+    font-size: 11px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+}
+
+.sector-chip:hover {
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.sector-chip.active {
+    border-color: var(--accent);
+    background: rgba(90, 182, 255, 0.14);
+    color: var(--accent);
 }
 
 #map-canvas {
@@ -372,7 +417,12 @@ th {
 }
 
 #tracks-tbody tr.selected {
-    background: rgba(74, 144, 164, 0.35);
+    background: var(--blue);
+    color: #fff;
+}
+
+#tracks-tbody tr.selected td {
+    border-bottom-color: transparent;
 }
 
 .status-pill {
@@ -450,6 +500,99 @@ th {
 /* Event & Dissipation panel                                          */
 /* ---------------------------------------------------------------- */
 
+/* Draft -> Proposed -> Acknowledged stepper (Fig 30). */
+.event-stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.stepper-steps {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.stepper-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stepper-dot {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+}
+
+.stepper-step.done .stepper-dot { background: var(--accent); border-color: var(--accent); color: #04121c; }
+.stepper-step.current .stepper-dot { background: var(--blue); border-color: var(--blue); color: #fff; }
+.stepper-step.current .stepper-label { color: var(--text); }
+
+.stepper-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.stepper-caption {
+    font-size: 10px;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.stepper-connector {
+    flex: 1;
+    height: 1px;
+    background: var(--panel-border);
+    margin: 0 8px;
+}
+
+.stepper-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.btn-stepper {
+    font-family: inherit;
+    font-size: 12px;
+    padding: 6px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.btn-stepper:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.btn-reject {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+}
+
+.btn-proceed {
+    background: var(--blue);
+    border: 1px solid var(--blue);
+    color: #fff;
+    font-weight: bold;
+}
+
 .event-top {
     display: flex;
     gap: 16px;
@@ -466,22 +609,28 @@ th {
 .complexity-reduction {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 22px;
     background: var(--panel-bg-raised);
     border: 1px solid var(--panel-border);
-    border-radius: 4px;
-    padding: 10px 14px;
+    border-radius: 8px;
+    padding: 12px 16px;
     min-width: 260px;
 }
 
-.confidence-ring-wrap {
-    position: relative;
-    width: 74px;
-    height: 74px;
-    flex-shrink: 0;
+/* Before/after complexity rings, joined by an arrow (Fig 31). */
+.ring-pair {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.confidence-ring-value {
+.ring-slot {
+    position: relative;
+    width: 64px;
+    height: 64px;
+}
+
+.ring-value {
     position: absolute;
     inset: 0;
     display: flex;
@@ -491,87 +640,102 @@ th {
     font-weight: bold;
 }
 
-.confidence-ring-caption {
-    text-align: center;
+.ring-arrow {
+    color: var(--text-dim);
+    font-size: 16px;
+}
+
+.ring-caption {
+    margin-left: 6px;
     font-size: 11px;
     color: var(--text-dim);
     text-transform: uppercase;
-    margin-top: 2px;
 }
 
-.complexity-scores {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.complexity-scores .cr-row {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-}
-
-.complexity-scores .cr-before { color: var(--text-dim); }
-.complexity-scores .cr-arrow { color: var(--text-dim); }
-.complexity-scores .cr-after-up { color: var(--red); font-weight: bold; }
-.complexity-scores .cr-after-down { color: var(--accent); font-weight: bold; }
-.complexity-scores .cr-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; }
-
-.candidate-list {
+.confidence-bar-wrap {
     flex: 1;
-    min-width: 280px;
+    min-width: 140px;
 }
 
-.candidate-row {
+.confidence-bar-caption {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.confidence-bar-track {
+    position: relative;
+    height: 8px;
+    background: #0c1319;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.confidence-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-radius: 999px;
+}
+
+.confidence-bar-value {
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* Numbered "solution proposal" chips + single-candidate detail line. */
+.candidate-list {
+    margin-top: 4px;
+}
+
+.candidate-chips {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 6px;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.candidate-chip {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
     border: 1px solid var(--panel-border);
-    border-radius: 3px;
-    margin-bottom: 5px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 12px;
     cursor: pointer;
 }
 
-.candidate-row:hover {
+.candidate-chip:hover {
     border-color: var(--blue);
+    color: var(--text);
 }
 
-.candidate-row.active {
-    border-color: var(--accent);
-    background: rgba(53, 195, 163, 0.08);
+.candidate-chip.active {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
 }
 
-.candidate-row .cand-type {
+.candidate-current {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+}
+
+.candidate-current .cand-type {
     font-weight: bold;
     min-width: 70px;
 }
 
-.candidate-row .cand-score-positive { color: var(--accent); }
-.candidate-row .cand-score-negative { color: var(--red); }
-
-.lifecycle-row {
-    display: flex;
-    gap: 4px;
-    margin-left: auto;
-}
-
-.lifecycle-btn {
-    background: transparent;
-    border: 1px solid var(--panel-border);
-    color: var(--text-dim);
-    font-size: 11px;
-    padding: 2px 6px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-family: inherit;
-}
-
-.lifecycle-btn.current {
-    color: var(--bg);
-    background: var(--accent);
-    border-color: var(--accent);
-}
+.candidate-current .cand-score-positive { color: var(--accent); }
+.candidate-current .cand-score-negative { color: var(--red); }
 
 .whatif-block svg, .component-block {
     background: var(--panel-bg-raised);
@@ -690,15 +854,16 @@ th {
 }
 
 @media (max-width: 1100px) {
-    #tab-operations {
+    #tab-dissipation {
         grid-template-columns: 1fr;
         grid-template-areas:
             "map"
             "alerts"
-            "aircraft"
             "event"
-            "timeline"
-            "coordination";
+            "footer";
+    }
+    .dissipation-footer {
+        grid-template-columns: 1fr;
     }
     .event-bottom {
         grid-template-columns: 1fr;

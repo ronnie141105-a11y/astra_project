@@ -86,8 +86,12 @@ class GeoLayerManager {
      *
      * @param {CanvasRenderingContext2D} ctx
      * @param {(lat: number, lon: number) => [number, number]} project
+     * @param {(layer: object, feature: object) => boolean} [featureFilter] -
+     *   optional per-feature predicate (e.g. hide one named sector while
+     *   the "sectors" layer as a whole stays visible). Defaults to "draw
+     *   everything in every visible layer".
      */
-    draw(ctx, project) {
+    draw(ctx, project, featureFilter) {
         // Label decluttering: one shared registry of already-placed label
         // boxes for this whole draw pass (across every layer, not just
         // within one) -- a waypoint label and a sector label are both
@@ -100,7 +104,12 @@ class GeoLayerManager {
                 return;
             }
             const features = layer.geojson.features || [];
-            features.forEach((feature) => this._drawFeature(ctx, project, layer, feature));
+            features.forEach((feature) => {
+                if (featureFilter && !featureFilter(layer, feature)) {
+                    return;
+                }
+                this._drawFeature(ctx, project, layer, feature);
+            });
         });
     }
 

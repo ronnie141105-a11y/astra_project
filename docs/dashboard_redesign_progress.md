@@ -36,11 +36,80 @@ during the redesign.
      labels declutter (skip if they'd overlap an already-placed label),
      airway designators label optionally (layer is off by default,
      toggle-controlled, per the audit's Fig-32 note).
-  - Per explicit instruction, nothing in §6's remaining items has been
-    started yet — no two-page IA split, no sector-forecast backend
-    extension, no complexity-reference serializer change, no act-by/
-    rationale fields. Docs (other than this file) have not been touched,
-    also per instruction.
+  6. **Two-page IA split — done** (§6 item 3, this session): renamed
+     the tabs/pages to `tab-forecast` ("Complexity Forecast", the old
+     Sector Complexity content, untouched) and `tab-dissipation`
+     ("Dissipation Workspace", the default-active page). The Dissipation
+     Workspace reuses the existing alerts table/event panel/map
+     unchanged apart from layout: alerts + event panel in a left column,
+     the Traffic Projection Display in a right column spanning both
+     rows, and aircraft/timeline/coordination demoted to a 3-up footer
+     row below (nothing removed, just deprioritized to match the
+     reference's visual hierarchy). Also, ahead of §6 items 6-7 but in
+     the same spirit (frontend-only, no serializer change): the Event &
+     Dissipation panel now has a Draft/Proposed/Acknowledged stepper
+     with Reject/Proceed buttons (`renderEventStepper`, replacing the
+     old 4-button `lifecycleButtons` row; `ui.lifecycle` state and its
+     session-local-only precedent are unchanged) and the
+     complexity/confidence readout is now a before/after ring pair
+     (reusing `complexityColor`) plus a separate confidence bar, with
+     candidates navigated via numbered chips instead of a stacked list
+     — closer to the reference's Fig 30/31 layout. Per the redesign's
+     own decision log (§4 item 5), this still surfaces one
+     single-aircraft candidate at a time; no multi-aircraft solution
+     table was fabricated. Palette flattened to a near-black theme and
+     the nav restyled to underlined text tabs in the same pass, reusing
+     `dashboard.css`'s existing variables (no second theme introduced).
+     Verified: `node --check` clean on `dashboard.js`; full
+     `test_dashboard.py` (81/81) re-run unmodified; `/` route rendered
+     through `create_app().test_client()` to confirm the template
+     renders with no Jinja errors and all new element ids present.
+  7. **World/coastline basemap + per-sector show/hide — done** (this
+     session, user-requested, not a §6 item): `geo/coastlines.json` was
+     empty (referenced by `manifest.json` but never populated, per the
+     "layer files start empty" convention in §3b/EXTRACTION_LOG.md) --
+     it's now a real Natural Earth 110m coastline dataset (134
+     LineString features, world extent, ~95KB, coords rounded to 3dp),
+     dropped in with no renderer changes needed (`geo_layers.js` is
+     already geometry-agnostic). `MAX_SPAN_DEG` (map zoom-out clamp) was
+     raised from 60 to 220 so scrolling out actually reaches
+     country/world scale instead of clipping at a regional view.
+     Separately, `geo_layers.js`'s `draw()` gained an optional
+     `featureFilter(layer, feature)` predicate (still no geo-specific
+     knowledge baked into that module); `dashboard.js` uses it to hide
+     individual sectors by name (`ui.hiddenSectorNames`, persisted to
+     `localStorage`) via a new row of numbered chips under the map's
+     layer-toggle row, independent of the existing whole-layer
+     "Sectors" checkbox. Verified: `node --check` clean on both
+     `dashboard.js` and `geo_layers.js`; `test_dashboard.py` (81/81)
+     unaffected; `coastlines.json` served correctly through
+     `create_app().test_client()` at its real Flask static path
+     (`/dashboard/geo/...`, not `/static/...` -- static_url_path is
+     derived from the static folder's basename here).
+  8. **Hotspot-not-detected report — investigated, no code bug found**
+     (this session): traced the full path a freshly-spawned aircraft
+     (scenario or BlueSky-runtime) takes -- `state_reader` ->
+     `TrajectoryEngine.predict` (constant-velocity, no flight-plan/route
+     dependency) -> `HotspotEngine._cluster_aircraft` (DBSCAN,
+     `dbscan_min_samples=2`, `separation_horizontal_nm=15`,
+     `separation_vertical_ft=1000`) -> `TrackingEngine.update` (opens a
+     `CANDIDATE` track immediately, promotes to `CONFIRMED` after
+     `tracking_confirm_cycles=2`) -> `serialize_cycle_result` (serializes
+     every open track, `CANDIDATE` included, no status filter). None of
+     this branches on how an aircraft was spawned. `test_hotspot.py`
+     (24/24) and `test_tracking.py` (44/44) both pass unmodified,
+     reinforcing that the pipeline is behaving as designed. The much
+     more likely explanation: (a) `CANDIDATE` tracks *do* show up in the
+     Alerts table but are deliberately excluded from forecasting/
+     resolution until `CONFIRMED` (`_FORECASTABLE_STATUSES` /
+     `_RESOLVABLE_STATUSES` in `forecast/engine.py` /
+     `resolution/engine.py`) -- easy to misread as "not detected" when
+     it's really "detected but not yet actionable"; or (b) the aircraft
+     genuinely weren't within 15 NM / 1000 ft of each other for 2
+     consecutive polls, which is a scenario-geometry/timing question,
+     not a defect. No code was changed for this item -- flagging it
+     here rather than guessing at a fix without a concrete repro (a
+     specific scenario file + timestamp would let this go further).
 - **airports.json and coastlines.json remain empty placeholders** — out
   of scope for the extraction work done so far (confirmed: origin/main
   has no such files; EXTRACTION_LOG.md doesn't mention them). Toggling

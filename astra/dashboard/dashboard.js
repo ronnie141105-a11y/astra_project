@@ -36,9 +36,13 @@
         // localStorage or a fit-to-FIR/traffic computation).
         view: null,
         showAircraftLabels: true,
+        // Sector polygon features (geo/sectors.json) hidden individually,
+        // by their shared "name" property (e.g. "Sector 2 Ho Chi Minh
+        // ACC") -- independent of the whole-layer "Sectors" toggle above.
+        hiddenSectorNames: new Set(),
     };
 
-    const LIFECYCLE_STAGES = ["DRAFT", "PROPOSED", "ACKNOWLEDGED", "CANCELED"];
+    const LIFECYCLE_STAGES = ["DRAFT", "PROPOSED", "ACKNOWLEDGED"];
 
     // Shared geo-overlay layer manager (FIRs/sectors/airways/waypoints/
     // airports/coastlines) -- see geo_layers.js. Own module, own data
@@ -92,6 +96,49 @@
                 }
             });
         }
+
+        renderSectorToggleRow();
+    }
+
+    /** One chip per named sector (e.g. "1", "2", "5"), independent of the
+     * whole-layer "Sectors" checkbox above -- lets an operator isolate a
+     * couple of sectors (e.g. "just 1 and 2") without hiding the rest of
+     * the geo overlay. No-op (renders nothing) until sectors.json has
+     * data, so it never shows an empty row. */
+    function renderSectorToggleRow() {
+        const row = document.getElementById("map-sector-toggles");
+        if (!row) {
+            return;
+        }
+        const names = distinctSectorNames();
+        if (names.length === 0) {
+            row.innerHTML = "";
+            return;
+        }
+        row.innerHTML =
+            '<span class="sector-toggle-label">Sectors shown:</span>' +
+            names
+                .map((name) => {
+                    const short = (name.match(/\d+/) || [name])[0];
+                    const active = !ui.hiddenSectorNames.has(name);
+                    return `<button class="sector-chip ${active ? "active" : ""}" data-sector-name="${name}" title="${name}">${short}</button>`;
+                })
+                .join("");
+        row.querySelectorAll(".sector-chip").forEach((chip) => {
+            chip.addEventListener("click", () => {
+                const name = chip.dataset.sectorName;
+                if (ui.hiddenSectorNames.has(name)) {
+                    ui.hiddenSectorNames.delete(name);
+                } else {
+                    ui.hiddenSectorNames.add(name);
+                }
+                savePersistedHiddenSectors();
+                renderSectorToggleRow();
+                if (window.__astraLastCycle) {
+                    renderMap(window.__astraLastCycle);
+                }
+            });
+        });
     }
 
     function loadPersistedUiPrefs() {
@@ -103,6 +150,7 @@
         } catch (e) {
             // ignore
         }
+        ui.hiddenSectorNames = loadPersistedHiddenSectors();
     }
 
     // ------------------------------------------------------------------
@@ -386,7 +434,7 @@
     const VIEW_STORAGE_KEY = "astra_map_view_v1";
     const LAYER_VISIBILITY_STORAGE_KEY = "astra_map_layer_visibility_v1";
     const MIN_SPAN_DEG = 0.05;
-    const MAX_SPAN_DEG = 60;
+    const MAX_SPAN_DEG = 220;
 
     function loadPersistedView() {
         try {
@@ -437,6 +485,46 @@
         } catch (err) {
             // Non-fatal -- see savePersistedView.
         }
+    }
+
+    const HIDDEN_SECTORS_STORAGE_KEY = "astra_hidden_sectors_v1";
+
+    function loadPersistedHiddenSectors() {
+        try {
+            const raw = localStorage.getItem(HIDDEN_SECTORS_STORAGE_KEY);
+            return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch (err) {
+            return new Set();
+        }
+    }
+
+    function savePersistedHiddenSectors() {
+        try {
+            localStorage.setItem(HIDDEN_SECTORS_STORAGE_KEY, JSON.stringify(Array.from(ui.hiddenSectorNames)));
+        } catch (err) {
+            // Non-fatal -- see savePersistedView.
+        }
+    }
+
+    /** Distinct sector `name` values in the "sectors" geo layer, in file
+     * order -- e.g. ["Sector 1 Ho Chi Minh ACC", "Sector 2 Ho Chi Minh ACC", ...].
+     * A sector is often several polygons (one per altitude layer) sharing
+     * one name; this groups them for a single "show/hide Sector N" toggle. */
+    function distinctSectorNames() {
+        const layer = geoLayers.layers.find((l) => l.id === "sectors");
+        if (!layer) {
+            return [];
+        }
+        const seen = new Set();
+        const names = [];
+        (layer.geojson.features || []).forEach((f) => {
+            const name = f.properties && f.properties.name;
+            if (name && !seen.has(name)) {
+                seen.add(name);
+                names.push(name);
+            }
+        });
+        return names;
     }
 
     /** Bounding box (with the same padding convention as computeBounds) of
@@ -841,7 +929,13 @@
         ui.aircraftHighlight = buildAircraftHighlightMap(cycle);
 
         drawGrid(ctx, width, height);
-        geoLayers.draw(ctx, project);
+        geoLayers.draw(ctx, project, (layer, feature) => {
+            if (layer.id !== "sectors") {
+                return true;
+            }
+            const name = feature.properties && feature.properties.name;
+            return !ui.hiddenSectorNames.has(name);
+        });
         drawSectorBoundaries(ctx, project, bounds, width, cycle.sector_regions);
         const regionsAtHorizon = cycle.regions_by_horizon[String(ui.selectedHorizon)] || [];
         drawComplexityRegions(ctx, project, bounds, width, regionsAtHorizon, cycle);
@@ -1011,96 +1105,124 @@
     // Event & Dissipation panel
     // ------------------------------------------------------------------
 
-    function confidenceRingSvg(value, size) {
+    /** Generic progress ring: `pct` in [0, 1], stroked in `color`. */
+    function ringSvg(pct, size, color) {
         const r = size / 2 - 6;
         const c = 2 * Math.PI * r;
-        const pct = Math.max(0, Math.min(1, value === null || value === undefined ? 0 : value));
-        const color = confidenceColor(pct);
+        const clamped = Math.max(0, Math.min(1, pct === null || pct === undefined ? 0 : pct));
         return `
             <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
                 <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="#1c2732" stroke-width="6" />
                 <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${color}" stroke-width="6"
-                    stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - pct)}"
+                    stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - clamped)}"
                     stroke-linecap="round" transform="rotate(-90 ${size / 2} ${size / 2})" />
             </svg>`;
     }
 
+    /** Before/after complexity rings (linked by an arrow) plus a confidence bar,
+     * mirroring the reference ASTRA Event & Dissipation panel layout. */
     function renderComplexityReduction(track, candidate) {
         const container = document.getElementById("complexity-reduction");
         const before = candidate ? candidate.complexity_before : track.current_complexity_score;
         const after = candidate ? candidate.complexity_after : null;
         const afterKnown = after !== null && after !== undefined;
-        const afterClass = afterKnown && after > before ? "cr-after-up" : "cr-after-down";
+        const confidence = track.confidence;
+        const confidencePct = confidence === null || confidence === undefined ? 0 : confidence;
+
         container.innerHTML = `
-            <div class="confidence-ring-wrap">
-                ${confidenceRingSvg(track.confidence, 74)}
-                <div class="confidence-ring-value">${
-                    track.confidence === null ? "-" : Math.round(track.confidence * 100) + "%"
-                }</div>
-            </div>
-            <div>
-                <div class="confidence-ring-caption">Confidence</div>
-                <div class="complexity-scores">
-                    <div class="cr-row">
-                        <span class="cr-label">Complexity</span>
-                    </div>
-                    <div class="cr-row">
-                        <span class="cr-before">${fmt(before)}</span>
-                        <span class="cr-arrow">&rarr;</span>
-                        <span class="${afterClass}">${afterKnown ? fmt(after) : "-"}</span>
-                    </div>
+            <div class="ring-pair">
+                <div class="ring-slot">
+                    ${ringSvg(before / 100, 64, complexityColor(before))}
+                    <div class="ring-value">${fmt(before, 0)}</div>
                 </div>
+                <div class="ring-arrow">&rarr;</div>
+                <div class="ring-slot">
+                    ${afterKnown ? ringSvg(after / 100, 64, complexityColor(after)) : ringSvg(0, 64, "#1c2732")}
+                    <div class="ring-value">${afterKnown ? fmt(after, 0) : "-"}</div>
+                </div>
+                <div class="ring-caption">Complexity</div>
+            </div>
+            <div class="confidence-bar-wrap">
+                <div class="confidence-bar-caption">Confidence</div>
+                <div class="confidence-bar-track">
+                    <div class="confidence-bar-fill" style="width:${confidencePct * 100}%; background:${confidenceColor(confidencePct)}"></div>
+                </div>
+                <div class="confidence-bar-value">${confidence === null ? "-" : Math.round(confidence * 100) + "%"}</div>
             </div>`;
     }
 
-    function lifecycleButtons(arhacId) {
-        const current = ui.lifecycle[arhacId] || "DRAFT";
-        return `
-            <div class="lifecycle-row">
-                ${LIFECYCLE_STAGES.map(
-                    (stage) =>
-                        `<button class="lifecycle-btn ${stage === current ? "current" : ""}" data-stage="${stage}">${stage}</button>`
-                ).join("")}
+    /** Draft -> Proposed -> Acknowledged stepper with Reject/Proceed actions,
+     * one per ARHAC event (not per-candidate) -- see reference Fig 30. */
+    function renderEventStepper(rs, onChange) {
+        const container = document.getElementById("event-stepper");
+        if (!rs) {
+            container.innerHTML = "";
+            return;
+        }
+        const current = ui.lifecycle[rs.arhac_id] || "DRAFT";
+        const currentIdx = LIFECYCLE_STAGES.indexOf(current);
+        const captions = { DRAFT: "Under proposal", PROPOSED: "Coordinate with other actors", ACKNOWLEDGED: "Dissipation in effect" };
+        container.innerHTML = `
+            <div class="stepper-steps">
+                ${LIFECYCLE_STAGES.map((stage, idx) => {
+                    const state = idx < currentIdx ? "done" : idx === currentIdx ? "current" : "pending";
+                    return `
+                    <div class="stepper-step ${state}">
+                        <div class="stepper-dot">${idx + 1}</div>
+                        <div class="stepper-text">
+                            <div class="stepper-label">${stage[0] + stage.slice(1).toLowerCase()}</div>
+                            ${idx === currentIdx ? `<div class="stepper-caption">${captions[stage]}</div>` : ""}
+                        </div>
+                    </div>`;
+                }).join('<div class="stepper-connector"></div>')}
+            </div>
+            <div class="stepper-actions">
+                <button id="stepper-reject" class="btn-stepper btn-reject" ${currentIdx === 0 ? "disabled" : ""}>Reject</button>
+                <button id="stepper-proceed" class="btn-stepper btn-proceed" ${currentIdx === LIFECYCLE_STAGES.length - 1 ? "disabled" : ""}>Proceed</button>
             </div>`;
+        const reject = document.getElementById("stepper-reject");
+        const proceed = document.getElementById("stepper-proceed");
+        if (reject) {
+            reject.addEventListener("click", () => {
+                ui.lifecycle[rs.arhac_id] = "DRAFT";
+                onChange();
+            });
+        }
+        if (proceed) {
+            proceed.addEventListener("click", () => {
+                ui.lifecycle[rs.arhac_id] = LIFECYCLE_STAGES[Math.min(currentIdx + 1, LIFECYCLE_STAGES.length - 1)];
+                onChange();
+            });
+        }
     }
 
+    /** Numbered "solution proposal" chips (one per ranked candidate) plus a
+     * single detail line for whichever chip is active. */
     function renderCandidateList(rs, onSelectCandidate) {
         const container = document.getElementById("candidate-list");
         if (!rs || rs.candidates.length === 0) {
             container.innerHTML = '<p class="panel-hint">No eligible resolution candidates this cycle.</p>';
             return;
         }
-        const activeIdx = ui.selectedCandidateIndex[rs.arhac_id] || 0;
-        container.innerHTML =
-            `<div class="panel-hint" style="margin-bottom:6px;">Ranked candidates (evaluated at +${rs.evaluated_horizon_min} min)</div>` +
-            rs.candidates
-                .map((c, idx) => {
-                    const scoreClass = c.resolution_score >= 0 ? "cand-score-positive" : "cand-score-negative";
-                    const sign = c.delta_value >= 0 ? "+" : "";
-                    const active = idx === activeIdx ? "active" : "";
-                    return `
-                <div class="candidate-row ${active}" data-idx="${idx}">
-                    <span class="cand-type">${c.clearance_type}</span>
-                    <span>${c.target_callsign}</span>
-                    <span>${sign}${fmt(c.delta_value, 0)}</span>
-                    <span class="${scoreClass}">score ${fmt(c.resolution_score, 2)}</span>
-                    ${idx === 0 ? lifecycleButtons(rs.arhac_id) : ""}
-                </div>`;
-                })
-                .join("");
-        container.querySelectorAll(".candidate-row").forEach((row) => {
-            row.addEventListener("click", (evt) => {
-                if (evt.target.classList.contains("lifecycle-btn")) {
-                    return;
-                }
-                onSelectCandidate(Number(row.dataset.idx));
-            });
-        });
-        container.querySelectorAll(".lifecycle-btn").forEach((btn) => {
-            btn.addEventListener("click", () => {
-                ui.lifecycle[rs.arhac_id] = btn.dataset.stage;
-                renderCandidateList(rs, onSelectCandidate);
-            });
+        const activeIdx = Math.min(ui.selectedCandidateIndex[rs.arhac_id] || 0, rs.candidates.length - 1);
+        const c = rs.candidates[activeIdx];
+        const scoreClass = c.resolution_score >= 0 ? "cand-score-positive" : "cand-score-negative";
+        const sign = c.delta_value >= 0 ? "+" : "";
+        container.innerHTML = `
+            <div class="panel-hint" style="margin-bottom:6px;">Solution proposal (evaluated at +${rs.evaluated_horizon_min} min)</div>
+            <div class="candidate-chips">
+                ${rs.candidates
+                    .map((_, idx) => `<button class="candidate-chip ${idx === activeIdx ? "active" : ""}" data-idx="${idx}">${idx + 1}</button>`)
+                    .join("")}
+            </div>
+            <div class="candidate-current">
+                <span class="cand-type">${c.clearance_type}</span>
+                <span>${c.target_callsign}</span>
+                <span>${sign}${fmt(c.delta_value, 0)}</span>
+                <span class="${scoreClass}">score ${fmt(c.resolution_score, 2)}</span>
+            </div>`;
+        container.querySelectorAll(".candidate-chip").forEach((chip) => {
+            chip.addEventListener("click", () => onSelectCandidate(Number(chip.dataset.idx)));
         });
     }
 
@@ -1247,6 +1369,7 @@
         const activeIdx = ui.selectedCandidateIndex[track.arhac_id] || 0;
         const candidate = rs && rs.candidates.length > 0 ? rs.candidates[Math.min(activeIdx, rs.candidates.length - 1)] : null;
 
+        renderEventStepper(rs, () => renderEventPanel(cycle));
         renderComplexityReduction(track, candidate);
         renderCandidateList(rs, (idx) => {
             ui.selectedCandidateIndex[track.arhac_id] = idx;
