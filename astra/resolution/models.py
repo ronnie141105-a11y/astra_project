@@ -50,8 +50,15 @@ class ResolutionCandidate:
         fuel_cost_proxy_norm: Crude fuel-cost proxy in ``[0, 1]`` --
             altitude-change magnitude for flight-level candidates, else
             ``0.0``. Explicitly not a real fuel-burn model (see OQ-4).
+        domino_cost_norm: Normalised penalty in ``[0, 1]`` for
+            "domino-effect" side effects -- new or worsened hotspots the
+            candidate's manoeuvre introduces *elsewhere* in the traffic
+            picture (outside the track being resolved), evaluated at the
+            same horizon. ``0.0`` if the manoeuvre introduces no such
+            side effect. See ``ResolutionEngine._domino_cost``.
         resolution_score: Weighted composite --
             ``w_complexity * complexity_delta_norm
+            - w_domino * domino_cost_norm
             - w_deviation * deviation_cost_norm
             - w_fuel * fuel_cost_proxy_norm``. Higher is better.
         complexity_after_components: Per-component breakdown of the
@@ -79,6 +86,7 @@ class ResolutionCandidate:
     deviation_cost_norm: float
     fuel_cost_proxy_norm: float
     resolution_score: float
+    domino_cost_norm: float = 0.0
     complexity_after_components: Optional[Dict[str, float]] = None
     complexity_before_components: Optional[Dict[str, float]] = None
     hypothetical_prediction: Optional[PredictionResult] = None

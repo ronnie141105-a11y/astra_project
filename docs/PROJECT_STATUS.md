@@ -149,18 +149,68 @@ for design decisions and conventions.
   `astra.tracking.association.best_cluster_match`
 - `ASTRAConfig` — `resolution_speed_step_kt`,
   `resolution_altitude_step_ft`, `resolution_heading_step_deg`,
-  `resolution_weight_complexity/deviation/fuel` (validated to sum to
-  `1.0`), `resolution_max_tracks_per_cycle` (all validated)
+  `resolution_weight_complexity/domino/deviation/fuel` (validated to
+  sum to `1.0`), `resolution_max_tracks_per_cycle` (all validated)
 - Design rationale, including the five design decisions resolved from
   the original design review and the pre-formal-test smoke test that
   confirmed pipeline wiring: `docs/milestone_7_resolution.md`
-- Verification: `tests/test_resolution.py` — 39/39 checks pass
+- Verification: `tests/test_resolution.py` — 47/47 checks pass
 - `demo_resolution.py` — extends `demo_forecast.py`'s scripted scenario
   with a converging 3-aircraft geometry that crosses the forecast onset
   threshold on its 5-minute predicted horizon, printing
   `ResolutionEngine`'s ranked candidate clearances each cycle
 - `main.py` deliberately left as a Phase 1 demonstration only, matching
   the precedent set by Milestones 2–6
+
+### Milestone 7 follow-up — domino-effect scoring & expanded search (this session)
+
+Improved the deterministic `ResolutionEngine` in place; architecture,
+public API shapes, and the "one horizon, replay the existing pipeline"
+approach are all unchanged.
+
+- **Domino-effect evaluation** — `ResolutionEngine._domino_cost()`
+  re-clusters the *entire* hypothetical snapshot at the evaluated
+  horizon (not just the track's own matched cluster), then compares
+  every other resulting cluster against this cycle's real regions at
+  that horizon: a hypothetical cluster that matches an existing region
+  only penalises a *worsening* (`after - before`, clipped to `>= 0`);
+  one that matches nothing is treated as a brand-new hotspot and its
+  full `complexity_score` counts. Contributions sum in raw 0–100
+  `complexity_score` units and are normalised to `[0, 1]` by dividing
+  by 100. Surfaced as `ResolutionCandidate.domino_cost_norm` and
+  subtracted from `resolution_score` at weight `resolution_weight_domino`.
+- **Expanded candidate generation** — `generate_candidates()` now
+  builds *both* signed directions (increase/decrease speed, climb/
+  descend, left/right heading) for every applicable lever instead of
+  one fixed direction, widening the search from up to 3 candidates per
+  track to up to 6 (4 without a conflict driver, since heading is still
+  only generated when `heading_lever_applicable`). Still a fixed,
+  deterministic enumeration over `ASTRAConfig`'s existing step sizes —
+  no randomness, no optimisation library.
+- **Rebalanced scoring weights** — `resolution_weight_complexity`
+  0.6 → **0.55**, new `resolution_weight_domino` **0.20**,
+  `resolution_weight_deviation` 0.25 → **0.15**,
+  `resolution_weight_fuel` 0.15 → **0.10** (still validated to sum to
+  `1.0` in `ASTRAConfig.__post_init__`).
+- `ResolutionCandidate` gained `domino_cost_norm: float = 0.0` (default
+  keeps positional-argument construction from before this change
+  working unchanged). Exposed through
+  `astra.dashboard.serializers.serialize_resolution_candidate()` as
+  `"domino_cost_norm"` in the JSON payload.
+- Verification: `tests/test_resolution.py` grew from 39 to 47 checks
+  (both-direction candidate coverage, `domino_cost_norm` bounds);
+  `tests/test_dashboard.py` grew from 81 to 82 checks
+  (`domino_cost_norm` round-trips through the serializer). Full
+  regression suite (Milestones 3–9 combined, including
+  `tests/test_interface.py`): **304/304 checks pass**, no behavioural
+  regressions elsewhere.
+- **Scope note (unchanged decision):** the engine remains fully
+  deterministic. Reinforcement learning (e.g. PPO) was considered and
+  is intentionally **not** implemented in this prototype — the data,
+  compute, and simulation-fidelity requirements for training an RL
+  policy are out of scope for a thesis-timeline project; it remains
+  documented future work (see "Remaining work" below), not a planned
+  replacement for `ResolutionEngine`.
 
 ## Milestone 8 — Dashboard / HMI ✅ Complete
 
@@ -256,7 +306,13 @@ for design decisions and conventions.
 **All 9 milestones are complete.** No further work is currently
 planned for this prototype. Natural next steps, out of scope for this
 prototype and explicitly not started: a live-BlueSky
-demonstration run (vs. today's mock-mode demonstrations), an RL-based
-`ResolutionEngine` replacement or supplement, a persisted/multi-user
-solution lifecycle, and real polygon sectorization in place of the
-circular `SectorDefinition` approximation.
+demonstration run (vs. today's mock-mode demonstrations), a
+persisted/multi-user solution lifecycle, and real polygon
+sectorization in place of the circular `SectorDefinition` approximation.
+
+An RL-based (e.g. PPO) `ResolutionEngine` replacement or supplement was
+considered and deliberately **not** implemented — see "Milestone 7
+follow-up" above. `ResolutionEngine` stays fully deterministic by
+design; RL is documented future work only, scoped out for this
+thesis-timeline prototype due to data, compute, and simulation-fidelity
+constraints, not a pending task.

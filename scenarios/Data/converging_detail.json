@@ -1,0 +1,2011 @@
+[
+  {
+    "cycle": 0,
+    "sim_time_s": 15.0,
+    "observed_regions": [
+      {
+        "score": 44.07,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.014,
+          "mtca_count": 0.0,
+          "ltca_count": 6.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "CANDIDATE",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 44.07,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 1,
+    "sim_time_s": 30.0,
+    "observed_regions": [
+      {
+        "score": 45.01,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.016,
+          "mtca_count": 0.0,
+          "ltca_count": 6.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "CONFIRMED",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 77.62,
+        "predicted_onset_s": 75.89025763705327,
+        "forecast_urgency_rank": 1
+      }
+    ],
+    "resolution_sets": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "evaluated_horizon_min": 5,
+        "candidates": [
+          {
+            "clearance_type": "SPEED",
+            "target_callsign": "VJC302",
+            "delta_value": 20.0,
+            "domino_cost_norm": 0.0,
+            "complexity_delta_norm": 0.0,
+            "deviation_cost_norm": 1.0,
+            "fuel_cost_proxy_norm": 0.0,
+            "resolution_score": -0.15
+          },
+          {
+            "clearance_type": "SPEED",
+            "target_callsign": "VJC302",
+            "delta_value": -20.0,
+            "domino_cost_norm": 0.0,
+            "complexity_delta_norm": 0.0,
+            "deviation_cost_norm": 1.0,
+            "fuel_cost_proxy_norm": 0.0,
+            "resolution_score": -0.15
+          },
+          {
+            "clearance_type": "HEADING",
+            "target_callsign": "VJC302",
+            "delta_value": 15.0,
+            "domino_cost_norm": 0.0,
+            "complexity_delta_norm": 0.0,
+            "deviation_cost_norm": 1.0,
+            "fuel_cost_proxy_norm": 0.0,
+            "resolution_score": -0.15
+          },
+          {
+            "clearance_type": "HEADING",
+            "target_callsign": "VJC302",
+            "delta_value": -15.0,
+            "domino_cost_norm": 0.0,
+            "complexity_delta_norm": 0.0,
+            "deviation_cost_norm": 1.0,
+            "fuel_cost_proxy_norm": 0.0,
+            "resolution_score": -0.15
+          },
+          {
+            "clearance_type": "FLIGHT_LEVEL",
+            "target_callsign": "VJC302",
+            "delta_value": 1000.0,
+            "domino_cost_norm": 0.0,
+            "complexity_delta_norm": 0.0,
+            "deviation_cost_norm": 1.0,
+            "fuel_cost_proxy_norm": 1.0,
+            "resolution_score": -0.25
+          },
+          {
+            "clearance_type": "FLIGHT_LEVEL",
+            "target_callsign": "VJC302",
+            "delta_value": -1000.0,
+            "domino_cost_norm": 0.0,
+            "complexity_delta_norm": 0.0,
+            "deviation_cost_norm": 1.0,
+            "fuel_cost_proxy_norm": 1.0,
+            "resolution_score": -0.25
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "cycle": 2,
+    "sim_time_s": 45.0,
+    "observed_regions": [
+      {
+        "score": 46.12,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.017,
+          "mtca_count": 0.0,
+          "ltca_count": 6.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "GROWING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 77.62,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 3,
+    "sim_time_s": 60.0,
+    "observed_regions": [
+      {
+        "score": 47.44,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.02,
+          "mtca_count": 0.0,
+          "ltca_count": 6.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "GROWING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 77.62,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 4,
+    "sim_time_s": 75.0,
+    "observed_regions": [
+      {
+        "score": 49.02,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.022,
+          "mtca_count": 0.0,
+          "ltca_count": 6.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "GROWING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 77.62,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 5,
+    "sim_time_s": 90.0,
+    "observed_regions": [
+      {
+        "score": 50.94,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.026,
+          "mtca_count": 0.0,
+          "ltca_count": 6.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "GROWING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 77.62,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 6,
+    "sim_time_s": 105.0,
+    "observed_regions": [
+      {
+        "score": 53.3,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.029,
+          "mtca_count": 0.0,
+          "ltca_count": 6.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "GROWING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 77.62,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 7,
+    "sim_time_s": 120.0,
+    "observed_regions": [
+      {
+        "score": 56.26,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.034,
+          "mtca_count": 0.0,
+          "ltca_count": 6.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "GROWING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 77.62,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 8,
+    "sim_time_s": 135.0,
+    "observed_regions": [
+      {
+        "score": 67.03,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.041,
+          "mtca_count": 1.0,
+          "ltca_count": 5.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "GROWING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 77.62,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 9,
+    "sim_time_s": 150.0,
+    "observed_regions": [
+      {
+        "score": 80.53,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.049,
+          "mtca_count": 4.0,
+          "ltca_count": 2.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "GROWING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 10,
+    "sim_time_s": 165.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.06,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 11,
+    "sim_time_s": 180.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.075,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 12,
+    "sim_time_s": 195.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.096,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 13,
+    "sim_time_s": 210.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.128,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 14,
+    "sim_time_s": 225.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.18,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 15,
+    "sim_time_s": 240.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.27,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 16,
+    "sim_time_s": 255.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.448,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 17,
+    "sim_time_s": 270.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.88,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 18,
+    "sim_time_s": 285.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 2.416,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 19,
+    "sim_time_s": 300.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 2.918,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 20,
+    "sim_time_s": 315.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.917,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 21,
+    "sim_time_s": 330.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.438,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 22,
+    "sim_time_s": 345.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.255,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 23,
+    "sim_time_s": 360.0,
+    "observed_regions": [
+      {
+        "score": 77.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.167,
+          "mtca_count": 6.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 24,
+    "sim_time_s": 375.0,
+    "observed_regions": [
+      {
+        "score": 79.42,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.117,
+          "mtca_count": 5.0,
+          "ltca_count": 1.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "GROWING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 80.53,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 25,
+    "sim_time_s": 390.0,
+    "observed_regions": [
+      {
+        "score": 81.22,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.087,
+          "mtca_count": 4.0,
+          "ltca_count": 2.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "GROWING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 26,
+    "sim_time_s": 405.0,
+    "observed_regions": [
+      {
+        "score": 81.22,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.067,
+          "mtca_count": 3.0,
+          "ltca_count": 2.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "PEAK",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 27,
+    "sim_time_s": 420.0,
+    "observed_regions": [
+      {
+        "score": 69.02,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.053,
+          "mtca_count": 1.0,
+          "ltca_count": 3.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 28,
+    "sim_time_s": 435.0,
+    "observed_regions": [
+      {
+        "score": 59.86,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.043,
+          "mtca_count": 0.0,
+          "ltca_count": 4.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 29,
+    "sim_time_s": 450.0,
+    "observed_regions": [
+      {
+        "score": 53.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.036,
+          "mtca_count": 0.0,
+          "ltca_count": 3.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 30,
+    "sim_time_s": 465.0,
+    "observed_regions": [
+      {
+        "score": 46.62,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.03,
+          "mtca_count": 0.0,
+          "ltca_count": 1.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 31,
+    "sim_time_s": 480.0,
+    "observed_regions": [
+      {
+        "score": 42.17,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.026,
+          "mtca_count": 0.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 32,
+    "sim_time_s": 495.0,
+    "observed_regions": [
+      {
+        "score": 40.06,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.022,
+          "mtca_count": 0.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 33,
+    "sim_time_s": 510.0,
+    "observed_regions": [
+      {
+        "score": 38.35,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.02,
+          "mtca_count": 0.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 34,
+    "sim_time_s": 525.0,
+    "observed_regions": [
+      {
+        "score": 36.94,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.017,
+          "mtca_count": 0.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 35,
+    "sim_time_s": 540.0,
+    "observed_regions": [
+      {
+        "score": 35.78,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.015,
+          "mtca_count": 0.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 36,
+    "sim_time_s": 555.0,
+    "observed_regions": [
+      {
+        "score": 34.8,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.014,
+          "mtca_count": 0.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 37,
+    "sim_time_s": 570.0,
+    "observed_regions": [
+      {
+        "score": 33.97,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.012,
+          "mtca_count": 0.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 38,
+    "sim_time_s": 585.0,
+    "observed_regions": [
+      {
+        "score": 33.26,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.011,
+          "mtca_count": 0.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 39,
+    "sim_time_s": 600.0,
+    "observed_regions": [
+      {
+        "score": 32.65,
+        "members": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.01,
+          "mtca_count": 0.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 180.0,
+          "alt_div_ft": 216.506,
+          "type_mix_count": 4.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 40,
+    "sim_time_s": 615.0,
+    "observed_regions": [
+      {
+        "score": 26.32,
+        "members": [
+          "HVN301",
+          "PIC303"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.013,
+          "mtca_count": 0.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 47.702,
+          "alt_div_ft": 250.0,
+          "type_mix_count": 2.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 41,
+    "sim_time_s": 630.0,
+    "observed_regions": [
+      {
+        "score": 25.64,
+        "members": [
+          "HVN301",
+          "PIC303"
+        ],
+        "components": {
+          "density_ac_per_nm2": 0.011,
+          "mtca_count": 0.0,
+          "ltca_count": 0.0,
+          "heading_div_deg": 47.702,
+          "alt_div_ft": 250.0,
+          "type_mix_count": 2.0
+        }
+      }
+    ],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 42,
+    "sim_time_s": 645.0,
+    "observed_regions": [],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 43,
+    "sim_time_s": 660.0,
+    "observed_regions": [],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "DISSIPATING",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 44,
+    "sim_time_s": 675.0,
+    "observed_regions": [],
+    "tracks": [
+      {
+        "arhac_id": "d64e2495-efed-4ab7-bcec-7a21db135abf",
+        "status": "CLOSED",
+        "member_aircraft": [
+          "AXJ304",
+          "HVN301",
+          "PIC303",
+          "VJC302"
+        ],
+        "peak_complexity": 81.22,
+        "predicted_onset_s": null,
+        "forecast_urgency_rank": null
+      }
+    ],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 45,
+    "sim_time_s": 690.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 46,
+    "sim_time_s": 705.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 47,
+    "sim_time_s": 720.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 48,
+    "sim_time_s": 735.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 49,
+    "sim_time_s": 750.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 50,
+    "sim_time_s": 765.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 51,
+    "sim_time_s": 780.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 52,
+    "sim_time_s": 795.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 53,
+    "sim_time_s": 810.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 54,
+    "sim_time_s": 825.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 55,
+    "sim_time_s": 840.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 56,
+    "sim_time_s": 855.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 57,
+    "sim_time_s": 870.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 58,
+    "sim_time_s": 885.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 59,
+    "sim_time_s": 900.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 60,
+    "sim_time_s": 915.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 61,
+    "sim_time_s": 930.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 62,
+    "sim_time_s": 945.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 63,
+    "sim_time_s": 960.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 64,
+    "sim_time_s": 975.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 65,
+    "sim_time_s": 990.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 66,
+    "sim_time_s": 1005.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 67,
+    "sim_time_s": 1020.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 68,
+    "sim_time_s": 1035.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 69,
+    "sim_time_s": 1050.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 70,
+    "sim_time_s": 1065.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 71,
+    "sim_time_s": 1080.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 72,
+    "sim_time_s": 1095.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 73,
+    "sim_time_s": 1110.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 74,
+    "sim_time_s": 1125.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 75,
+    "sim_time_s": 1140.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 76,
+    "sim_time_s": 1155.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 77,
+    "sim_time_s": 1170.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 78,
+    "sim_time_s": 1185.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  },
+  {
+    "cycle": 79,
+    "sim_time_s": 1200.0,
+    "observed_regions": [],
+    "tracks": [],
+    "resolution_sets": []
+  }
+]

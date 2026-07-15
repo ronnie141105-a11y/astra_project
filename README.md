@@ -1,177 +1,118 @@
-# ASTRA Prototype
+# ASTRA thesis test scenarios & results
 
-A simplified Python re-implementation of the SESAR ASTRA concept
-(**AI-enabled Tactical FMP Hotspot Prediction and Resolution**), built as
-an undergraduate thesis project on top of the [BlueSky](https://github.com/TUDelft-CNS-ATM/bluesky)
-open-source Air Traffic Simulator.
+This package gives you three BlueSky `.scn` scenarios that exercise the
+full ASTRA pipeline (Trajectory → Cluster → Complexity → Tracking →
+Forecast → Resolution, including this session's domino-effect scoring
+and expanded candidate search), a script to run any `.scn` file offline
+without a live BlueSky install, a standalone deterministic demo that
+isolates the new domino-effect penalty, and the **real data** these
+already produced when run in this environment — ready to drop into
+your results chapter.
 
-> **Key constraint:** BlueSky is the traffic simulator only — an external
-> process. All ASTRA logic (prediction, detection, complexity, AI resolution,
-> visualisation) lives in this repository.
+## Files
 
----
+**Scenarios** (`.scn`, BlueSky stack-command format — also load in a
+real BlueSky instance unchanged):
 
-## Status
-
-| Milestone | Description | Status |
-|---|---|---|
-| **1** | Data interface (BlueSky adapter, state model, history buffer) | ✅ Complete |
-| **2** | Kinematic trajectory prediction (5/10/15/30/60 min horizons) | ✅ Complete |
-| **3** | Cluster detection (DBSCAN, 15 NM / 1 000 ft, stateless) | ✅ Complete |
-| **4** | Complexity assessment (density, MTCA/LTCA, heading/altitude diversity, type mix) | ✅ Complete |
-| **5** | 4DARHAC detection — tracking (stateful, persists across cycles) | ✅ Complete |
-| **6** | 4DARHAC forecast (onset/peak/dissipation, confidence, urgency rank) | ✅ Complete |
-| **7** | AI resolution framework (speed / FL / heading clearances, ranked) | ✅ Complete |
-| **8** | Dashboard / HMI (Flask; live map, heatmap, hotspot table, timeline, resolutions) | ✅ Complete |
-
-> Milestones 3–8 were reorganized by an architecture review (July 2026): the
-> original single "hotspot detection" phase conflated stateless spatial
-> clustering with the stateful problem of tracking a 4DARHAC's identity
-> across prediction horizons and poll cycles. See
-> [`docs/architecture.md §6`](docs/architecture.md#6-4darhac-domain-model-and-revised-pipeline)
-
-
----
-
-## Quick start
-
-### Regression tests
-
-```bash
-python tests/test_hotspot.py      # Milestone 3 — 24 checks
-python tests/test_complexity.py   # Milestone 4 — 42 checks
-python tests/test_tracking.py     # Milestone 5 — 44 checks
-python tests/test_forecast.py     # Milestone 6 — 47 checks
-python tests/test_resolution.py   # Milestone 7 — 39 checks
-python tests/test_dashboard.py    # Milestone 8 — 81 checks
-python tests/test_interface.py    # Airway spawn/follow — 18 checks
-```
-
-No BlueSky process or third-party test framework required.
-
-### Main loop — mock mode
-
-```bash
-python main.py --mock
-```
-
-Runs the full polling loop continuously (Ctrl+C to stop). Aircraft positions
-update every second. This also opens the dashboard at
-`http://127.0.0.1:8050/` — open it in a browser to see the live traffic
-map, predicted trajectories, 4DARHAC hotspot table/timeline, and ranked
-resolution candidates update every `poll_interval_s`. Pass
-`--no-dashboard` to run the console-only loop instead.
-
-### Main loop — live mode
-
-```bash
-# Terminal 1
-python -m bluesky --headless
-
-# Terminal 2
-python main.py
-```
-
-Then load traffic into BlueSky:
-
-```
-IC scenarios/phase1_demo.scn
-```
-
-As with mock mode, the dashboard opens automatically at
-`http://127.0.0.1:8050/` unless `--no-dashboard` is passed.
-
-### Scenario Builder (mock mode only)
-
-`http://127.0.0.1:8050/scenario` lets you spawn, edit, and remove aircraft
-in a running mock session without restarting the process — useful for
-building repeatable test traffic. Two ways to place an aircraft:
-
-- **Custom position** — set lat/lon/heading/altitude/speed directly.
-- **On an airway** — pick a named airway (from `astra/dashboard/geo/airways.json`,
-  also drawn on the operations map); the aircraft spawns at the airway's
-  first waypoint, heading toward it, and follows the airway leg by leg
-  (`MockConnector._advance_along_route()`) until it passes the last
-  waypoint, then continues straight on its final heading.
-
-Scenarios (aircraft layouts) can be saved/loaded/deleted from the same
-page; see `GET/POST /scenario/scenarios*` in `astra/dashboard/scenario_routes.py`.
-
----
-
-## Project layout
-
-```
-astra/
-    interface/    Milestone 1 ✅  BlueSky adapter + simulator-agnostic data model
-    trajectory/   Milestone 2 ✅  Kinematic trajectory prediction
-    hotspot/      Milestone 3 ✅  Cluster detection (DBSCAN)
-    complexity/   Milestone 4 ✅  Complexity assessment (density, conflicts, diversity)
-    tracking/     Milestone 5 ✅  4DARHAC detection (tracking) — stateful
-    forecast/     Milestone 6 ✅  4DARHAC forecast — onset/peak/dissipation, confidence
-    resolution/   Milestone 7 ✅  AI clearance generation — speed/FL/heading, ranked
-    dashboard/    Milestone 8 ✅  Flask dashboard / HMI — read-only, map/table/timeline
-    pipeline.py         Pipeline.run_cycle() -> CycleResult, the shared entry point
-    utils/              Config, unit conversion, geodesy, logging
-
-docs/architecture.md            System architecture + Mermaid diagrams
-tests/                          Regression tests (Milestones 1–8)
-main.py                         Real application entry point (python main.py [--mock] [--no-dashboard])
-docs/Developer_Handover.md      Full developer guide, design decisions, conventions
-docs/PROJECT_STATUS.md          Overall milestone status
-```
-
----
-
-## Architecture overview
-
-```
-BlueSky (external)  →  BlueSkyConnector  →  StateReader  →  [Milestone 2–8 pipeline]
-                        (or MockConnector)
-```
-
-See [`docs/architecture.md`](docs/architecture.md) for full Mermaid diagrams
-(data flow, package dependency graph, poll-cycle sequence, domain model).
-
----
-
-## Configuration
-
-All tunable constants live in `astra/utils/config.py` (`ASTRAConfig`).
-Selected defaults:
-
-| Parameter | Default | Description |
-|---|---|---|
-| `bluesky_host` | `"localhost"` | BlueSky server host |
-| `poll_interval_s` | `1.0` | Main loop poll frequency |
-| `history_length` | `3600` | Snapshots retained (~1 hour at 1 Hz) |
-| `separation_horizontal_nm` | `15.0` | DBSCAN ε / MTCA horizontal threshold |
-| `separation_vertical_ft` | `1000.0` | Vertical separation gate |
-| `prediction_horizons_min` | `[5,10,15,30,60]` | Trajectory prediction horizons |
-| `mtca_distance_nm` / `mtca_time_min` | `5.5` / `2.5` | MTCA conflict thresholds |
-| `ltca_distance_nm` / `ltca_time_min` | `7.9` / `15.0` | LTCA conflict thresholds |
-| `complexity_weight_*` | sums to `1.0` | Complexity sub-score combination weights |
-| `tracking_jaccard_threshold` | `0.5` | Min. member-callsign overlap to associate a track |
-| `tracking_stale_cycles` | `3` | Poll cycles a track may go un-refreshed before closing |
-| `tracking_confirm_cycles` | `2` | Consecutive detections before CANDIDATE → CONFIRMED |
-| `forecast_onset_threshold` | `50.0` | `complexity_score` above which an ARHAC counts as "active" for onset purposes |
-| `forecast_dissipation_threshold` | `30.0` | `complexity_score` below which an ARHAC counts as dissipated (hysteresis vs. onset threshold) |
-| `forecast_min_matched_horizons` | `2` | Minimum matched predicted horizons before attempting interpolation |
-| `dashboard_host` | `"127.0.0.1"` | Bind address for the dashboard's local Flask server |
-| `dashboard_port` | `8050` | Bind port for the dashboard's local Flask server |
-| `dashboard_max_resolution_candidates_shown` | `3` | Cap on ranked resolution candidates displayed per track |
-
-See `astra/utils/config.py` for the full field list (validated in
-`ASTRAConfig.__post_init__`).
-
----
-
-## Documentation
-
-| Document | Purpose |
+| File | What it tests |
 |---|---|
-| `README.md` | This file — setup and usage |
-| `docs/Developer_Handover.md` | Full developer guide, design decisions, conventions |
-| `docs/architecture.md` | Mermaid system architecture diagrams + domain model |
-| `docs/PROJECT_STATUS.md` | Overall milestone status |
-| `docs/plan.md` | HMI-parity UI work: status, remaining tasks, and the confirmed hotspot-prediction gap (see "Known limitations") handed off for follow-up |
+| `thesis_baseline.scn` | 6 well-separated aircraft, no convergence. **Control condition**: confirms 0 false-positive hotspots. |
+| `thesis_converging_hotspot.scn` | 4-aircraft symmetric converging cross. **Primary demo**: clustering, all 5 complexity components, tracking lifecycle, forecasted onset, ranked resolution candidates. |
+| `thesis_multi_hotspot.scn` | Two independent 4-aircraft crosses ~55 NM apart, simultaneously active. **Multi-track stress test**: concurrent tracking/forecasting/ranking, `resolution_max_tracks_per_cycle`. |
+
+**Scripts:**
+
+- `run_scn_offline.py` — loads any `.scn` file into the offline
+  `MockConnector` (no BlueSky process needed) and runs it through
+  `astra.pipeline.Pipeline` cycle by cycle, logging a CSV summary +
+  full JSON detail per cycle. This is how the `*_cycles.csv` /
+  `*_detail.json` files below were produced. Usage:
+  ```
+  python3 run_scn_offline.py thesis_converging_hotspot.scn \
+      --duration-min 20 --sim-step-s 15 --out-prefix converging
+  ```
+- `domino_effect_demo.py` — standalone, no BlueSky/MockConnector at
+  all; calls `ResolutionEngine.resolve()` directly against a
+  hand-built scenario engineered so two otherwise-similar HEADING
+  candidates get identical deviation/fuel cost but only one of them
+  flies into a second, independent, already-real hotspot. Isolates
+  exactly what `domino_cost_norm` (this session's main addition)
+  contributes on top of the existing complexity-delta scoring. See the
+  big docstring at the top of the file for the full geometry rationale
+  and why the heading step is deliberately amplified (90° vs
+  production's 15° default) purely to make the two hotspots separable
+  within one 5-minute demo horizon — documented in detail there so you
+  can cite the reasoning directly.
+
+**Generated data** (already run for you in this environment):
+
+- `baseline_cycles.csv` / `baseline_detail.json`
+- `converging_cycles.csv` / `converging_detail.json`
+- `multi_hotspot_cycles.csv` / `multi_hotspot_detail.json`
+- `domino_effect_demo_results.json`
+
+## Headline results from this run
+
+**Baseline (control):** 60 cycles, 15 sim-minutes. `max_complexity_observed`
+stayed exactly `0.0` and `n_open_tracks` stayed `0` for every cycle —
+zero false-positive hotspots on well-separated traffic.
+
+**Converging hotspot:** peak observed complexity **83.0**. Track
+lifecycle: `CANDIDATE`(t=15s, score 44.1) → `CONFIRMED`(t=30s, score
+45.0, **forecast sets `predicted_onset_s`**) → `GROWING` → `PEAK`(score
+83.0) → `DISSIPATING`. Resolution triggered at the one cycle where the
+track was `CONFIRMED`+forecasted-but-not-yet-critical (t=30s), producing
+6 ranked candidates (both directions × SPEED/FLIGHT_LEVEL/HEADING) for
+the busiest aircraft. This is the intended, designed-for use case:
+`ResolutionEngine` only engages once `ForecastEngine` has a real
+predicted onset — see `docs/PROJECT_STATUS.md`'s note on why an
+*already*-critical hotspot (`predicted_onset_s is None` — "onset
+already happened") is a different code path.
+
+**Multi-hotspot:** both hotspots detected and tracked concurrently
+(peak complexity 77.6 and 45–56 respectively at the point resolution
+triggered), confirming the tracker/forecaster/resolver all handle
+simultaneous, independent tracks correctly and rank by urgency.
+
+**Domino-effect demo:** the clean, isolated result —
+
+| Candidate | domino_cost_norm | complexity_delta_norm | resolution_score |
+|---|---|---|---|
+| HEADING −90° | **0.000** | 0.775 | **+0.2761** (best) |
+| HEADING +90° | **0.315** | 0.457 | +0.0384 |
+| SPEED ±20 kt | 0.000 | 0.000 | −0.1500 |
+| FLIGHT_LEVEL ±1000 ft | 0.000 | 0.000 | −0.2500 |
+
+Both HEADING candidates have identical deviation/fuel cost and
+similar complexity-reduction on the *primary* conflict — only
+`domino_cost_norm` tells them apart, correctly ranking the clean turn
+above the one that flies into another aircraft's flight path.
+
+## Reproducing live in BlueSky
+
+Any of the three `.scn` files loads unchanged in a real BlueSky
+instance (`python -m bluesky`, then load the scenario, or place it in
+BlueSky's `scenario/` folder and `IC` it) — they deliberately avoid
+route/waypoint commands `MockConnector` doesn't implement, so the
+offline run above and a live run see identical initial traffic. Point
+`main.py` (live mode) at the running BlueSky node as usual; the
+dashboard will show the same clustering/tracking/forecast/resolution
+behaviour reflected in the CSV/JSON here.
+
+## Notes for your thesis
+
+- All three `.scn` scenarios are anchored on the HCM FIR
+  (10.80N, 106.70E), matching the rest of the project's demo data.
+- Aircraft speeds in the hotspot scenarios (110–130 kt) are
+  terminal-area/early-approach speeds, not cruise — deliberately
+  chosen so each scenario starts *below* `forecast_onset_threshold`
+  (50) and is forecast to cross it, rather than starting already
+  critical (which bypasses `ForecastEngine.predicted_onset_s`
+  entirely — see the converging-hotspot result above).
+- The known limitation that `TrackerEngine` only reads
+  observed (horizon-0) regions — so a cluster must already exist in
+  the *current* snapshot to ever become a track, even if a future
+  horizon predicts one — applies to all three scenarios; it's why
+  every scenario's aircraft start within the 15 NM/1000 ft DBSCAN
+  neighbourhood of each other rather than converging from further out.
+  This is documented as open/deferred work in `docs/PROJECT_STATUS.md`.

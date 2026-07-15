@@ -14,7 +14,7 @@ are generated here.
 
 import dataclasses
 from itertools import combinations
-from typing import List, NamedTuple, Optional
+from typing import List, NamedTuple, Optional, Tuple
 
 from astra.complexity.conflict import classify_conflict, closest_point_of_approach
 from astra.complexity.models import ComplexityRegion
@@ -141,12 +141,15 @@ def generate_candidates(
 ) -> List[CandidateSpec]:
     """Build the fixed candidate set for one track's matched region.
 
-    One step size per lever, one direction per lever (the increasing
-    direction, by convention -- a documented simplification: no
-    per-conflict-geometry sign selection exists in the pipeline, and
-    OQ-5 bounds Milestone 7 to one candidate per lever type). Speed and
-    flight-level candidates are always generated; heading only if
-    ``heading_lever_applicable`` (OQ-2).
+    One step size per lever, but *both* signed directions (increase and
+    decrease) -- widening the search space from Milestone 7's original
+    single-direction convention (no per-conflict-geometry sign selection
+    exists in the pipeline, so both directions are tried and scored
+    rather than guessed). Speed and flight-level candidates are always
+    generated in both directions; heading is added in both directions
+    only if ``heading_lever_applicable`` (OQ-2). No randomness and no
+    optimisation library -- this remains an exhaustive, deterministic
+    enumeration over the fixed step sizes already in ``ASTRAConfig``.
 
     Args:
         region: The track's matched ``ComplexityRegion`` (real,
@@ -157,38 +160,30 @@ def generate_candidates(
         config: Shared config (step sizes).
 
     Returns:
-        Up to 3 ``CandidateSpec``s, or ``[]`` if no member of
-        ``region.cluster`` resolves against ``snapshot``.
+        Up to 6 ``CandidateSpec``s (4 without a conflict driver, 6 with
+        one), or ``[]`` if no member of ``region.cluster`` resolves
+        against ``snapshot``.
     """
     target = select_target_aircraft(region.cluster, snapshot, config)
     if target is None:
         return []
 
-    specs = [
-        CandidateSpec(
-            "SPEED",
-            target.callsign,
-            config.resolution_speed_step_kt,
-            _apply_clearance(snapshot, target.callsign, "SPEED", config.resolution_speed_step_kt),
-        ),
-        CandidateSpec(
-            "FLIGHT_LEVEL",
-            target.callsign,
-            config.resolution_altitude_step_ft,
-            _apply_clearance(
-                snapshot, target.callsign, "FLIGHT_LEVEL", config.resolution_altitude_step_ft
-            ),
-        ),
+    lever_steps: List[Tuple[ClearanceType, float]] = [
+        ("SPEED", config.resolution_speed_step_kt),
+        ("SPEED", -config.resolution_speed_step_kt),
+        ("FLIGHT_LEVEL", config.resolution_altitude_step_ft),
+        ("FLIGHT_LEVEL", -config.resolution_altitude_step_ft),
     ]
     if heading_lever_applicable(region):
-        specs.append(
-            CandidateSpec(
-                "HEADING",
-                target.callsign,
-                config.resolution_heading_step_deg,
-                _apply_clearance(
-                    snapshot, target.callsign, "HEADING", config.resolution_heading_step_deg
-                ),
-            )
+        lever_steps.append(("HEADING", config.resolution_heading_step_deg))
+        lever_steps.append(("HEADING", -config.resolution_heading_step_deg))
+
+    return [
+        CandidateSpec(
+            clearance_type,
+            target.callsign,
+            delta_value,
+            _apply_clearance(snapshot, target.callsign, clearance_type, delta_value),
         )
-    return specs
+        for clearance_type, delta_value in lever_steps
+    ]

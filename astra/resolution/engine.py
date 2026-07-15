@@ -1,5 +1,5 @@
 """
-AI resolution engine (Milestone 7).
+AI resolution engine (Milestone 7, extended with domino-effect scoring).
 
 ``ResolutionEngine`` generates candidate ATC clearances for each open,
 urgency-ranked ``FourDArhac`` track and scores each one by replaying the
@@ -9,6 +9,15 @@ back to the track via ``astra.tracking.association``. Stateless: called
 once per eligible track per poll cycle, after ``ForecastEngine`` has
 already run in the same cycle. See
 docs/milestone_7_resolution_design_review.md.
+
+Each candidate is also checked for a "domino effect": the hypothetical
+snapshot is re-clustered in full (not just the track's own cluster), so a
+manoeuvre that resolves the target hotspot but creates or worsens a
+*different* one elsewhere is penalised via ``_domino_cost`` rather than
+scored as if it were free. This remains a deterministic, exhaustive
+enumeration over ``ASTRAConfig``'s fixed step sizes -- no learning, no
+randomness, no optimisation library (RL is explicitly out of scope; see
+docs/PROJECT_STATUS.md "Remaining work").
 """
 
 from typing import Dict, List, Optional, Tuple
@@ -16,6 +25,7 @@ from typing import Dict, List, Optional, Tuple
 from astra.complexity.engine import ComplexityEngine
 from astra.complexity.models import ComplexityRegion
 from astra.hotspot.engine import ClusterEngine
+from astra.hotspot.models import Cluster
 from astra.interface.traffic_state import TrafficSnapshot
 from astra.resolution.candidates import CandidateSpec, generate_candidates
 from astra.resolution.models import ResolutionCandidate, ResolutionSet
@@ -108,8 +118,10 @@ class ResolutionEngine:
             return ResolutionSet(track=track, candidates=[], evaluated_horizon_min=horizon_min)
 
         specs = generate_candidates(before_region, snapshot, self._config)
+        original_regions = regions_by_horizon.get(horizon_min, [])
         candidates = [
-            self._evaluate(spec, before_region, horizon_min) for spec in specs
+            self._evaluate(spec, before_region, horizon_min, original_regions)
+            for spec in specs
         ]
         candidates.sort(key=lambda c: c.resolution_score, reverse=True)
         return ResolutionSet(
@@ -196,9 +208,13 @@ class ResolutionEngine:
         spec: CandidateSpec,
         before_region: ComplexityRegion,
         horizon_min: int,
+        original_regions: List[ComplexityRegion],
     ) -> ResolutionCandidate:
         """Replay Trajectory -> Cluster -> Complexity on one hypothetical
-        snapshot and score the result against `before_region` (OQ-3/OQ-4)."""
+        snapshot and score the result against `before_region` (OQ-3/OQ-4),
+        plus a domino-effect penalty against `original_regions` (every
+        real region at `horizon_min` this cycle, i.e. the track being
+        resolved and everything else)."""
         prediction = self._trajectory_engine.predict(spec.hypothetical_snapshot)
         hypothetical_snapshot_at_horizon = prediction.at(horizon_min)
         hypothetical_clusters = self._cluster_engine.detect(hypothetical_snapshot_at_horizon)
@@ -222,10 +238,19 @@ class ResolutionEngine:
                 0.0, min(1.0, (before_score - after_score) / before_score)
             )
 
+        domino_cost_norm = self._domino_cost(
+            hypothetical_clusters,
+            match,
+            hypothetical_snapshot_at_horizon,
+            original_regions,
+            before_region,
+        )
+
         deviation_cost_norm, fuel_cost_proxy_norm = self._costs(spec)
         cfg = self._config
         score = (
             cfg.resolution_weight_complexity * complexity_delta_norm
+            - cfg.resolution_weight_domino * domino_cost_norm
             - cfg.resolution_weight_deviation * deviation_cost_norm
             - cfg.resolution_weight_fuel * fuel_cost_proxy_norm
         )
@@ -239,10 +264,63 @@ class ResolutionEngine:
             deviation_cost_norm=deviation_cost_norm,
             fuel_cost_proxy_norm=fuel_cost_proxy_norm,
             resolution_score=score,
+            domino_cost_norm=domino_cost_norm,
             complexity_after_components=after_components,
             complexity_before_components=dict(before_region.components),
             hypothetical_prediction=prediction,
         )
+
+    def _domino_cost(
+        self,
+        hypothetical_clusters: List[Cluster],
+        matched_cluster: Optional[Cluster],
+        hypothetical_snapshot_at_horizon: TrafficSnapshot,
+        original_regions: List[ComplexityRegion],
+        before_region: ComplexityRegion,
+    ) -> float:
+        """Penalty in ``[0, 1]`` for hotspots this candidate creates or
+        worsens *elsewhere* -- i.e. everywhere in the hypothetical
+        picture at this horizon except the track being resolved.
+
+        For every hypothetical cluster other than the one matched back
+        to the track (`matched_cluster`), this re-associates it against
+        this cycle's real ("before") regions at the same horizon (again
+        via `best_cluster_match`, excluding `before_region` itself):
+
+        * If it matches an existing real region, only a *worsening*
+          (``after - before`` clipped to ``>= 0``) counts -- an
+          unrelated region that was already there and stays flat or
+          improves contributes nothing.
+        * If it matches no real region at all, it is a brand-new
+          hotspot the candidate introduced; its full complexity score
+          counts.
+
+        Contributions sum in raw ``complexity_score`` units (0-100,
+        see ``ComplexityEngine``) and are clipped to ``[0, 1]`` by
+        dividing by 100 -- so a single new max-severity hotspot alone
+        saturates the penalty.
+        """
+        other_hypothetical = [c for c in hypothetical_clusters if c is not matched_cluster]
+        if not other_hypothetical:
+            return 0.0
+
+        other_real_regions = [r for r in original_regions if r.cluster != before_region.cluster]
+        real_region_by_cluster = {region.cluster: region for region in other_real_regions}
+        real_clusters = list(real_region_by_cluster.keys())
+
+        total_penalty = 0.0
+        for cluster in other_hypothetical:
+            region = self._complexity_engine.assess(cluster, hypothetical_snapshot_at_horizon)
+            match = best_cluster_match(
+                cluster, real_clusters, self._config.tracking_jaccard_threshold
+            )
+            if match is not None:
+                before_score = real_region_by_cluster[match].complexity_score
+                total_penalty += max(0.0, region.complexity_score - before_score)
+            else:
+                total_penalty += region.complexity_score
+
+        return max(0.0, min(1.0, total_penalty / 100.0))
 
     def _costs(self, spec: CandidateSpec) -> Tuple[float, float]:
         """Deviation-cost and fuel-cost-proxy norms for one candidate (OQ-4).

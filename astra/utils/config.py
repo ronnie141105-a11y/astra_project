@@ -218,15 +218,22 @@ class ASTRAConfig:
     #: are non-zero -- see docs/milestone_7_resolution_design_review.md OQ-2.
     resolution_heading_step_deg: float = 15.0
 
-    #: Weight on complexity-delta in `resolution_score`. Sums to 1.0
-    #: with `resolution_weight_deviation` / `resolution_weight_fuel`.
-    resolution_weight_complexity: float = 0.6
+    #: Weight on complexity-delta in `resolution_score`. Sums to 1.0 with
+    #: `resolution_weight_domino` / `resolution_weight_deviation` /
+    #: `resolution_weight_fuel`.
+    resolution_weight_complexity: float = 0.55
+
+    #: Weight (penalty) on the domino-effect cost term -- new or
+    #: worsened hotspots the candidate's manoeuvre introduces elsewhere
+    #: (i.e. outside the track being resolved). See
+    #: `ResolutionEngine._domino_cost`.
+    resolution_weight_domino: float = 0.20
 
     #: Weight (penalty) on the clearance-deviation-magnitude cost term.
-    resolution_weight_deviation: float = 0.25
+    resolution_weight_deviation: float = 0.15
 
     #: Weight (penalty) on the fuel-cost proxy term.
-    resolution_weight_fuel: float = 0.15
+    resolution_weight_fuel: float = 0.10
 
     #: Safety cap on how many urgency-ranked tracks are resolved per poll
     #: cycle (OQ-5) -- bounds the per-cycle cost of re-running the
@@ -349,6 +356,7 @@ class ASTRAConfig:
             raise ValueError("resolution_heading_step_deg must be > 0")
         resolution_weights = (
             self.resolution_weight_complexity,
+            self.resolution_weight_domino,
             self.resolution_weight_deviation,
             self.resolution_weight_fuel,
         )

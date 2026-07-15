@@ -115,6 +115,7 @@ def _candidate(
     before_components=None,
     after_components=None,
     hypothetical_prediction=None,
+    domino_cost_norm=0.0,
 ):
     """Build a hand-controlled `ResolutionCandidate`."""
     return ResolutionCandidate(
@@ -127,6 +128,7 @@ def _candidate(
         deviation_cost_norm=0.1,
         fuel_cost_proxy_norm=0.0,
         resolution_score=score,
+        domino_cost_norm=domino_cost_norm,
         complexity_before_components=before_components,
         complexity_after_components=after_components,
         hypothetical_prediction=hypothetical_prediction,
@@ -278,11 +280,14 @@ def test_serialize_track_with_no_history_has_none_centroid(r: Runner) -> None:
 
 def test_serialize_resolution_candidate(r: Runner) -> None:
     """One `ResolutionCandidate` serializes every scored field."""
-    candidate = _candidate(score=0.42, clearance_type="HEADING", target="A2", delta=-15.0)
+    candidate = _candidate(
+        score=0.42, clearance_type="HEADING", target="A2", delta=-15.0, domino_cost_norm=0.3
+    )
     out = serializers.serialize_resolution_candidate(candidate)
     r.check("clearance_type round-trips", out["clearance_type"] == "HEADING")
     r.check_close("resolution_score round-trips", out["resolution_score"], 0.42)
     r.check_close("delta_value round-trips (signed)", out["delta_value"], -15.0)
+    r.check_close("domino_cost_norm round-trips", out["domino_cost_norm"], 0.3)
     r.check("no before/after components -> None", out["complexity_after_components"] is None)
     r.check("no hypothetical prediction -> empty path", out["hypothetical_path"] == [])
 

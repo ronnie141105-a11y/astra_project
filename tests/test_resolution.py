@@ -214,28 +214,43 @@ def test_heading_lever_applicable_false(r: Runner) -> None:
 
 
 def test_generate_candidates_no_heading(r: Runner) -> None:
-    """Without conflict components, exactly SPEED + FLIGHT_LEVEL are generated."""
+    """Without conflict components, SPEED + FLIGHT_LEVEL in both directions (4 total)."""
     config = ASTRAConfig()
     snapshot = _snapshot([_aircraft("A1", 47.0, 8.0), _aircraft("A2", 47.0, 8.5)])
     region = _region(["A1", "A2"], 40.0, components={"density_ac_per_nm2": 1.0})
     specs = generate_candidates(region, snapshot, config)
-    r.check("2 candidates without a conflict driver", len(specs) == 2)
+    r.check("4 candidates without a conflict driver", len(specs) == 4)
     r.check(
         "clearance types are SPEED and FLIGHT_LEVEL",
         {s.clearance_type for s in specs} == {"SPEED", "FLIGHT_LEVEL"},
     )
+    r.check(
+        "both signed directions present for SPEED",
+        {s.delta_value for s in specs if s.clearance_type == "SPEED"}
+        == {config.resolution_speed_step_kt, -config.resolution_speed_step_kt},
+    )
+    r.check(
+        "both signed directions present for FLIGHT_LEVEL",
+        {s.delta_value for s in specs if s.clearance_type == "FLIGHT_LEVEL"}
+        == {config.resolution_altitude_step_ft, -config.resolution_altitude_step_ft},
+    )
 
 
 def test_generate_candidates_with_heading(r: Runner) -> None:
-    """With a conflict component, HEADING is added as a third candidate."""
+    """With a conflict component, HEADING is added in both directions (6 total)."""
     config = ASTRAConfig()
     snapshot = _snapshot([_aircraft("A1", 47.0, 8.0), _aircraft("A2", 47.0, 8.01)])
     region = _region(["A1", "A2"], 70.0, components={"mtca_count": 2.0})
     specs = generate_candidates(region, snapshot, config)
-    r.check("3 candidates with a conflict driver", len(specs) == 3)
+    r.check("6 candidates with a conflict driver", len(specs) == 6)
     r.check(
         "clearance types include HEADING",
         {s.clearance_type for s in specs} == {"SPEED", "FLIGHT_LEVEL", "HEADING"},
+    )
+    r.check(
+        "both signed directions present for HEADING",
+        {s.delta_value for s in specs if s.clearance_type == "HEADING"}
+        == {config.resolution_heading_step_deg, -config.resolution_heading_step_deg},
     )
 
 
@@ -255,31 +270,57 @@ def test_generate_candidates_apply_clearance_values(r: Runner) -> None:
     ac2 = _aircraft("A2", 47.0, 8.01, hdg=170.0, alt=35000.0, gs=250.0)
     snapshot = _snapshot([ac1, ac2])
     region = _region(["A1", "A2"], 70.0, components={"mtca_count": 1.0})
-    specs = {s.clearance_type: s for s in generate_candidates(region, snapshot, config)}
-    target_callsign = specs["SPEED"].target_callsign
+    specs = generate_candidates(region, snapshot, config)
+    # Positive-direction spec per lever (the only one before this change).
+    specs_positive = {
+        s.clearance_type: s for s in specs if s.delta_value > 0
+    }
+    # Negative-direction spec per lever (new in this change).
+    specs_negative = {
+        s.clearance_type: s for s in specs if s.delta_value < 0
+    }
+    target_callsign = specs_positive["SPEED"].target_callsign
     base = ac1 if target_callsign == "A1" else ac2
     r.check(
         "all specs target the same (highest-conflict) aircraft",
-        {s.target_callsign for s in specs.values()} == {target_callsign},
+        {s.target_callsign for s in specs} == {target_callsign},
     )
 
-    speed_after = specs["SPEED"].hypothetical_snapshot.get(target_callsign)
+    speed_after = specs_positive["SPEED"].hypothetical_snapshot.get(target_callsign)
     r.check_close(
         "speed candidate adds the configured step",
         speed_after.ground_speed_kt,
         base.ground_speed_kt + config.resolution_speed_step_kt,
     )
-    fl_after = specs["FLIGHT_LEVEL"].hypothetical_snapshot.get(target_callsign)
+    speed_after_neg = specs_negative["SPEED"].hypothetical_snapshot.get(target_callsign)
+    r.check_close(
+        "speed candidate also subtracts the configured step",
+        speed_after_neg.ground_speed_kt,
+        base.ground_speed_kt - config.resolution_speed_step_kt,
+    )
+    fl_after = specs_positive["FLIGHT_LEVEL"].hypothetical_snapshot.get(target_callsign)
     r.check_close(
         "flight-level candidate adds the configured step",
         fl_after.altitude_ft,
         base.altitude_ft + config.resolution_altitude_step_ft,
     )
-    hdg_after = specs["HEADING"].hypothetical_snapshot.get(target_callsign)
+    fl_after_neg = specs_negative["FLIGHT_LEVEL"].hypothetical_snapshot.get(target_callsign)
+    r.check_close(
+        "flight-level candidate also subtracts the configured step",
+        fl_after_neg.altitude_ft,
+        base.altitude_ft - config.resolution_altitude_step_ft,
+    )
+    hdg_after = specs_positive["HEADING"].hypothetical_snapshot.get(target_callsign)
     r.check_close(
         "heading candidate wraps modulo 360",
         hdg_after.heading_deg,
         (base.heading_deg + config.resolution_heading_step_deg) % 360.0,
+    )
+    hdg_after_neg = specs_negative["HEADING"].hypothetical_snapshot.get(target_callsign)
+    r.check_close(
+        "heading candidate also wraps the negative direction modulo 360",
+        hdg_after_neg.heading_deg,
+        (base.heading_deg - config.resolution_heading_step_deg) % 360.0,
     )
     r.check(
         "original snapshot is not mutated",
@@ -398,6 +439,14 @@ def test_engine_resolve_end_to_end(r: Runner) -> None:
     r.check(
         "deviation_cost_norm is a step ratio in [0, 1]",
         all(0.0 <= c.deviation_cost_norm <= 1.0 for c in rs.candidates),
+    )
+    r.check(
+        "domino_cost_norm is a normalised penalty in [0, 1]",
+        all(0.0 <= c.domino_cost_norm <= 1.0 for c in rs.candidates),
+    )
+    r.check(
+        "candidate count reflects both-direction generation (up to 6)",
+        0 < len(rs.candidates) <= 6,
     )
 
 

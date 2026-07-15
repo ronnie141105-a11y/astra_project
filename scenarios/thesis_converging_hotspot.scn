@@ -1,0 +1,19 @@
+# ASTRA thesis scenario: CONVERGING HOTSPOT (primary demonstration)
+# 4-aircraft symmetric converging cross centered on the HCM FIR (10.80N,106.70E),
+# terminal-area speeds (~115-130 kt) so the group starts BELOW forecast_onset_threshold
+# (real complexity ~43 at t=0) and is forecast to cross it within the 5-min predicted
+# horizon (~78 by h5) -- exercises ForecastEngine.predicted_onset_s end-to-end, not just
+# an already-critical hotspot. Mixed aircraft types/altitudes/headings exercise every
+# ComplexityEngine component (density, MTCA/LTCA conflict, heading divergence, altitude
+# divergence, type mix). Expected: immediate DBSCAN cluster (all 4 already <15 NM apart),
+# CONFIRMED track within ~2 poll cycles, a forecasted onset, and ranked resolution
+# candidates for the busiest aircraft once predicted_onset_s is set.
+# HVN301: north of center, heading south
+00:00:00.00>CRE HVN301,A320,10.96655,106.70000,180,30000,120
+# VJC302: south of center, heading north
+00:00:00.00>CRE VJC302,B738,10.63345,106.70000,0,30000,130
+# PIC303: east of center, heading west (slight alt offset)
+00:00:00.00>CRE PIC303,A319,10.79995,106.86956,270,30500,115
+# AXJ304: west of center, heading east
+00:00:00.00>CRE AXJ304,B77W,10.79995,106.53044,90,30000,125
+00:00:00.00>OP

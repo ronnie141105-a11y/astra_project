@@ -1,0 +1,28 @@
+# ASTRA thesis scenario: TWO SIMULTANEOUS HOTSPOTS (multi-track stress test)
+# Two independent 4-aircraft converging crosses (same proven geometry as
+# thesis_converging_hotspot.scn) ~55 NM apart, active at the same time --
+# exercises multi-track tracking/forecasting/ranking and
+# resolution_max_tracks_per_cycle. Terminal-area speeds so both start below
+# forecast_onset_threshold and are forecast to cross it within the predicted
+# horizons. See scripts/domino_effect_demo.py for the deterministic, guaranteed-
+# trigger version of a resolution candidate touching a second, live hotspot.
+# Hotspot A: near (10.95N,106.85E). Hotspot B: ~55 NM WNW, near (10.55N,106.35E).
+# --- Hotspot A ---
+# HVN401: A: north of center, heading south
+00:00:00.00>CRE HVN401,A320,11.11655,106.85000,180,34000,120
+# VJC402: A: south of center, heading north
+00:00:00.00>CRE VJC402,B738,10.78345,106.85000,0,34000,130
+# PIC403: A: east of center, heading west (slight alt offset)
+00:00:00.00>CRE PIC403,A319,10.94995,107.01964,270,34500,115
+# AXJ404: A: west of center, heading east
+00:00:00.00>CRE AXJ404,B77W,10.94995,106.68036,90,34000,125
+# --- Hotspot B ---
+# QTR405: B: north of center, heading south
+00:00:00.00>CRE QTR405,A359,10.71655,106.35000,180,37000,122
+# SIA406: B: south of center, heading north
+00:00:00.00>CRE SIA406,A320,10.38345,106.35000,0,37000,128
+# THA407: B: east of center, heading west (slight alt offset)
+00:00:00.00>CRE THA407,B738,10.54995,106.51942,270,37500,118
+# CPA408: B: west of center, heading east
+00:00:00.00>CRE CPA408,A321,10.54995,106.18058,90,37000,124
+00:00:00.00>OP

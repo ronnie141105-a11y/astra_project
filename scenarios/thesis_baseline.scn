@@ -1,0 +1,18 @@
+# ASTRA thesis scenario: BASELINE (control condition)
+# 6 well-separated aircraft, no convergence, no shared altitude bands within
+# 15 NM of each other. Expected system behaviour: 0 hotspot clusters, 0 open
+# tracks, 0 resolution candidates for the full run -- confirms no false positives.
+# Center of area: HCM FIR (10.80N, 106.70E), matching main.py/_setup_mock_traffic.
+# HVN101: well north, eastbound cruise
+00:00:00.00>CRE HVN101,A321,11.79933,106.70000,90,30000,250
+# VJC202: ESE of center, southbound
+00:00:00.00>CRE VJC202,A320,11.25696,107.50888,200,33000,260
+# PIC303: SSE of center, westbound, high altitude separation
+00:00:00.00>CRE PIC303,A319,10.25726,107.65278,260,36000,270
+# AXJ404: south of center, northbound
+00:00:00.00>CRE AXJ404,B738,9.96723,106.70000,10,29000,240
+# QTR505: WSW of center, eastbound, cruise altitude
+00:00:00.00>CRE QTR505,B77W,10.21540,105.67407,70,38000,280
+# SIA606: WNW of center, southbound
+00:00:00.00>CRE SIA606,A359,11.28182,105.84693,160,31000,255
+00:00:00.00>OP

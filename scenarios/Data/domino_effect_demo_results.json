@@ -1,0 +1,105 @@
+{
+  "evaluated_horizon_min": 5,
+  "observed_regions": [
+    {
+      "score": 31.597075691493274,
+      "members": [
+        "TGT1",
+        "TGT2",
+        "TGT3"
+      ]
+    },
+    {
+      "score": 42.000000213443414,
+      "members": [
+        "SIDE1",
+        "SIDE2"
+      ]
+    }
+  ],
+  "horizon_5_regions": [
+    {
+      "score": 64.46920992458143,
+      "members": [
+        "TGT1",
+        "TGT2",
+        "TGT3"
+      ]
+    },
+    {
+      "score": 42.000000213443414,
+      "members": [
+        "SIDE1",
+        "SIDE2"
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "clearance_type": "HEADING",
+      "delta_value": -90.0,
+      "domino_cost_norm": 0.0,
+      "complexity_delta_norm": 0.7746546369137585,
+      "deviation_cost_norm": 1.0,
+      "fuel_cost_proxy_norm": 0.0,
+      "resolution_score": 0.2760600503025672,
+      "complexity_before": 64.46920992458143,
+      "complexity_after": 14.527837518337929
+    },
+    {
+      "clearance_type": "HEADING",
+      "delta_value": 90.0,
+      "domino_cost_norm": 0.3149999978655659,
+      "complexity_delta_norm": 0.4571051818233177,
+      "deviation_cost_norm": 1.0,
+      "fuel_cost_proxy_norm": 0.0,
+      "resolution_score": 0.03840785042971159,
+      "complexity_before": 64.46920992458143,
+      "complexity_after": 35.0
+    },
+    {
+      "clearance_type": "SPEED",
+      "delta_value": 20.0,
+      "domino_cost_norm": 0.0,
+      "complexity_delta_norm": 0.0,
+      "deviation_cost_norm": 1.0,
+      "fuel_cost_proxy_norm": 0.0,
+      "resolution_score": -0.15,
+      "complexity_before": 64.46920992458143,
+      "complexity_after": 64.46920992458143
+    },
+    {
+      "clearance_type": "SPEED",
+      "delta_value": -20.0,
+      "domino_cost_norm": 0.0,
+      "complexity_delta_norm": 0.0,
+      "deviation_cost_norm": 1.0,
+      "fuel_cost_proxy_norm": 0.0,
+      "resolution_score": -0.15,
+      "complexity_before": 64.46920992458143,
+      "complexity_after": 64.46920992458143
+    },
+    {
+      "clearance_type": "FLIGHT_LEVEL",
+      "delta_value": 1000.0,
+      "domino_cost_norm": 0.0,
+      "complexity_delta_norm": 0.0,
+      "deviation_cost_norm": 1.0,
+      "fuel_cost_proxy_norm": 1.0,
+      "resolution_score": -0.25,
+      "complexity_before": 64.46920992458143,
+      "complexity_after": 68.00474383051417
+    },
+    {
+      "clearance_type": "FLIGHT_LEVEL",
+      "delta_value": -1000.0,
+      "domino_cost_norm": 0.0,
+      "complexity_delta_norm": 0.0,
+      "deviation_cost_norm": 1.0,
+      "fuel_cost_proxy_norm": 1.0,
+      "resolution_score": -0.25,
+      "complexity_before": 64.46920992458143,
+      "complexity_after": 68.00474383051417
+    }
+  ]
+}

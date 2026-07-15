@@ -182,6 +182,7 @@ def serialize_resolution_candidate(candidate: ResolutionCandidate) -> Dict:
         "deviation_cost_norm": candidate.deviation_cost_norm,
         "fuel_cost_proxy_norm": candidate.fuel_cost_proxy_norm,
         "resolution_score": candidate.resolution_score,
+        "domino_cost_norm": candidate.domino_cost_norm,
         "complexity_after_components": (
             dict(candidate.complexity_after_components)
             if candidate.complexity_after_components is not None
