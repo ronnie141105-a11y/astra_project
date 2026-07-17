@@ -104,13 +104,12 @@
             </div>
             <div id="horizon-scrubber" class="scrubber">
                 <span class="scrubber-label">Horizon</span>
-                <input type="range" id="horizon-range" min="0" max="0" step="1" value="0">
-                <span id="horizon-value" class="scrubber-value">observed</span>
+                <div id="horizon-buttons" class="horizon-buttons" role="group" aria-label="Prediction horizon"></div>
             </div>
             <p class="panel-hint">
-                Solid marker = traffic at the scrubbed horizon &middot; leader line = heading/speed vector
-                &middot; faint line = predicted path (straight-line, constant-velocity extrapolation --
-                it does not turn at waypoints even if the aircraft's actual route does)
+                Solid marker = traffic at the selected horizon &middot; leader line = heading/speed vector
+                &middot; amber dashed line = predicted path (route-aware where a flight plan is known --
+                turns at waypoints; falls back to straight-line dead reckoning otherwise)
                 &middot; shaded ring = 4DARHAC complexity (ring style reflects onset urgency)
                 &middot; dashed grey ring = sector boundary &middot; drag to pan, scroll to zoom,
                 double-click to reset view

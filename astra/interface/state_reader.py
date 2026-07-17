@@ -256,6 +256,32 @@ class StateReader:
             callsign, aircraft_type, lat, lon, heading_deg, altitude_ft, speed_kt
         )
 
+    def get_route(self, callsign: str) -> Optional[List]:
+        """Return one aircraft's remaining filed/cleared route, if known.
+
+        This is the "current information available now" that
+        ``RouteAwareTrajectoryEngine`` uses instead of dead reckoning --
+        the flight's known intended path, not any future simulated
+        position. See ``astra.interface.mock_connector.MockConnector.get_route``
+        and ``astra.trajectory.route_engine`` for the full rationale.
+
+        Args:
+            callsign: Aircraft callsign -- case-insensitive.
+
+        Returns:
+            Ordered ``[(lat, lon), ...]`` of remaining waypoints ahead of
+            the aircraft, or ``None`` if unknown, not on a route, or the
+            connector doesn't support route queries (live BlueSky doesn't
+            yet -- see ``create_aircraft``'s docstring; callers should
+            treat that exactly like "no route known" and fall back to
+            dead reckoning for that aircraft, which
+            ``RouteAwareTrajectoryEngine`` already does).
+        """
+        get_route_fn = getattr(self._connector, "get_route", None)
+        if get_route_fn is None:
+            return None
+        return get_route_fn(callsign)
+
     def send_command(self, command_text: str) -> None:
         """Send a raw ATC stack command to the simulator.
 

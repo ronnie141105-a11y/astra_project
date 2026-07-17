@@ -356,18 +356,34 @@
     }
 
     // ------------------------------------------------------------------
-    // Horizon scrubber
+    // Horizon scrubber (button group -- one click per horizon)
     // ------------------------------------------------------------------
 
+    //: Curated set of horizons shown as buttons. `0` ("Now") is always
+    //: shown first if available; the rest are intersected with whatever
+    //: horizons the backend actually computed this cycle
+    //: (`ASTRAConfig.prediction_horizons_min`), so this degrades
+    //: gracefully if that list ever changes server-side.
+    const HORIZON_BUTTON_MINUTES = [10, 20, 30, 40, 50, 60];
+
+    function selectHorizon(horizonMin) {
+        ui.selectedHorizon = horizonMin;
+        document.querySelectorAll("#horizon-buttons .horizon-btn").forEach((btn) => {
+            btn.classList.toggle("active", Number(btn.dataset.horizon) === horizonMin);
+        });
+        if (window.__astraLastCycle) {
+            renderMap(window.__astraLastCycle);
+        }
+    }
+
     function setupHorizonScrubber() {
-        const range = document.getElementById("horizon-range");
-        range.addEventListener("input", () => {
-            const idx = Number(range.value);
-            ui.selectedHorizon = ui.availableHorizons[idx] !== undefined ? ui.availableHorizons[idx] : 0;
-            document.getElementById("horizon-value").textContent = horizonLabel(ui.selectedHorizon);
-            if (window.__astraLastCycle) {
-                renderMap(window.__astraLastCycle);
+        const container = document.getElementById("horizon-buttons");
+        container.addEventListener("click", (evt) => {
+            const btn = evt.target.closest(".horizon-btn");
+            if (!btn || btn.disabled) {
+                return;
             }
+            selectHorizon(Number(btn.dataset.horizon));
         });
     }
 
@@ -376,17 +392,30 @@
             .map(Number)
             .sort((a, b) => a - b);
         ui.availableHorizons = horizons.length > 0 ? horizons : [0];
-        const range = document.getElementById("horizon-range");
-        range.min = 0;
-        range.max = ui.availableHorizons.length - 1;
-        const currentIdx = ui.availableHorizons.indexOf(ui.selectedHorizon);
-        if (currentIdx === -1) {
-            ui.selectedHorizon = ui.availableHorizons[0];
-            range.value = 0;
-        } else {
-            range.value = currentIdx;
+        const available = new Set(ui.availableHorizons);
+        const wanted = [0, ...HORIZON_BUTTON_MINUTES];
+
+        const container = document.getElementById("horizon-buttons");
+        const alreadyBuilt = container.childElementCount === wanted.length;
+        if (!alreadyBuilt) {
+            container.innerHTML = wanted
+                .map((h) => {
+                    const label = h === 0 ? "Now" : `+${h}m`;
+                    return `<button type="button" class="horizon-btn" data-horizon="${h}">${label}</button>`;
+                })
+                .join("");
         }
-        document.getElementById("horizon-value").textContent = horizonLabel(ui.selectedHorizon);
+        container.querySelectorAll(".horizon-btn").forEach((btn) => {
+            const h = Number(btn.dataset.horizon);
+            btn.disabled = !available.has(h);
+        });
+
+        if (!available.has(ui.selectedHorizon)) {
+            ui.selectedHorizon = ui.availableHorizons[0];
+        }
+        container.querySelectorAll(".horizon-btn").forEach((btn) => {
+            btn.classList.toggle("active", Number(btn.dataset.horizon) === ui.selectedHorizon);
+        });
     }
 
     // ------------------------------------------------------------------
@@ -747,16 +776,16 @@
         });
     }
 
-    function drawFaintPredictedPaths(ctx, project, cycle) {
-        ctx.setLineDash([3, 5]);
-        ctx.lineWidth = 1;
+    function drawPredictedPaths(ctx, project, cycle) {
+        ctx.setLineDash([5, 4]);
+        ctx.lineWidth = 1.5;
         Object.entries(cycle.prediction.paths).forEach(([callsign, points]) => {
             const observed = cycle.snapshot.aircraft.find((ac) => ac.callsign === callsign);
             if (!observed || points.length === 0) {
                 return;
             }
             ctx.beginPath();
-            ctx.strokeStyle = "rgba(74, 144, 164, 0.35)";
+            ctx.strokeStyle = "rgba(255, 191, 105, 0.75)"; // --amber, distinct from any marker/ring color
             const [sx, sy] = project(observed.lat, observed.lon);
             ctx.moveTo(sx, sy);
             points.forEach((p) => {
@@ -939,7 +968,7 @@
         drawSectorBoundaries(ctx, project, bounds, width, cycle.sector_regions);
         const regionsAtHorizon = cycle.regions_by_horizon[String(ui.selectedHorizon)] || [];
         drawComplexityRegions(ctx, project, bounds, width, regionsAtHorizon, cycle);
-        drawFaintPredictedPaths(ctx, project, cycle);
+        drawPredictedPaths(ctx, project, cycle);
     }
 
     /** Animated overlay -- aircraft markers only, redrawn every animation

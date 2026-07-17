@@ -71,13 +71,26 @@ def _setup_mock_traffic(reader: StateReader) -> None:
     make that bounding box degenerate (both the FIR and the traffic
     reduced to specks, thousands of NM apart). Matches the same area
     `astra/dashboard/scenario_presets.py`'s presets already use.
+
+    Geometry: four aircraft on a symmetric 10 NM converging cross
+    (matches `scenarios/thesis_converging_hotspot.scn`, validated during
+    thesis data collection). Deliberately uses terminal-area speeds
+    (~115-130 kt), not cruise speeds -- at cruise speed the group closes,
+    crosses, and disperses again *within* a single 5-minute prediction
+    horizon, so no future horizon ever catches it above
+    `forecast_onset_threshold` and `ForecastEngine.predicted_onset_s`
+    never fires, meaning `ResolutionEngine` never has anything eligible
+    to resolve either. At these speeds the group starts below threshold
+    (~44 points) and is genuinely forecast to cross it a few cycles in,
+    reliably exercising the full detect -> track -> forecast -> resolve
+    chain end to end.
     """
-    reader.create_aircraft("HVN204", "A321", 10.90, 106.30, 90.0, 30000, 250)
-    reader.create_aircraft("VJC123", "A320", 10.92, 106.10, 270.0, 31000, 280)
-    reader.create_aircraft("PIC456", "A319", 10.70, 106.40, 0.0, 29000, 260)
-    reader.create_aircraft("AXJ789", "A320", 10.88, 106.20, 180.0, 30500, 255)
+    reader.create_aircraft("HVN301", "A320", 10.96655, 106.70000, 180.0, 30000, 120)
+    reader.create_aircraft("VJC302", "B738", 10.63345, 106.70000, 0.0, 30000, 130)
+    reader.create_aircraft("PIC303", "A319", 10.79995, 106.86956, 270.0, 30500, 115)
+    reader.create_aircraft("AXJ304", "B77W", 10.79995, 106.53044, 90.0, 30000, 125)
     reader.send_command("OP")
-    _LOG.info("Mock traffic created (4 aircraft). Simulation clock started.")
+    _LOG.info("Mock traffic created (4 aircraft, converging). Simulation clock started.")
 
 
 def _format_best(result: CycleResult, arhac_id: str) -> str:
@@ -136,7 +149,7 @@ def main() -> None:
             time.sleep(0.5)
         _LOG.info("BlueSky node active. Polling every %.1fs.", config.poll_interval_s)
 
-    pipeline = Pipeline(config)
+    pipeline = Pipeline(config, route_provider=reader.get_route)
     store = CycleStore()
     if not args.no_dashboard:
         # Pass the same `reader` the poll loop below uses, so the

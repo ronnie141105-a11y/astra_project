@@ -76,7 +76,7 @@ def main() -> None:
     for command in commands:
         reader.send_command(command)
 
-    pipeline = Pipeline(config)
+    pipeline = Pipeline(config, route_provider=reader.get_route)
     n_steps = max(1, int(round(args.duration_min * 60.0 / args.sim_step_s)))
 
     csv_rows = []

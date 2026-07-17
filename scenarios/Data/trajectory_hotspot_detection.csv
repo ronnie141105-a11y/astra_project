@@ -1,0 +1,6 @@
+horizon_min,true_complexity,true_cluster_detected,baseline_complexity,baseline_cluster_detected,route_aware_complexity,route_aware_cluster_detected
+5,38.7,True,53.7,True,38.7,True
+10,38.7,True,0.0,False,38.7,True
+15,38.7,True,0.0,False,38.7,True
+30,38.7,True,0.0,False,38.7,True
+60,38.7,True,0.0,False,38.7,True

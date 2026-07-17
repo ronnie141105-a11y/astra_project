@@ -291,6 +291,7 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
                 heading_deg=ac["heading_deg"],
                 altitude_ft=ac["altitude_ft"],
                 speed_kt=ac["speed_kt"],
+                route_waypoints=ac.get("route_waypoints"),
             )
         return _ok({"key": key, "aircraft_count": len(preset["aircraft"])})
 

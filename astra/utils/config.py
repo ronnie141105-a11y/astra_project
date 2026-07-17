@@ -112,7 +112,7 @@ class ASTRAConfig:
     #: states are evaluated. Values: 5, 10, 15, 30, 60 minutes.
     #: (The original scaffold had 20 min; 15 min is correct per Phase 2 spec.)
     prediction_horizons_min: List[int] = field(
-        default_factory=lambda: [5, 10, 15, 30, 60]
+        default_factory=lambda: [5, 10, 15, 20, 30, 40, 50, 60]
     )
 
     #: Overall prediction horizon (minutes). Individual horizons above must

@@ -220,16 +220,43 @@ body {
     font-size: 11px;
     color: var(--text-dim);
     margin-top: 10px;
+    flex-wrap: wrap;
 }
 
-.scrubber input[type="range"] {
-    flex: 1;
-    accent-color: var(--accent);
+.horizon-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
-.scrubber-value {
-    min-width: 62px;
+.horizon-btn {
+    font: inherit;
+    font-size: 11px;
+    font-family: inherit;
+    color: var(--text-dim);
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.horizon-btn:hover:not(:disabled) {
+    border-color: var(--accent);
     color: var(--text);
+}
+
+.horizon-btn.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.horizon-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
 }
 
 .layer-toggles {

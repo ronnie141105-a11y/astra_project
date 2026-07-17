@@ -54,7 +54,8 @@ from threading import Lock
 from typing import Dict, List, Optional, Tuple
 
 from astra.interface.traffic_state import AircraftState, TrafficSnapshot
-from astra.utils.geodesy import bearing_deg, haversine_distance_nm, move_position
+from astra.trajectory.route_following import advance_along_route
+from astra.utils.geodesy import bearing_deg, move_position
 from astra.utils.logger import get_logger
 
 _LOG = get_logger(__name__)
@@ -402,6 +403,34 @@ class MockConnector:
         with self._lock:
             return list(self._aircraft.keys())
 
+    def get_route(self, callsign: str) -> Optional[List[Tuple[float, float]]]:
+        """Return one aircraft's remaining filed/cleared route, if any.
+
+        This exposes the *same* route data ``_advance_along_route()``
+        already consumes each tick -- i.e. information legitimately known
+        right now (the aircraft's current flight plan / cleared airway),
+        not anything about where the simulation will actually take it.
+        ``RouteAwareTrajectoryEngine`` (Phase 2) uses this as its route
+        source: it independently recomputes the aircraft's future
+        position from this intent using the same
+        ``astra.trajectory.route_following.advance_along_route()``
+        function this connector uses, rather than ever reading this
+        connector's own future simulated states.
+
+        Args:
+            callsign: Aircraft callsign -- case-insensitive.
+
+        Returns:
+            Ordered ``[(lat, lon), ...]`` of remaining waypoints ahead of
+            the aircraft, or ``None`` if the aircraft is unknown or not
+            currently following a route (plain dead-reckoning applies).
+        """
+        with self._lock:
+            record = self._aircraft.get(callsign.upper())
+            if record is None or not record.route_waypoints:
+                return None
+            return list(record.route_waypoints)
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -427,50 +456,30 @@ class MockConnector:
             # Altitude change: vs_fpm * (dt_s / 60) gives feet.
             record.altitude_ft += record.vertical_speed_fpm * (dt_s / 60.0)
 
-    #: Safety cap on legs consumed in one `_advance_along_route()` call, so
-    #: a very large `dt_s` (e.g. scenario fast-forward) with many short
-    #: waypoint legs can never loop unboundedly.
-    _MAX_LEGS_PER_TICK = 50
-
     def _advance_along_route(self, record: "_AircraftRecord", distance_nm: float) -> None:
         """Move `record` toward its remaining route waypoints.
 
-        Heads straight for `route_waypoints[route_index]`, consuming one
-        or more legs if `distance_nm` overshoots the current leg. Once the
-        final waypoint is passed, the route is cleared and any leftover
-        distance is flown straight on the last heading -- i.e. the
-        aircraft continues past the end of its filed airway rather than
-        stopping dead.
+        Thin wrapper around ``astra.trajectory.route_following.advance_along_route``
+        (mutates `record` in place) -- kept as a method for call-site
+        compatibility with `_propagate_positions()`. The route-stepping
+        geometry itself lives in the shared module so that
+        ``RouteAwareTrajectoryEngine`` (Phase 2) can reuse the exact same
+        computation when predicting a route-following aircraft's future
+        position, rather than risking a second, possibly-diverging
+        implementation of "how a route is flown".
 
         Args:
             record: The aircraft to move (mutated in place).
             distance_nm: Distance available to travel this tick.
         """
-        remaining = distance_nm
-        legs = 0
-        while (
-            record.route_waypoints
-            and record.route_index < len(record.route_waypoints)
-            and remaining > 0
-            and legs < self._MAX_LEGS_PER_TICK
-        ):
-            legs += 1
-            target_lat, target_lon = record.route_waypoints[record.route_index]
-            leg_distance_nm = haversine_distance_nm(record.lat, record.lon, target_lat, target_lon)
-            record.heading_deg = bearing_deg(record.lat, record.lon, target_lat, target_lon)
-            if leg_distance_nm <= remaining:
-                record.lat, record.lon = target_lat, target_lon
-                remaining -= leg_distance_nm
-                record.route_index += 1
-            else:
-                record.lat, record.lon = move_position(record.lat, record.lon, record.heading_deg, remaining)
-                remaining = 0.0
-
-        if record.route_waypoints and record.route_index >= len(record.route_waypoints):
-            record.route_waypoints = None  # route flown in full
-
-        if remaining > 0:
-            record.lat, record.lon = move_position(record.lat, record.lon, record.heading_deg, remaining)
+        result = advance_along_route(
+            record.lat, record.lon, record.heading_deg, record.route_waypoints, distance_nm
+        )
+        record.lat = result.lat
+        record.lon = result.lon
+        record.heading_deg = result.heading_deg
+        record.route_waypoints = result.remaining_waypoints or None
+        record.route_index = 0  # remaining_waypoints is already trimmed to "ahead"
 
     def _build_snapshot(self) -> TrafficSnapshot:
         """Convert the current mutable internal state to an immutable snapshot.

@@ -12,7 +12,7 @@ recomputing anything the pipeline already computed).
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from astra.complexity.engine import ComplexityEngine
 from astra.complexity.models import ComplexityRegion
@@ -26,6 +26,7 @@ from astra.tracking.engine import TrackerEngine
 from astra.tracking.models import FourDArhac
 from astra.trajectory.engine import TrajectoryEngine
 from astra.trajectory.models import PredictionResult
+from astra.trajectory.route_engine import RouteAwareTrajectoryEngine, RouteProvider
 from astra.utils.config import ASTRAConfig
 
 
@@ -74,10 +75,32 @@ class Pipeline:
         result = pipeline.run_cycle(reader.poll())
     """
 
-    def __init__(self, config: ASTRAConfig) -> None:
-        """Build one instance of each engine from shared config."""
+    def __init__(self, config: ASTRAConfig, route_provider: Optional[RouteProvider] = None) -> None:
+        """Build one instance of each engine from shared config.
+
+        Args:
+            config: Shared ASTRA configuration.
+            route_provider: Optional callable returning an aircraft's
+                current remaining route given its callsign (typically
+                ``state_reader.get_route``). When supplied, trajectory
+                prediction uses ``RouteAwareTrajectoryEngine`` -- which
+                follows known routes and falls back to plain dead
+                reckoning per-aircraft for anything with no known route,
+                so this is always at least as accurate as the baseline
+                and safe to pass whenever route data might be available.
+                When omitted (the default), prediction is plain
+                constant-velocity dead reckoning (``TrajectoryEngine``),
+                unchanged from Milestone 6. See
+                ``astra/trajectory/route_engine.py`` for the full
+                rationale and ``scripts/evaluate_trajectory_predictors.py``
+                for the baseline-vs-route-aware evaluation this choice is
+                based on.
+        """
         self._config = config
-        self._trajectory_engine = TrajectoryEngine(config)
+        if route_provider is not None:
+            self._trajectory_engine = RouteAwareTrajectoryEngine(config, route_provider)
+        else:
+            self._trajectory_engine = TrajectoryEngine(config)
         self._cluster_engine = ClusterEngine(config)
         self._complexity_engine = ComplexityEngine(config)
         self._tracker = TrackerEngine(config)
