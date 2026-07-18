@@ -12,6 +12,8 @@
             "file": "geo/coastlines.json",
             "default_visible": true,
             "z_index": 0,
+            "toggle_group": "coastlines_borders",
+            "toggle_label": "Coastlines & borders",
             "style": { "stroke": "#24313d", "width": 1, "dash": [] }
         },
         {
@@ -21,6 +23,8 @@
             "file": "geo/country_borders.json",
             "default_visible": true,
             "z_index": 0.5,
+            "toggle_group": "coastlines_borders",
+            "toggle_label": "Coastlines & borders",
             "style": { "stroke": "#33404b", "width": 0.75, "dash": [3, 3] }
         },
         {

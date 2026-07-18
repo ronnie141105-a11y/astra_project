@@ -52,6 +52,14 @@ class GeoLayerManager {
                         labelField: entry.label_field || null,
                         zIndex: entry.z_index || 0,
                         visible: entry.default_visible !== false,
+                        //: When set, this layer shares one toggle checkbox
+                        //: with every other layer using the same group id
+                        //: (e.g. "Coastlines" + "Country borders" -> one
+                        //: "Coastlines & borders" checkbox) -- see
+                        //: getToggleList()/setVisible() below. Undefined
+                        //: for layers that get their own individual toggle.
+                        toggleGroup: entry.toggle_group || null,
+                        toggleLabel: entry.toggle_label || entry.label,
                         geojson,
                     };
                 })
@@ -65,16 +73,38 @@ class GeoLayerManager {
         return this.layers;
     }
 
-    /** `[{id, label, kind, visible}]` for a layer-toggle control. */
+    /** `[{id, label, kind, visible}]` for a layer-toggle control. Layers
+     * sharing a `toggleGroup` collapse into a single entry (keyed by the
+     * group id, labelled with the group's `toggleLabel`) so e.g.
+     * "Coastlines" and "Country borders" show as one checkbox. */
     getToggleList() {
-        return this.layers.map((l) => ({ id: l.id, label: l.label, kind: l.kind, visible: l.visible }));
+        const seenGroups = new Set();
+        const list = [];
+        this.layers.forEach((l) => {
+            if (l.toggleGroup) {
+                if (seenGroups.has(l.toggleGroup)) {
+                    return;
+                }
+                seenGroups.add(l.toggleGroup);
+                list.push({ id: l.toggleGroup, label: l.toggleLabel, kind: l.kind, visible: l.visible });
+                return;
+            }
+            list.push({ id: l.id, label: l.label, kind: l.kind, visible: l.visible });
+        });
+        return list;
     }
 
+    /** Sets visibility for one layer, or -- if `id` names a toggle group
+     * rather than an individual layer id -- every layer in that group. */
     setVisible(id, visible) {
-        const layer = this.layers.find((l) => l.id === id);
-        if (layer) {
-            layer.visible = visible;
-        }
+        let matched = false;
+        this.layers.forEach((l) => {
+            if (l.id === id || l.toggleGroup === id) {
+                l.visible = visible;
+                matched = true;
+            }
+        });
+        return matched;
     }
 
     isEmpty() {

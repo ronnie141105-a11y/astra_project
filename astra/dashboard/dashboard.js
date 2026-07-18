@@ -18,6 +18,13 @@
 
     const POLL_INTERVAL_MS = Math.max(250, window.ASTRA_POLL_INTERVAL_S * 1000);
 
+    // Canvas drawing can't read CSS custom properties directly, so these
+    // mirror :root's --aircraft-pink / --solution-magenta / --amber in
+    // dashboard.css. Keep the two in sync if either changes.
+    const AIRCRAFT_COLOR = "#ff3d9a";
+    const SOLUTION_COLOR = "#ff2fd6";
+    const PREDICTED_PATH_COLOR = "#ffbf69";
+
     // Session-only UI state. Never sent to the backend; resets on reload.
     const ui = {
         selectedArhacId: null,
@@ -717,15 +724,29 @@
      * highlighting use), not just the current complexity score -- a
      * hotspot 2 minutes from onset should look more alarming on the map
      * than one 40 minutes out, even if their scores happen to match. */
+    /** Convert a distance in NM to on-screen pixels at a given latitude,
+     * consistent with `makeProjector`'s lon-based projection (NM per
+     * degree of longitude shrinks with cos(latitude); NM per degree of
+     * latitude is ~constant at 60). The previous formula here divided by
+     * `bounds.maxLon - bounds.minLon` after multiplying by it, so it
+     * always cancelled out to a fixed, zoom-independent pixel size --
+     * hotspot rings stayed the same huge size on screen however far you
+     * zoomed in, which is what made them look like they "filled the
+     * whole screen" once a couple of aircraft were close together. */
+    function nmToPixels(nm, centroidLatDeg, bounds, width) {
+        const lonSpan = bounds.maxLon - bounds.minLon || 1;
+        const nmPerDegLon = 60 * Math.cos((centroidLatDeg * Math.PI) / 180) || 60;
+        const degLon = nm / nmPerDegLon;
+        return (degLon / lonSpan) * width;
+    }
+
     function drawComplexityRegions(ctx, project, bounds, width, regions, cycle) {
         const nowS = cycle.snapshot.timestamp_s;
         (regions || []).forEach((region) => {
             const [cx, cy] = project(region.cluster.centroid_lat, region.cluster.centroid_lon);
-            const degPerNm = (bounds.maxLon - bounds.minLon) / 60;
             const radiusPx = Math.max(
                 18,
-                (region.cluster.horizontal_extent_nm * degPerNm * width) /
-                    (bounds.maxLon - bounds.minLon || 1)
+                nmToPixels(region.cluster.horizontal_extent_nm, region.cluster.centroid_lat, bounds, width)
             );
             const track = nearestTrack(
                 region.cluster.centroid_lat,
@@ -739,16 +760,32 @@
             const dash = { soon: [], near: [6, 4], far: [3, 5], none: [3, 5] }[bucket];
             const lineWidth = bucket === "soon" ? 2.5 : 1.5;
 
+            // Soft glow instead of a flat filled disc: a radial gradient
+            // fading from a low peak opacity at the centroid to fully
+            // transparent at the edge, so it reads as a hazy overlay
+            // rather than an opaque wash that hides the traffic and map
+            // underneath it. Extends slightly past the ring itself
+            // (1.4x) so the fade-out is gradual, not a visible edge.
+            const glowRadius = radiusPx * 1.4;
+            const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowRadius);
+            const glowColor = ringColor.replace("rgb", "rgba").replace(")", ", 0.14)");
+            const glowColorFaded = ringColor.replace("rgb", "rgba").replace(")", ", 0)");
+            glow.addColorStop(0, glowColor);
+            glow.addColorStop(0.6, ringColor.replace("rgb", "rgba").replace(")", ", 0.06)"));
+            glow.addColorStop(1, glowColorFaded);
             ctx.beginPath();
-            ctx.fillStyle = ringColor.replace("rgb", "rgba").replace(")", ", 0.16)");
-            ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2);
+            ctx.fillStyle = glow;
+            ctx.arc(cx, cy, glowRadius, 0, Math.PI * 2);
             ctx.fill();
+
             ctx.beginPath();
             ctx.setLineDash(dash);
             ctx.strokeStyle = ringColor;
+            ctx.globalAlpha = 0.7;
             ctx.lineWidth = lineWidth;
             ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.globalAlpha = 1;
             ctx.setLineDash([]);
             // A soon-onset ring gets a second, slightly larger ring for a
             // "target lock" look -- a static stand-in for a pulse animation
@@ -776,6 +813,67 @@
         });
     }
 
+    /** The resolution candidate currently being previewed in the Event
+     * panel (whichever track is focused there, whichever chip is active) --
+     * drawn on the map as a magenta line so it's clear which way the
+     * proposed clearance actually sends the aircraft, not just that a
+     * clearance exists. Draws nothing if no track is focused or the
+     * focused track has no eligible candidates.
+     *
+     * Note on what this line represents: each candidate is a single
+     * constant clearance change (e.g. one heading step, held from the
+     * observed position onward) evaluated at one horizon -- not a
+     * multi-leg "turn away, then turn back onto a waypoint" maneuver.
+     * The line drawn here is exactly that: a kink at the observed
+     * position, then straight to the hypothetical horizon point(s). A
+     * dogleg-back-to-course maneuver would need a resolution-engine
+     * change (multi-leg candidate generation), not just a rendering one.
+     */
+    function drawResolutionSolutionPath(ctx, project, cycle) {
+        const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
+        if (!track) {
+            return;
+        }
+        const rs = cycle.resolution_sets.find((r) => r.arhac_id === track.arhac_id);
+        if (!rs || rs.candidates.length === 0) {
+            return;
+        }
+        const activeIdx = Math.min(ui.selectedCandidateIndex[track.arhac_id] || 0, rs.candidates.length - 1);
+        const candidate = rs.candidates[activeIdx];
+        if (!candidate.hypothetical_path || candidate.hypothetical_path.length === 0) {
+            return;
+        }
+        const observed = cycle.snapshot.aircraft.find((ac) => ac.callsign === candidate.target_callsign);
+        if (!observed) {
+            return;
+        }
+        const points = [...candidate.hypothetical_path].sort((a, b) => a.horizon_min - b.horizon_min);
+
+        ctx.setLineDash([9, 3]);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = SOLUTION_COLOR;
+        ctx.beginPath();
+        const [sx, sy] = project(observed.lat, observed.lon);
+        ctx.moveTo(sx, sy);
+        points.forEach((p) => {
+            const [px, py] = project(p.lat, p.lon);
+            ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Small filled diamond at the far end so the proposed heading's
+        // direction is unambiguous even on a short line.
+        const last = points[points.length - 1];
+        const [ex, ey] = project(last.lat, last.lon);
+        ctx.save();
+        ctx.translate(ex, ey);
+        ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = SOLUTION_COLOR;
+        ctx.fillRect(-4, -4, 8, 8);
+        ctx.restore();
+    }
+
     function drawPredictedPaths(ctx, project, cycle) {
         ctx.setLineDash([5, 4]);
         ctx.lineWidth = 1.5;
@@ -785,7 +883,7 @@
                 return;
             }
             ctx.beginPath();
-            ctx.strokeStyle = "rgba(255, 191, 105, 0.75)"; // --amber, distinct from any marker/ring color
+            ctx.strokeStyle = "rgba(255, 191, 105, 0.75)"; // PREDICTED_PATH_COLOR (amber), distinct from aircraft/solution colors
             const [sx, sy] = project(observed.lat, observed.lon);
             ctx.moveTo(sx, sy);
             points.forEach((p) => {
@@ -810,7 +908,7 @@
      */
     function drawAircraftMarker(ctx, project, ac, opts) {
         const options = opts || {};
-        const color = options.color || "#35c3a3";
+        const color = options.color || AIRCRAFT_COLOR;
         const [x, y] = project(ac.lat, ac.lon);
 
         if (options.showHeading && ac.heading_deg !== undefined && ac.heading_deg !== null) {
@@ -877,7 +975,7 @@
             const list = observedOverride || cycle.snapshot.aircraft;
             list.forEach((ac) => {
                 const h = highlight[ac.callsign];
-                drawAircraftMarker(ctx, project, ac, { color: h ? h.color : "#35c3a3", showHeading: true });
+                drawAircraftMarker(ctx, project, ac, { color: h ? h.color : AIRCRAFT_COLOR, showHeading: true });
             });
             return;
         }
@@ -969,6 +1067,7 @@
         const regionsAtHorizon = cycle.regions_by_horizon[String(ui.selectedHorizon)] || [];
         drawComplexityRegions(ctx, project, bounds, width, regionsAtHorizon, cycle);
         drawPredictedPaths(ctx, project, cycle);
+        drawResolutionSolutionPath(ctx, project, cycle);
     }
 
     /** Animated overlay -- aircraft markers only, redrawn every animation
@@ -1403,6 +1502,9 @@
         renderCandidateList(rs, (idx) => {
             ui.selectedCandidateIndex[track.arhac_id] = idx;
             renderEventPanel(cycle);
+            if (window.__astraLastCycle) {
+                renderMap(window.__astraLastCycle);
+            }
         });
         renderComponentBars(candidate);
         renderWhatIfVertical(cycle, candidate);
@@ -1528,6 +1630,7 @@
         if (window.__astraLastCycle) {
             renderTracksTable(window.__astraLastCycle, selectTrack);
             renderEventPanel(window.__astraLastCycle);
+            renderMap(window.__astraLastCycle);
         }
     }
 

@@ -107,12 +107,13 @@
                 <div id="horizon-buttons" class="horizon-buttons" role="group" aria-label="Prediction horizon"></div>
             </div>
             <p class="panel-hint">
-                Solid marker = traffic at the selected horizon &middot; leader line = heading/speed vector
+                Pink marker = traffic at the selected horizon &middot; leader line = heading/speed vector
                 &middot; amber dashed line = predicted path (route-aware where a flight plan is known --
                 turns at waypoints; falls back to straight-line dead reckoning otherwise)
-                &middot; shaded ring = 4DARHAC complexity (ring style reflects onset urgency)
-                &middot; dashed grey ring = sector boundary &middot; drag to pan, scroll to zoom,
-                double-click to reset view
+                &middot; magenta dashed line = proposed resolution's trajectory (whichever candidate is
+                selected in the Event panel below) &middot; soft shaded glow = 4DARHAC complexity area
+                (ring style reflects onset urgency) &middot; dashed grey ring = sector boundary
+                &middot; drag to pan, scroll to zoom, double-click to reset view
             </p>
         </section>
 

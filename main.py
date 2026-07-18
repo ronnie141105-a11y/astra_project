@@ -26,13 +26,14 @@ to run the console-only loop without starting the Flask server.
 """
 
 import argparse
+import dataclasses
 import time
 
 from astra.dashboard.server import run_dashboard_in_background
 from astra.dashboard.store import CycleStore
 from astra.interface.state_reader import StateReader
 from astra.pipeline import CycleResult, Pipeline
-from astra.utils.config import DEFAULT_CONFIG
+from astra.utils.config import DEFAULT_CONFIG, SectorDefinition
 from astra.utils.logger import get_logger
 
 # "astra.main" (not __name__, which is "__main__" when run as a script and
@@ -129,7 +130,18 @@ def _print_cycle(result: CycleResult) -> None:
 def main() -> None:
     """Entry point: connect, poll, run the pipeline, and log results continuously."""
     args = _parse_args()
-    config = DEFAULT_CONFIG
+    # Opt-in sector list for the dashboard's "Complexity Forecast" page
+    # (astra.complexity.sector) -- empty by default in DEFAULT_CONFIG, so
+    # that page is a no-op until sectors are named here. Centred on the
+    # same Ho Chi Minh FIR area (~10.8N, 106.7E) as `_setup_mock_traffic`
+    # below and `astra/dashboard/scenario_presets.py`.
+    config = dataclasses.replace(
+        DEFAULT_CONFIG,
+        sectors=[
+            SectorDefinition(name="HCM-S2A", center_lat=10.80, center_lon=106.70, radius_nm=40.0),
+            SectorDefinition(name="HCM-S2B", center_lat=10.95, center_lon=106.55, radius_nm=40.0),
+        ],
+    )
 
     if args.mock:
         _LOG.info("Starting ASTRA in OFFLINE MOCK mode.")
