@@ -1,0 +1,347 @@
+{
+  "preset": "sector_overload",
+  "aircraft_count": 40,
+  "sector_history": {
+    "Sector 1": [
+      {
+        "t_s": 60.0,
+        "aircraft_count": 4,
+        "complexity_score": 49.27746482927569
+      },
+      {
+        "t_s": 300.0,
+        "aircraft_count": 5,
+        "complexity_score": 45.99683103659461
+      },
+      {
+        "t_s": 600.0,
+        "aircraft_count": 6,
+        "complexity_score": 51.31619724391353
+      },
+      {
+        "t_s": 900.0,
+        "aircraft_count": 6,
+        "complexity_score": 42.516197243913524
+      },
+      {
+        "t_s": 1200.0,
+        "aircraft_count": 7,
+        "complexity_score": 39.171445716503435
+      },
+      {
+        "t_s": 1500.0,
+        "aircraft_count": 7,
+        "complexity_score": 31.457920292396427
+      },
+      {
+        "t_s": 1800.0,
+        "aircraft_count": 7,
+        "complexity_score": 31.46078629843834
+      },
+      {
+        "t_s": 2100.0,
+        "aircraft_count": 5,
+        "complexity_score": 29.214892114113972
+      },
+      {
+        "t_s": 2400.0,
+        "aircraft_count": 5,
+        "complexity_score": 31.488899763481328
+      },
+      {
+        "t_s": 2700.0,
+        "aircraft_count": 5,
+        "complexity_score": 30.474513023340513
+      },
+      {
+        "t_s": 3000.0,
+        "aircraft_count": 5,
+        "complexity_score": 30.47503772558491
+      },
+      {
+        "t_s": 3300.0,
+        "aircraft_count": 5,
+        "complexity_score": 35.67536678371162
+      },
+      {
+        "t_s": 3600.0,
+        "aircraft_count": 6,
+        "complexity_score": 31.691798412316246
+      }
+    ],
+    "Sector 2": [
+      {
+        "t_s": 60.0,
+        "aircraft_count": 7,
+        "complexity_score": 53.23556345123245
+      },
+      {
+        "t_s": 300.0,
+        "aircraft_count": 7,
+        "complexity_score": 58.43556345123245
+      },
+      {
+        "t_s": 600.0,
+        "aircraft_count": 8,
+        "complexity_score": 47.95492965855137
+      },
+      {
+        "t_s": 900.0,
+        "aircraft_count": 7,
+        "complexity_score": 40.83556345123245
+      },
+      {
+        "t_s": 1200.0,
+        "aircraft_count": 8,
+        "complexity_score": 44.55492965855137
+      },
+      {
+        "t_s": 1500.0,
+        "aircraft_count": 5,
+        "complexity_score": 42.396831036594605
+      },
+      {
+        "t_s": 1800.0,
+        "aircraft_count": 5,
+        "complexity_score": 37.50831215242215
+      },
+      {
+        "t_s": 2100.0,
+        "aircraft_count": 5,
+        "complexity_score": 33.226414023620194
+      },
+      {
+        "t_s": 2400.0,
+        "aircraft_count": 4,
+        "complexity_score": 23.80627773092244
+      },
+      {
+        "t_s": 2700.0,
+        "aircraft_count": 4,
+        "complexity_score": 37.773080523152636
+      },
+      {
+        "t_s": 3000.0,
+        "aircraft_count": 4,
+        "complexity_score": 22.978197534466513
+      },
+      {
+        "t_s": 3300.0,
+        "aircraft_count": 4,
+        "complexity_score": 22.978197534466513
+      },
+      {
+        "t_s": 3600.0,
+        "aircraft_count": 3,
+        "complexity_score": 22.858815403228498
+      }
+    ],
+    "Sector 5": [
+      {
+        "t_s": 60.0,
+        "aircraft_count": 9,
+        "complexity_score": 55.27429586587029
+      },
+      {
+        "t_s": 300.0,
+        "aircraft_count": 9,
+        "complexity_score": 57.07429586587029
+      },
+      {
+        "t_s": 600.0,
+        "aircraft_count": 9,
+        "complexity_score": 55.27429586587029
+      },
+      {
+        "t_s": 900.0,
+        "aircraft_count": 8,
+        "complexity_score": 44.55492965855137
+      },
+      {
+        "t_s": 1200.0,
+        "aircraft_count": 7,
+        "complexity_score": 47.835563451232446
+      },
+      {
+        "t_s": 1500.0,
+        "aircraft_count": 7,
+        "complexity_score": 40.83556345123245
+      },
+      {
+        "t_s": 1800.0,
+        "aircraft_count": 7,
+        "complexity_score": 40.83556345123245
+      },
+      {
+        "t_s": 2100.0,
+        "aircraft_count": 5,
+        "complexity_score": 40.59683103659461
+      },
+      {
+        "t_s": 2400.0,
+        "aircraft_count": 5,
+        "complexity_score": 40.59683103659461
+      },
+      {
+        "t_s": 2700.0,
+        "aircraft_count": 4,
+        "complexity_score": 34.09701678697529
+      },
+      {
+        "t_s": 3000.0,
+        "aircraft_count": 4,
+        "complexity_score": 34.097583958384526
+      },
+      {
+        "t_s": 3300.0,
+        "aircraft_count": 4,
+        "complexity_score": 34.0981641305913
+      },
+      {
+        "t_s": 3600.0,
+        "aircraft_count": 3,
+        "complexity_score": 14.232674982058104
+      }
+    ],
+    "Sector 6": [
+      {
+        "t_s": 60.0,
+        "aircraft_count": 13,
+        "complexity_score": 64.55176069514597
+      },
+      {
+        "t_s": 300.0,
+        "aircraft_count": 12,
+        "complexity_score": 66.03239448782705
+      },
+      {
+        "t_s": 600.0,
+        "aircraft_count": 8,
+        "complexity_score": 51.55492965855137
+      },
+      {
+        "t_s": 900.0,
+        "aircraft_count": 7,
+        "complexity_score": 44.435563451232454
+      },
+      {
+        "t_s": 1200.0,
+        "aircraft_count": 4,
+        "complexity_score": 40.47746482927569
+      },
+      {
+        "t_s": 1500.0,
+        "aircraft_count": 3,
+        "complexity_score": 21.945880566147807
+      },
+      {
+        "t_s": 1800.0,
+        "aircraft_count": 2,
+        "complexity_score": 20.222907168449865
+      },
+      {
+        "t_s": 2100.0,
+        "aircraft_count": 2,
+        "complexity_score": 20.222203614790935
+      },
+      {
+        "t_s": 2400.0,
+        "aircraft_count": 2,
+        "complexity_score": 14.624154649801426
+      },
+      {
+        "t_s": 2700.0,
+        "aircraft_count": 1,
+        "complexity_score": 2.6193662073189214
+      },
+      {
+        "t_s": 3000.0,
+        "aircraft_count": 1,
+        "complexity_score": 2.6193662073189214
+      },
+      {
+        "t_s": 3300.0,
+        "aircraft_count": 0,
+        "complexity_score": 0.0
+      },
+      {
+        "t_s": 3600.0,
+        "aircraft_count": 0,
+        "complexity_score": 0.0
+      }
+    ],
+    "Sector 7": [
+      {
+        "t_s": 60.0,
+        "aircraft_count": 15,
+        "complexity_score": 45.39049310978382
+      },
+      {
+        "t_s": 300.0,
+        "aircraft_count": 15,
+        "complexity_score": 47.19049310978382
+      },
+      {
+        "t_s": 600.0,
+        "aircraft_count": 16,
+        "complexity_score": 62.90985931710274
+      },
+      {
+        "t_s": 900.0,
+        "aircraft_count": 17,
+        "complexity_score": 66.62922552442166
+      },
+      {
+        "t_s": 1200.0,
+        "aircraft_count": 15,
+        "complexity_score": 52.39049310978382
+      },
+      {
+        "t_s": 1500.0,
+        "aircraft_count": 16,
+        "complexity_score": 66.50985931710274
+      },
+      {
+        "t_s": 1800.0,
+        "aircraft_count": 14,
+        "complexity_score": 58.1658571423614
+      },
+      {
+        "t_s": 2100.0,
+        "aircraft_count": 11,
+        "complexity_score": 43.11302828050813
+      },
+      {
+        "t_s": 2400.0,
+        "aircraft_count": 7,
+        "complexity_score": 41.77206413565396
+      },
+      {
+        "t_s": 2700.0,
+        "aircraft_count": 7,
+        "complexity_score": 39.97462216507947
+      },
+      {
+        "t_s": 3000.0,
+        "aircraft_count": 5,
+        "complexity_score": 27.383097164809506
+      },
+      {
+        "t_s": 3300.0,
+        "aircraft_count": 5,
+        "complexity_score": 29.884136277136324
+      },
+      {
+        "t_s": 3600.0,
+        "aircraft_count": 4,
+        "complexity_score": 27.35612793210194
+      }
+    ]
+  },
+  "peak_sector": {
+    "sector": "Sector 7",
+    "t_s": 900.0,
+    "aircraft_count": 17,
+    "complexity_score": 66.62922552442166
+  }
+}

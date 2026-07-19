@@ -256,6 +256,21 @@ class StateReader:
             callsign, aircraft_type, lat, lon, heading_deg, altitude_ft, speed_kt
         )
 
+    def set_speed_multiplier(self, multiplier: float) -> bool:
+        """Scale how much simulated time each `poll()` advances by (mock
+        only -- see `MockConnector.set_speed_multiplier`). No-op, returns
+        False, on connectors that don't support this (live BlueSky has
+        its own DTMULT stack command for this instead).
+
+        Returns:
+            True if the connector applied it, False if unsupported.
+        """
+        set_fn = getattr(self._connector, "set_speed_multiplier", None)
+        if set_fn is None:
+            return False
+        set_fn(multiplier)
+        return True
+
     def get_route(self, callsign: str) -> Optional[List]:
         """Return one aircraft's remaining filed/cleared route, if known.
 

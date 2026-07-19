@@ -147,7 +147,7 @@ body {
    projection map on the right (spanning both rows), secondary panels
    (aircraft/timeline/coordination) in a footer row below. */
 #tab-dissipation {
-    grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.5fr);
+    grid-template-columns: minmax(320px, 0.55fr) minmax(0, 2.3fr);
     grid-template-areas:
         "alerts map"
         "event  map"
@@ -229,6 +229,10 @@ body {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
+}
+
+.speed-label {
+    margin-left: 14px;
 }
 
 .horizon-btn {
@@ -322,9 +326,15 @@ body {
     color: var(--accent);
 }
 
+#panel-map {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
 #map-canvas {
     width: 100%;
-    height: 480px;
+    height: 100%;
     background: linear-gradient(180deg, #081018, #04080d);
     border: 1px solid rgba(90, 182, 255, 0.18);
     border-radius: 6px;
@@ -333,7 +343,9 @@ body {
 .map-stack {
     position: relative;
     width: 100%;
-    height: 480px;
+    flex: 1 1 auto;
+    min-height: 620px;
+    margin-top: 8px;
     cursor: grab;
     border-radius: 6px;
     overflow: hidden;
@@ -463,6 +475,75 @@ th {
 /* ---------------------------------------------------------------- */
 /* Aircraft panel                                                     */
 /* ---------------------------------------------------------------- */
+
+.manual-clearance-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--panel-border);
+}
+
+.manual-clearance-form select,
+.manual-clearance-form input {
+    font: inherit;
+    font-size: 12px;
+    color: var(--text);
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 5px 7px;
+}
+
+.manual-clearance-form select:focus,
+.manual-clearance-form input:focus {
+    outline: none;
+    border-color: var(--aircraft-pink);
+}
+
+#clearance-callsign {
+    min-width: 100px;
+}
+
+#clearance-value {
+    width: 78px;
+}
+
+.manual-clearance-form button {
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bg);
+    background: var(--aircraft-pink);
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    cursor: pointer;
+}
+
+.manual-clearance-form button:hover {
+    filter: brightness(1.1);
+}
+
+.manual-clearance-form button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.clearance-status {
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+.clearance-status.ok {
+    color: var(--aircraft-pink);
+}
+
+.clearance-status.error {
+    color: var(--red);
+}
 
 .aircraft-list {
     max-height: 220px;

@@ -245,7 +245,8 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
 
     @blueprint.route("/scenario/control", methods=["POST"])
     def control() -> Response:
-        """Body: `{"action": "pause"|"resume"|"step"|"reset"}` (optional `"ticks"` for step)."""
+        """Body: `{"action": "pause"|"resume"|"step"|"reset"|"speed"}`
+        (optional `"ticks"` for step, required `"multiplier"` for speed)."""
         if not _require_mock():
             return _error("Scenario Builder requires --mock mode.", 409)
         body = request.get_json(silent=True) or {}
@@ -259,9 +260,64 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
             reader.step_simulation(ticks)
         elif action == "reset":
             reader.reset_simulation()
+        elif action == "speed":
+            try:
+                multiplier = float(body.get("multiplier", 1.0))
+            except (TypeError, ValueError):
+                return _error(f"multiplier must be numeric, got: {body.get('multiplier')!r}")
+            if multiplier <= 0:
+                return _error("multiplier must be > 0.")
+            reader.set_speed_multiplier(multiplier)
         else:
-            return _error(f"Unknown action '{action}'. Expected pause/resume/step/reset.")
+            return _error(f"Unknown action '{action}'. Expected pause/resume/step/reset/speed.")
         return _ok({"action": action, "running": reader.is_simulation_running()})
+
+    _CLEARANCE_STACK_COMMAND = {"HEADING": "HDG", "FLIGHT_LEVEL": "ALT", "SPEED": "SPD"}
+
+    @blueprint.route("/scenario/clearance", methods=["POST"])
+    def issue_clearance() -> Response:
+        """Body: `{"callsign": str, "clearance_type": "HEADING"|"FLIGHT_LEVEL"|"SPEED", "value": number}`.
+
+        Issues a clearance directly, bypassing `ResolutionEngine` entirely --
+        lets the person play ATCO themselves (turn/climb/descend/speed any
+        aircraft on demand) rather than only ever previewing the engine's
+        own ranked candidates. `value` is the new absolute target (heading
+        in degrees 0-360, altitude in feet, speed in knots), matching this
+        connector's own HDG/ALT/SPD stack-command semantics -- not a delta.
+
+        Deliberately mock-only, same as every other endpoint in this
+        blueprint: this reaches into the simulator directly, which only
+        makes sense against the offline MockConnector used for scenario
+        testing. It does not touch `ResolutionEngine`/`ForecastEngine` in
+        any way -- next poll cycle just observes whatever the aircraft's
+        new state is and reassesses complexity/tracks/forecasts normally,
+        exactly as if the aircraft had always been on this heading/level/
+        speed.
+        """
+        if not _require_mock():
+            return _error("Manual clearances require --mock mode.", 409)
+        body = request.get_json(silent=True) or {}
+        callsign = body.get("callsign")
+        clearance_type = body.get("clearance_type")
+        value = body.get("value")
+        if not callsign or clearance_type not in _CLEARANCE_STACK_COMMAND or value is None:
+            return _error(
+                "Body must include callsign, clearance_type "
+                "(HEADING/FLIGHT_LEVEL/SPEED), and a numeric value."
+            )
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return _error(f"value must be numeric, got: {value!r}")
+        if clearance_type == "HEADING" and not (0.0 <= value < 360.0):
+            return _error("HEADING value must be in [0, 360).")
+        if clearance_type == "FLIGHT_LEVEL" and value < 0:
+            return _error("FLIGHT_LEVEL value (feet) must be >= 0.")
+        if clearance_type == "SPEED" and value <= 0:
+            return _error("SPEED value (knots) must be > 0.")
+        command = _CLEARANCE_STACK_COMMAND[clearance_type]
+        reader.send_command(f"{command} {callsign.upper()} {value}")
+        return _ok({"callsign": callsign.upper(), "clearance_type": clearance_type, "value": value})
 
     # ------------------------------------------------------------------
     # Predefined traffic situations

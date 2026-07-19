@@ -109,6 +109,7 @@ class MockConnector:
             raise ValueError("sim_step_s must be positive")
 
         self._sim_step_s: float = sim_step_s
+        self._speed_multiplier: float = 1.0
         self._simt: float = 0.0
         self._running: bool = False
         self._active: bool = False  # True once connect() called
@@ -132,7 +133,8 @@ class MockConnector:
         _LOG.info("MockConnector: connected (offline mode, no BlueSky needed).")
 
     def poll(self) -> None:
-        """Advance the mock simulation by one `sim_step_s` tick.
+        """Advance the mock simulation by one tick (`sim_step_s` scaled by
+        the current speed multiplier -- see `set_speed_multiplier()`).
 
         If the simulation is running (i.e. `OP` has been sent), each
         aircraft's position is propagated via great-circle dead reckoning.
@@ -141,11 +143,38 @@ class MockConnector:
         """
         with self._lock:
             if self._running:
-                self._simt += self._sim_step_s
-                self._propagate_positions(self._sim_step_s)
+                effective_step_s = self._sim_step_s * self._speed_multiplier
+                self._simt += effective_step_s
+                self._propagate_positions(effective_step_s)
             # Always rebuild the snapshot so callers see the latest static
             # state even if the clock is paused.
             self._latest_snapshot = self._build_snapshot()
+
+    def set_speed_multiplier(self, multiplier: float) -> None:
+        """Scale how much simulated time each `poll()` call advances by.
+
+        E.g. `multiplier=5` with the default 1.0s `sim_step_s` means each
+        `poll()` (still called once per real-world `poll_interval_s`, by
+        whatever loop is driving this connector) advances the simulation
+        clock by 5 simulated seconds instead of 1 -- the traffic, tracks,
+        and forecasts all evolve 5x faster on screen without changing how
+        often the dashboard actually refreshes. Purely a multiplier on
+        `poll()`'s own tick; `step_simulation()` (explicit single/multi-tick
+        stepping, e.g. the Scenario Builder's "step" action) is
+        unaffected, since that already takes an explicit tick count.
+
+        Args:
+            multiplier: Must be > 0. 1.0 is real-time (the default).
+        """
+        if multiplier <= 0:
+            raise ValueError("multiplier must be positive")
+        with self._lock:
+            self._speed_multiplier = multiplier
+
+    def get_speed_multiplier(self) -> float:
+        """Current `poll()` speed multiplier (see `set_speed_multiplier`)."""
+        with self._lock:
+            return self._speed_multiplier
 
     def latest_snapshot(self) -> Optional[TrafficSnapshot]:
         """Return the current traffic state.

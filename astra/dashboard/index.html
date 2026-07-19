@@ -9,7 +9,13 @@
     <!--
         Two-page HMI shell (Complexity Forecast / Dissipation Workspace),
         modeled on the reference ASTRA HMI (EUROCONTROL D2.10 Section 2).
-        Read-only view onto /state -- this page never issues a clearance.
+        Mostly a read-only view onto /state; the one exception is the
+        Aircraft panel's manual clearance form (--mock only), which lets
+        the person issue a heading/level/speed change directly, bypassing
+        ResolutionEngine entirely -- see astra/dashboard/scenario_routes.py
+        POST /scenario/clearance. ResolutionEngine's own candidates remain
+        advisory-only regardless: nothing here ever auto-applies one of
+        its ranked candidates on its own.
     -->
     <header id="hmi-header">
         <div id="hmi-brand">
@@ -105,21 +111,27 @@
             <div id="horizon-scrubber" class="scrubber">
                 <span class="scrubber-label">Horizon</span>
                 <div id="horizon-buttons" class="horizon-buttons" role="group" aria-label="Prediction horizon"></div>
+                <span class="scrubber-label speed-label">Sim speed</span>
+                <div id="speed-buttons" class="horizon-buttons" role="group" aria-label="Simulation speed"></div>
             </div>
-            <p class="panel-hint">
-                Pink marker = traffic at the selected horizon &middot; leader line = heading/speed vector
-                &middot; amber dashed line = predicted path (route-aware where a flight plan is known --
-                turns at waypoints; falls back to straight-line dead reckoning otherwise)
-                &middot; magenta dashed line = proposed resolution's trajectory (whichever candidate is
-                selected in the Event panel below) &middot; soft shaded glow = 4DARHAC complexity area
-                (ring style reflects onset urgency) &middot; dashed grey ring = sector boundary
-                &middot; drag to pan, scroll to zoom, double-click to reset view
-            </p>
         </section>
 
         <div id="dissipation-footer" class="dissipation-footer">
             <section id="panel-aircraft" class="panel panel-aircraft">
                 <h2>Aircraft</h2>
+                <form id="manual-clearance-form" class="manual-clearance-form">
+                    <select id="clearance-callsign" required>
+                        <option value="" disabled selected>Aircraft&hellip;</option>
+                    </select>
+                    <select id="clearance-type">
+                        <option value="HEADING">Heading (deg)</option>
+                        <option value="FLIGHT_LEVEL">Flight level (ft)</option>
+                        <option value="SPEED">Speed (kt)</option>
+                    </select>
+                    <input id="clearance-value" type="number" step="1" placeholder="value" required>
+                    <button type="submit">Send</button>
+                    <span id="clearance-status" class="clearance-status"></span>
+                </form>
                 <div id="aircraft-list" class="aircraft-list">
                     <p class="empty-row">No aircraft in view.</p>
                 </div>
@@ -134,9 +146,11 @@
                 <button id="coordination-toggle" class="collapsible-toggle">Coordination steps (outside ASTRA) &#9662;</button>
                 <div id="coordination-body" class="collapsible-body hidden">
                     <p>
-                        ASTRA is advisory-only: it never issues a clearance. Once an FMP accepts a
-                        dissipation candidate here, the following steps happen outside this tool,
-                        by phone/radio, per current ATFCM practice:
+                        ResolutionEngine itself is advisory-only: it never auto-applies one of its
+                        ranked candidates. Once an FMP accepts a dissipation candidate here, the
+                        following steps happen outside this tool, by phone/radio, per current ATFCM
+                        practice (the Aircraft panel's manual clearance form is a --mock testing
+                        convenience for this workflow, not a substitute for it):
                     </p>
                     <ol>
                         <li>FMP-E coordinates the accepted solution with the ACC supervisor (SUP-E).</li>

@@ -43,6 +43,7 @@
         // localStorage or a fit-to-FIR/traffic computation).
         view: null,
         showAircraftLabels: true,
+        showPredictedPaths: true,
         // Sector polygon features (geo/sectors.json) hidden individually,
         // by their shared "name" property (e.g. "Sector 2 Ho Chi Minh
         // ACC") -- independent of the whole-layer "Sectors" toggle above.
@@ -104,6 +105,29 @@
             });
         }
 
+        // Predicted-path lines (amber dead-reckoning/route-aware + magenta
+        // resolution solution) toggle -- off by default clutter reduction
+        // for busy scenes; the aircraft markers themselves are unaffected.
+        const pathToggle = document.createElement("label");
+        pathToggle.className = "layer-toggle";
+        pathToggle.innerHTML = `
+            <input type="checkbox" id="toggle-predicted-paths" ${ui.showPredictedPaths ? "checked" : ""}>
+            Predicted paths
+        `;
+        container.appendChild(pathToggle);
+        const pathsInput = document.getElementById("toggle-predicted-paths");
+        if (pathsInput) {
+            pathsInput.addEventListener("change", () => {
+                ui.showPredictedPaths = pathsInput.checked;
+                try {
+                    localStorage.setItem("astra_show_predicted_paths_v1", JSON.stringify(ui.showPredictedPaths));
+                } catch (e) {}
+                if (window.__astraLastCycle) {
+                    renderMap(window.__astraLastCycle);
+                }
+            });
+        }
+
         renderSectorToggleRow();
     }
 
@@ -154,6 +178,10 @@
             if (raw !== null) {
                 ui.showAircraftLabels = JSON.parse(raw);
             }
+            const pathsRaw = localStorage.getItem("astra_show_predicted_paths_v1");
+            if (pathsRaw !== null) {
+                ui.showPredictedPaths = JSON.parse(pathsRaw);
+            }
         } catch (e) {
             // ignore
         }
@@ -199,6 +227,33 @@
     function lerpColor(a, b, t) {
         const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
         return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+    }
+
+    /** Apply an alpha to a color regardless of whether it's `#rrggbb` (as
+     * `urgencyColor()` returns) or `rgb(r, g, b)` (as `lerpColor()`/
+     * `complexityColor()` returns) -- always yields `rgba(r, g, b, alpha)`.
+     * The previous string-replace approach (`.replace("rgb","rgba")...`)
+     * silently did nothing on hex input, since neither "rgb" nor ")"
+     * appear in "#e0553c" -- so any region whose ring color came from
+     * `urgencyColor()` (i.e. any track with onset urgency, not just the
+     * plain complexity-score gradient) rendered fully opaque instead of
+     * as a soft glow, however low the alpha argument was. That was the
+     * actual cause of hotspots still looking like solid filled discs.
+     */
+    function withAlpha(color, alpha) {
+        if (color.startsWith("#")) {
+            const hex = color.slice(1);
+            const full = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
+            const r = parseInt(full.slice(0, 2), 16);
+            const g = parseInt(full.slice(2, 4), 16);
+            const b = parseInt(full.slice(4, 6), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+        const match = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+        if (match) {
+            return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha})`;
+        }
+        return color; // unrecognized format -- draw opaque rather than throw
     }
 
     function fmt(value, digits) {
@@ -768,11 +823,9 @@
             // (1.4x) so the fade-out is gradual, not a visible edge.
             const glowRadius = radiusPx * 1.4;
             const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowRadius);
-            const glowColor = ringColor.replace("rgb", "rgba").replace(")", ", 0.14)");
-            const glowColorFaded = ringColor.replace("rgb", "rgba").replace(")", ", 0)");
-            glow.addColorStop(0, glowColor);
-            glow.addColorStop(0.6, ringColor.replace("rgb", "rgba").replace(")", ", 0.06)"));
-            glow.addColorStop(1, glowColorFaded);
+            glow.addColorStop(0, withAlpha(ringColor, 0.12));
+            glow.addColorStop(0.6, withAlpha(ringColor, 0.05));
+            glow.addColorStop(1, withAlpha(ringColor, 0));
             ctx.beginPath();
             ctx.fillStyle = glow;
             ctx.arc(cx, cy, glowRadius, 0, Math.PI * 2);
@@ -792,7 +845,7 @@
             // that reads clearly even on a once-per-poll redraw.
             if (bucket === "soon") {
                 ctx.beginPath();
-                ctx.strokeStyle = ringColor.replace("rgb", "rgba").replace(")", ", 0.4)");
+                ctx.strokeStyle = withAlpha(ringColor, 0.4);
                 ctx.lineWidth = 1;
                 ctx.arc(cx, cy, radiusPx + 5, 0, Math.PI * 2);
                 ctx.stroke();
@@ -814,6 +867,25 @@
     }
 
     /** The resolution candidate currently being previewed in the Event
+     * panel (whichever track is focused there, whichever chip is active),
+     * or null if no track is focused / it has no eligible candidates.
+     * Shared by `drawResolutionSolutionPath` (the magenta line) and
+     * `drawScrubbedTraffic` (so the target aircraft's marker at a future
+     * horizon reflects the proposed clearance instead of "do nothing"). */
+    function getActiveResolutionCandidate(cycle) {
+        const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
+        if (!track) {
+            return null;
+        }
+        const rs = cycle.resolution_sets.find((r) => r.arhac_id === track.arhac_id);
+        if (!rs || rs.candidates.length === 0) {
+            return null;
+        }
+        const activeIdx = Math.min(ui.selectedCandidateIndex[track.arhac_id] || 0, rs.candidates.length - 1);
+        return rs.candidates[activeIdx];
+    }
+
+    /** The resolution candidate currently being previewed in the Event
      * panel (whichever track is focused there, whichever chip is active) --
      * drawn on the map as a magenta line so it's clear which way the
      * proposed clearance actually sends the aircraft, not just that a
@@ -830,17 +902,8 @@
      * change (multi-leg candidate generation), not just a rendering one.
      */
     function drawResolutionSolutionPath(ctx, project, cycle) {
-        const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
-        if (!track) {
-            return;
-        }
-        const rs = cycle.resolution_sets.find((r) => r.arhac_id === track.arhac_id);
-        if (!rs || rs.candidates.length === 0) {
-            return;
-        }
-        const activeIdx = Math.min(ui.selectedCandidateIndex[track.arhac_id] || 0, rs.candidates.length - 1);
-        const candidate = rs.candidates[activeIdx];
-        if (!candidate.hypothetical_path || candidate.hypothetical_path.length === 0) {
+        const candidate = getActiveResolutionCandidate(cycle);
+        if (!candidate || !candidate.hypothetical_path || candidate.hypothetical_path.length === 0) {
             return;
         }
         const observed = cycle.snapshot.aircraft.find((ac) => ac.callsign === candidate.target_callsign);
@@ -979,8 +1042,22 @@
             });
             return;
         }
+        // If a resolution candidate is currently being previewed, its
+        // target aircraft is drawn at the *hypothetical* (post-clearance)
+        // position instead of the do-nothing prediction, in the solution
+        // color -- so scrubbing the horizon forward actually shows the
+        // aircraft turning onto the proposed heading, matching the
+        // magenta line drawn by `drawResolutionSolutionPath`. Every other
+        // aircraft is unaffected (still the plain predicted position).
+        const candidate = getActiveResolutionCandidate(cycle);
+        const hypoPoint =
+            candidate && candidate.hypothetical_path
+                ? candidate.hypothetical_path.find((p) => p.horizon_min === horizonMin)
+                : null;
+
         Object.entries(cycle.prediction.paths).forEach(([callsign, points]) => {
-            const atHorizon = points.find((p) => p.horizon_min === horizonMin);
+            const isHypoTarget = candidate && callsign === candidate.target_callsign && hypoPoint;
+            const atHorizon = isHypoTarget ? hypoPoint : points.find((p) => p.horizon_min === horizonMin);
             if (!atHorizon) {
                 return;
             }
@@ -989,7 +1066,7 @@
                 ctx,
                 project,
                 { callsign, lat: atHorizon.lat, lon: atHorizon.lon, altitude_ft: atHorizon.altitude_ft },
-                { color: h ? h.color : "#e0a63c", showHeading: false }
+                { color: isHypoTarget ? SOLUTION_COLOR : h ? h.color : "#e0a63c", showHeading: false }
             );
         });
     }
@@ -1066,8 +1143,10 @@
         drawSectorBoundaries(ctx, project, bounds, width, cycle.sector_regions);
         const regionsAtHorizon = cycle.regions_by_horizon[String(ui.selectedHorizon)] || [];
         drawComplexityRegions(ctx, project, bounds, width, regionsAtHorizon, cycle);
-        drawPredictedPaths(ctx, project, cycle);
-        drawResolutionSolutionPath(ctx, project, cycle);
+        if (ui.showPredictedPaths) {
+            drawPredictedPaths(ctx, project, cycle);
+            drawResolutionSolutionPath(ctx, project, cycle);
+        }
     }
 
     /** Animated overlay -- aircraft markers only, redrawn every animation
@@ -1187,6 +1266,108 @@
         }
     }
 
+    /** One-time wiring for the Aircraft panel's manual clearance form
+     * (--mock only). The dropdown's options are refreshed on every
+     * `renderAircraftPanel()` call, not here -- this only attaches the
+     * submit handler. */
+    function setupManualClearanceForm() {
+        const form = document.getElementById("manual-clearance-form");
+        const status = document.getElementById("clearance-status");
+        const button = form.querySelector("button");
+        form.addEventListener("submit", async (evt) => {
+            evt.preventDefault();
+            const callsign = document.getElementById("clearance-callsign").value;
+            const clearanceType = document.getElementById("clearance-type").value;
+            const rawValue = document.getElementById("clearance-value").value;
+            if (!callsign || rawValue === "") {
+                status.textContent = "Pick an aircraft and a value.";
+                status.className = "clearance-status error";
+                return;
+            }
+            button.disabled = true;
+            status.textContent = "Sending\u2026";
+            status.className = "clearance-status";
+            try {
+                const resp = await fetch("/scenario/clearance", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ callsign, clearance_type: clearanceType, value: Number(rawValue) }),
+                });
+                const body = await resp.json().catch(() => ({}));
+                if (!resp.ok) {
+                    throw new Error(body.error || `HTTP ${resp.status}`);
+                }
+                status.textContent = `${callsign}: ${clearanceType} \u2192 ${rawValue} sent.`;
+                status.className = "clearance-status ok";
+                document.getElementById("clearance-value").value = "";
+            } catch (err) {
+                status.textContent = `Failed: ${err.message}`;
+                status.className = "clearance-status error";
+            } finally {
+                button.disabled = false;
+            }
+        });
+    }
+
+    /** Keep the manual-clearance callsign dropdown in sync with current
+     * traffic, preserving whatever the user has selected across polls
+     * (rebuilding options every cycle would otherwise reset it). */
+    function syncClearanceCallsignOptions(aircraft) {
+        const select = document.getElementById("clearance-callsign");
+        if (!select) {
+            return;
+        }
+        const previousValue = select.value;
+        const callsigns = aircraft.map((ac) => ac.callsign).sort();
+        const optionsKey = callsigns.join(",");
+        if (select.dataset.optionsKey === optionsKey) {
+            return;
+        }
+        select.dataset.optionsKey = optionsKey;
+        select.innerHTML =
+            '<option value="" disabled>Aircraft&hellip;</option>' +
+            callsigns.map((cs) => `<option value="${cs}">${cs}</option>`).join("");
+        if (callsigns.includes(previousValue)) {
+            select.value = previousValue;
+        }
+    }
+
+    /** Simulation-speed button group (--mock only; a 409 from the server
+     * just means "not running --mock", which the status text reports).
+     * Purely a multiplier on how much sim-time each poll advances by --
+     * see MockConnector.set_speed_multiplier -- so it speeds up how fast
+     * tracks/forecasts play out without changing how often the browser
+     * itself refreshes. */
+    const SPEED_MULTIPLIERS = [1, 2, 5, 10, 20];
+
+    function setupSpeedButtons() {
+        const container = document.getElementById("speed-buttons");
+        if (!container) {
+            return;
+        }
+        container.innerHTML = SPEED_MULTIPLIERS.map(
+            (x) => `<button type="button" class="horizon-btn${x === 1 ? " active" : ""}" data-speed="${x}">${x}x</button>`
+        ).join("");
+        container.addEventListener("click", async (evt) => {
+            const btn = evt.target.closest(".horizon-btn");
+            if (!btn) {
+                return;
+            }
+            const multiplier = Number(btn.dataset.speed);
+            container.querySelectorAll(".horizon-btn").forEach((b) => b.classList.toggle("active", b === btn));
+            try {
+                await fetch("/scenario/control", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "speed", multiplier }),
+                });
+            } catch (e) {
+                // Live-BlueSky mode or server hiccup -- button state already
+                // reflects the click; nothing further to show here.
+            }
+        });
+    }
+
     /** All currently-observed aircraft, sorted callsign-wise, each with an
      * urgency badge colour (shared with the map highlight/hotspot rings)
      * when the aircraft belongs to an open track. Click a row to pan the
@@ -1197,6 +1378,7 @@
             return;
         }
         const aircraft = [...cycle.snapshot.aircraft].sort((a, b) => a.callsign.localeCompare(b.callsign));
+        syncClearanceCallsignOptions(aircraft);
         if (aircraft.length === 0) {
             container.innerHTML = '<p class="empty-row">No aircraft in view.</p>';
             return;
@@ -1815,6 +1997,8 @@
         setupTabs();
         setupCoordinationToggle();
         setupHorizonScrubber();
+        setupSpeedButtons();
+        setupManualClearanceForm();
         setupMapInteraction();
         loadPersistedUiPrefs();
         geoLayers.init().then(() => {

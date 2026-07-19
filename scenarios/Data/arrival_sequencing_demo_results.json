@@ -1,0 +1,89 @@
+{
+  "preset": "arrival_sequencing",
+  "observed_region": {
+    "members": [
+      "HVN123",
+      "VJC456"
+    ],
+    "complexity_score": 35.00017584200954,
+    "forecast_onset_threshold": 50.0
+  },
+  "score_by_horizon_min": {
+    "0": 35.00017584200954,
+    "5": 35.00000247998834,
+    "10": 46.036079480722876,
+    "15": 35.0,
+    "20": 35.0,
+    "30": 35.0,
+    "40": 36.8,
+    "50": 42.0,
+    "60": 42.0
+  },
+  "resolution_candidates": [
+    {
+      "clearance_type": "SPEED",
+      "delta_value": 20.0,
+      "resolution_score": 0.21409286137284392,
+      "complexity_before": 36.8,
+      "complexity_after": 12.438877639053356
+    },
+    {
+      "clearance_type": "SPEED",
+      "delta_value": -20.0,
+      "resolution_score": 0.17518759537284942,
+      "complexity_before": 36.8,
+      "complexity_after": 15.041993618689345
+    },
+    {
+      "clearance_type": "HEADING",
+      "delta_value": 15.0,
+      "resolution_score": -0.15,
+      "complexity_before": 36.8,
+      "complexity_after": null
+    },
+    {
+      "clearance_type": "HEADING",
+      "delta_value": -15.0,
+      "resolution_score": -0.15,
+      "complexity_before": 36.8,
+      "complexity_after": null
+    },
+    {
+      "clearance_type": "FLIGHT_LEVEL",
+      "delta_value": 1000.0,
+      "resolution_score": -0.25,
+      "complexity_before": 36.8,
+      "complexity_after": 40.55017584200954
+    },
+    {
+      "clearance_type": "FLIGHT_LEVEL",
+      "delta_value": -1000.0,
+      "resolution_score": -0.25,
+      "complexity_before": 36.8,
+      "complexity_after": 40.55017584200954
+    }
+  ],
+  "baseline_simulation": {
+    "closest_approach_s": {
+      "HVN123": 2220.0,
+      "VJC456": 2250.0
+    },
+    "closest_approach_nm": {
+      "HVN123": 0.43243529378424167,
+      "VJC456": 0.4425647062218067
+    },
+    "transfer_gap_s": 30.0
+  },
+  "intervention_simulation": {
+    "adjustment": "SPD VJC456 -20kt for t in [300s, 900s]",
+    "closest_approach_s": {
+      "HVN123": 2220.0,
+      "VJC456": 2295.0
+    },
+    "closest_approach_nm": {
+      "HVN123": 0.43243529378424167,
+      "VJC456": 0.37173137288939806
+    },
+    "transfer_gap_s": 75.0
+  }
+}

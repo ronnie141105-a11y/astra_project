@@ -1,0 +1,341 @@
+{
+  "preset": "crossing_airways",
+  "cycles": [
+    {
+      "t_s": 30.0,
+      "observed_clusters": [
+        {
+          "members": [
+            "HVN701",
+            "QH703"
+          ],
+          "score": 34.67432893741495
+        }
+      ],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "CANDIDATE",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 34.67432893741495
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 60.0,
+      "observed_clusters": [
+        {
+          "members": [
+            "HVN701",
+            "QH703"
+          ],
+          "score": 44.257291402562544
+        }
+      ],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "CONFIRMED",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 44.257291402562544
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 90.0,
+      "observed_clusters": [
+        {
+          "members": [
+            "HVN701",
+            "QH703"
+          ],
+          "score": 50.06399968540265
+        }
+      ],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "GROWING",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 120.0,
+      "observed_clusters": [
+        {
+          "members": [
+            "HVN701",
+            "QH703"
+          ],
+          "score": 50.06348190910718
+        }
+      ],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "PEAK",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 150.0,
+      "observed_clusters": [
+        {
+          "members": [
+            "HVN701",
+            "QH703"
+          ],
+          "score": 50.06296272809009
+        }
+      ],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "PEAK",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 180.0,
+      "observed_clusters": [
+        {
+          "members": [
+            "HVN701",
+            "QH703"
+          ],
+          "score": 50.06244214351052
+        }
+      ],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "PEAK",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 210.0,
+      "observed_clusters": [
+        {
+          "members": [
+            "HVN701",
+            "QH703"
+          ],
+          "score": 50.06244214351052
+        }
+      ],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "PEAK",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 240.0,
+      "observed_clusters": [
+        {
+          "members": [
+            "HVN701",
+            "QH703"
+          ],
+          "score": 44.86244214351052
+        }
+      ],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "DISSIPATING",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 270.0,
+      "observed_clusters": [
+        {
+          "members": [
+            "HVN701",
+            "QH703"
+          ],
+          "score": 36.822796797583166
+        }
+      ],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "DISSIPATING",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 300.0,
+      "observed_clusters": [
+        {
+          "members": [
+            "HVN701",
+            "QH703"
+          ],
+          "score": 27.466785425331715
+        }
+      ],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "DISSIPATING",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 330.0,
+      "observed_clusters": [
+        {
+          "members": [
+            "HVN701",
+            "QH703"
+          ],
+          "score": 22.717638460388173
+        }
+      ],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "DISSIPATING",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 360.0,
+      "observed_clusters": [
+        {
+          "members": [
+            "HVN701",
+            "QH703"
+          ],
+          "score": 19.98135797815922
+        }
+      ],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "DISSIPATING",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 390.0,
+      "observed_clusters": [],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "DISSIPATING",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 420.0,
+      "observed_clusters": [],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "DISSIPATING",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 450.0,
+      "observed_clusters": [],
+      "tracks": [
+        {
+          "arhac_id": "46f6dc3e-8954-4698-8991-4eeddbe13826",
+          "status": "CLOSED",
+          "predicted_onset_s": null,
+          "urgency_rank": null,
+          "peak_complexity": 50.06399968540265
+        }
+      ],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 480.0,
+      "observed_clusters": [],
+      "tracks": [],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 510.0,
+      "observed_clusters": [],
+      "tracks": [],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 540.0,
+      "observed_clusters": [],
+      "tracks": [],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 570.0,
+      "observed_clusters": [],
+      "tracks": [],
+      "resolution_candidates": []
+    },
+    {
+      "t_s": 600.0,
+      "observed_clusters": [],
+      "tracks": [],
+      "resolution_candidates": []
+    }
+  ]
+}

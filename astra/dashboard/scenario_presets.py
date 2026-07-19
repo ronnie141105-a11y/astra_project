@@ -57,31 +57,39 @@ lines diverge after a turn, not to trigger tracking/resolution (compare
 "CONV1"/"CONV2" in `scripts/evaluate_trajectory_predictors.py`, which
 uses the same routes for the formal, non-visual version of this
 comparison).
+
+Operational (geo-based) scenarios
+----------------------------------
+`arrival_sequencing`, `sector_overload` and `crossing_airways` are a
+different family, built by `scenario_presets_operational.py` on top of
+`scenario_geo.py`'s helpers instead of hand-picked coordinates. Where
+every preset above exists to reliably exercise one pipeline stage with
+illustrative geometry, these three exist to answer a specific
+question: *what can ASTRA show 30-60 minutes before an ATCO would
+normally have to intervene* -- so they use real waypoints/airways from
+`geo/airways.json`, real sector polygons from `geo/sectors.json`, and
+distances/speeds chosen so the relevant prediction genuinely sits in
+that medium-term window, not seconds away.
+
+They still have to respect the same two structural constraints as
+everything else in this file (a track can only open from a horizon-0
+cluster; cruise-speed encounters can close within a single horizon), so
+none of them start with zero existing proximity -- each has some
+subset of its aircraft within clustering range *now*, with the
+medium-term story coming from what is still approaching, not yet
+close. See each builder function's own docstring in
+`scenario_presets_operational.py` for the exact reasoning, and
+`scenarios/{arrival_sequencing,sector_overload,crossing_airways}_demo.py`
+for scripts that run each preset through the real pipeline (via
+`MockConnector`, no BlueSky) and record what ASTRA actually predicts.
 """
 
-from typing import Dict, List, Optional, Tuple, TypedDict
+from typing import Dict, List
 
+from astra.dashboard import scenario_presets_operational as operational
+from astra.dashboard.scenario_types import Preset, PresetAircraft
 
-class PresetAircraft(TypedDict, total=False):
-    callsign: str
-    aircraft_type: str
-    lat: float
-    lon: float
-    heading_deg: float
-    altitude_ft: float
-    speed_kt: float
-    #: Optional ordered [(lat, lon), ...] remaining route -- when present,
-    #: the aircraft is created as route-following (see
-    #: astra.trajectory.route_engine.RouteAwareTrajectoryEngine) instead
-    #: of plain dead reckoning. Omit for a normal constant-heading aircraft.
-    route_waypoints: Optional[List[Tuple[float, float]]]
-
-
-class Preset(TypedDict):
-    key: str
-    label: str
-    description: str
-    aircraft: List[PresetAircraft]
+__all__ = ["PresetAircraft", "Preset", "PRESETS", "list_presets", "get_preset"]
 
 
 _CENTER_LAT = 10.82
@@ -419,6 +427,64 @@ PRESETS: Dict[str, Preset] = {
             {"callsign": "THA407", "aircraft_type": "B738", "lat": 10.54995, "lon": 106.51942, "heading_deg": 270.0, "altitude_ft": 37500, "speed_kt": 118},
             {"callsign": "CPA408", "aircraft_type": "A321", "lat": 10.54995, "lon": 106.18058, "heading_deg": 90.0, "altitude_ft": 37000, "speed_kt": 124},
         ],
+    },
+    # ---- Operational (geo-based) scenarios -------------------------------
+    # Built from the real published airway/sector network in
+    # astra/dashboard/geo/ via scenario_presets_operational.py, instead of
+    # hand-picked demo coordinates -- see that module's docstring and each
+    # builder function for the operational story and the numbers behind it.
+    # These exist to demonstrate ASTRA's actual value proposition -- what
+    # it can show 30-60 minutes before an ATCO would normally have to
+    # intervene -- rather than tactical (already-close) conflicts.
+    "arrival_sequencing": {
+        "key": "arrival_sequencing",
+        "label": "Arrival sequencing / transfer coordination",
+        "description": (
+            "Two aircraft in-trail on real airway W1 (MEVON-BMT-ENRIN-AC-"
+            "ESDOB-TSH), 5 NM apart, same level, near-identical speed -- "
+            "fully separation-compliant, but on track to reach the "
+            "sector-boundary fix AC (and its handoff) within about a "
+            "minute of each other, ~35-40 min from now. A flow/workload "
+            "problem, not a conflict: track opens and grows immediately "
+            "but complexity plateaus in the low 40s (identical heading/alt "
+            "structurally zeroes two of the five complexity components) -- "
+            "deliberately stays below the 50-pt alert line. See "
+            "scenarios/arrival_sequencing_demo.py for the proposed "
+            "sequencing vector and its before/after spacing at AC."
+        ),
+        "aircraft": operational.arrival_sequencing_aircraft(),
+    },
+    "sector_overload": {
+        "key": "sector_overload",
+        "label": "Sector overload (~40 aircraft)",
+        "description": (
+            "~40 aircraft on 11 real route segments across HCM ACC "
+            "Sectors 1, 2, 5, 6 and 7 -- overflights, arrivals and "
+            "departures (including reverse-direction traffic on the same "
+            "airway), realistic in-trail spacing, varied cruise levels. "
+            "No sector is already overloaded now; several independently "
+            "unremarkable flows converge on Sectors 6/7 over the next "
+            "30-60 min, an emergent density peak SectorComplexityEngine "
+            "is built to trend ahead of time. See "
+            "scenarios/sector_overload_demo.py for the measured "
+            "per-sector complexity/count trend."
+        ),
+        "aircraft": operational.sector_overload_aircraft(),
+    },
+    "crossing_airways": {
+        "key": "crossing_airways",
+        "label": "Crossing airways at AC",
+        "description": (
+            "Three real inbound flows converging on waypoint AC -- W1 "
+            "from the NNE, W2 from due east, W15 from the ENE -- each "
+            "contributing a lead aircraft (~12 NM out, forming one cluster "
+            "now with no separation loss) and a trailing aircraft ~30-36 "
+            "min out on the same airway. A genuine medium-term hotspot: "
+            "no emergency now, but sustained crossing traffic as the next "
+            "wave arrives. See scenarios/crossing_airways_demo.py for the "
+            "measured onset horizon and proposed strategic adjustments."
+        ),
+        "aircraft": operational.crossing_airways_aircraft(),
     },
 }
 
