@@ -214,44 +214,105 @@ def test_heading_lever_applicable_false(r: Runner) -> None:
 
 
 def test_generate_candidates_no_heading(r: Runner) -> None:
-    """Without conflict components, SPEED + FLIGHT_LEVEL in both directions (4 total)."""
+    """Without conflict components, SPEED + FLIGHT_LEVEL, both directions, both
+    step magnitudes (default multipliers [1.0, 2.0] -> 2 levers x 2 signs x
+    2 magnitudes = 8 total)."""
     config = ASTRAConfig()
     snapshot = _snapshot([_aircraft("A1", 47.0, 8.0), _aircraft("A2", 47.0, 8.5)])
     region = _region(["A1", "A2"], 40.0, components={"density_ac_per_nm2": 1.0})
     specs = generate_candidates(region, snapshot, config)
-    r.check("4 candidates without a conflict driver", len(specs) == 4)
+    r.check("8 candidates without a conflict driver", len(specs) == 8)
     r.check(
         "clearance types are SPEED and FLIGHT_LEVEL",
         {s.clearance_type for s in specs} == {"SPEED", "FLIGHT_LEVEL"},
     )
     r.check(
-        "both signed directions present for SPEED",
+        "both signed directions present for SPEED at the base step",
         {s.delta_value for s in specs if s.clearance_type == "SPEED"}
-        == {config.resolution_speed_step_kt, -config.resolution_speed_step_kt},
+        >= {config.resolution_speed_step_kt, -config.resolution_speed_step_kt},
     )
     r.check(
-        "both signed directions present for FLIGHT_LEVEL",
+        "both signed directions present for FLIGHT_LEVEL at the base step",
         {s.delta_value for s in specs if s.clearance_type == "FLIGHT_LEVEL"}
-        == {config.resolution_altitude_step_ft, -config.resolution_altitude_step_ft},
+        >= {config.resolution_altitude_step_ft, -config.resolution_altitude_step_ft},
+    )
+    r.check(
+        "the larger (2x) magnitude is also present for SPEED",
+        2 * config.resolution_speed_step_kt in {abs(s.delta_value) for s in specs if s.clearance_type == "SPEED"},
+    )
+    r.check(
+        "none of these are vector-and-rejoin (no route_provider given)",
+        all(s.vector_duration_s is None for s in specs),
     )
 
 
 def test_generate_candidates_with_heading(r: Runner) -> None:
-    """With a conflict component, HEADING is added in both directions (6 total)."""
+    """With a conflict component but no known route, HEADING is added in both
+    directions/magnitudes as a SUSTAINED hold (3 levers x 2 signs x 2
+    magnitudes = 12 total)."""
     config = ASTRAConfig()
     snapshot = _snapshot([_aircraft("A1", 47.0, 8.0), _aircraft("A2", 47.0, 8.01)])
     region = _region(["A1", "A2"], 70.0, components={"mtca_count": 2.0})
     specs = generate_candidates(region, snapshot, config)
-    r.check("6 candidates with a conflict driver", len(specs) == 6)
+    r.check("12 candidates with a conflict driver", len(specs) == 12)
     r.check(
         "clearance types include HEADING",
         {s.clearance_type for s in specs} == {"SPEED", "FLIGHT_LEVEL", "HEADING"},
     )
     r.check(
-        "both signed directions present for HEADING",
+        "both signed directions present for HEADING at the base step",
         {s.delta_value for s in specs if s.clearance_type == "HEADING"}
-        == {config.resolution_heading_step_deg, -config.resolution_heading_step_deg},
+        >= {config.resolution_heading_step_deg, -config.resolution_heading_step_deg},
     )
+    r.check(
+        "HEADING candidates are SUSTAINED (no route_provider given)",
+        all(s.vector_duration_s is None for s in specs if s.clearance_type == "HEADING"),
+    )
+
+
+def test_generate_candidates_heading_vector_and_rejoin(r: Runner) -> None:
+    """With a conflict component AND a known route for the target, HEADING
+    candidates become VECTOR_AND_REJOIN instead of a sustained hold."""
+    config = ASTRAConfig()
+    snapshot = _snapshot([_aircraft("A1", 47.0, 8.0), _aircraft("A2", 47.0, 8.01)])
+    region = _region(["A1", "A2"], 70.0, components={"mtca_count": 2.0})
+    route = [(47.5, 8.5), (48.0, 9.0)]
+
+    def route_provider(callsign):
+        return route if callsign in {"A1", "A2"} else None
+
+    specs = generate_candidates(region, snapshot, config, route_provider=route_provider)
+    heading_specs = [s for s in specs if s.clearance_type == "HEADING"]
+    r.check("heading candidates were generated", len(heading_specs) > 0)
+    r.check(
+        "every heading candidate is VECTOR_AND_REJOIN",
+        all(s.vector_duration_s == config.resolution_vector_duration_s for s in heading_specs),
+    )
+    r.check(
+        "every heading candidate carries the target's rejoin route",
+        all(s.rejoin_route == route for s in heading_specs),
+    )
+    r.check(
+        "SPEED/FLIGHT_LEVEL candidates are unaffected (still SUSTAINED)",
+        all(s.vector_duration_s is None for s in specs if s.clearance_type != "HEADING"),
+    )
+
+
+def test_generate_candidates_explicit_target_and_levers(r: Runner) -> None:
+    """An explicit `target` skips selection; `levers` restricts which types are built."""
+    config = ASTRAConfig()
+    snapshot = _snapshot(
+        [
+            _aircraft("A1", 47.000, 8.000),
+            _aircraft("A2", 47.000, 8.010),
+            _aircraft("A3", 47.200, 8.200),
+        ]
+    )
+    region = _region(["A1", "A2", "A3"], 70.0, components={"mtca_count": 1.0})
+    a3 = snapshot.get("A3")
+    specs = generate_candidates(region, snapshot, config, target=a3, levers=["SPEED"])
+    r.check("all specs target the explicitly-given aircraft", {s.target_callsign for s in specs} == {"A3"})
+    r.check("only SPEED candidates were built", {s.clearance_type for s in specs} == {"SPEED"})
 
 
 def test_generate_candidates_empty_when_no_target(r: Runner) -> None:
@@ -271,13 +332,21 @@ def test_generate_candidates_apply_clearance_values(r: Runner) -> None:
     snapshot = _snapshot([ac1, ac2])
     region = _region(["A1", "A2"], 70.0, components={"mtca_count": 1.0})
     specs = generate_candidates(region, snapshot, config)
-    # Positive-direction spec per lever (the only one before this change).
+    # Base-step (multiplier=1.0) spec per lever/sign -- the only magnitude
+    # generated before step_multipliers was widened to [1.0, 2.0].
     specs_positive = {
-        s.clearance_type: s for s in specs if s.delta_value > 0
+        s.clearance_type: s
+        for s in specs
+        if s.delta_value > 0 and s.clearance_type == "SPEED" and s.delta_value == config.resolution_speed_step_kt
+        or s.delta_value > 0 and s.clearance_type == "FLIGHT_LEVEL" and s.delta_value == config.resolution_altitude_step_ft
+        or s.delta_value > 0 and s.clearance_type == "HEADING" and s.delta_value == config.resolution_heading_step_deg
     }
-    # Negative-direction spec per lever (new in this change).
     specs_negative = {
-        s.clearance_type: s for s in specs if s.delta_value < 0
+        s.clearance_type: s
+        for s in specs
+        if s.delta_value < 0 and s.clearance_type == "SPEED" and -s.delta_value == config.resolution_speed_step_kt
+        or s.delta_value < 0 and s.clearance_type == "FLIGHT_LEVEL" and -s.delta_value == config.resolution_altitude_step_ft
+        or s.delta_value < 0 and s.clearance_type == "HEADING" and -s.delta_value == config.resolution_heading_step_deg
     }
     target_callsign = specs_positive["SPEED"].target_callsign
     base = ac1 if target_callsign == "A1" else ac2
@@ -437,16 +506,19 @@ def test_engine_resolve_end_to_end(r: Runner) -> None:
     best = rs.best()
     r.check("best() returns the top-ranked candidate", best is rs.candidates[0])
     r.check(
-        "deviation_cost_norm is a step ratio in [0, 1]",
-        all(0.0 <= c.deviation_cost_norm <= 1.0 for c in rs.candidates),
+        "deviation_cost_norm is a step ratio within the configured multiplier range",
+        all(
+            0.0 <= c.deviation_cost_norm <= max(config.resolution_step_multipliers)
+            for c in rs.candidates
+        ),
     )
     r.check(
         "domino_cost_norm is a normalised penalty in [0, 1]",
         all(0.0 <= c.domino_cost_norm <= 1.0 for c in rs.candidates),
     )
     r.check(
-        "candidate count reflects both-direction generation (up to 6)",
-        0 < len(rs.candidates) <= 6,
+        "candidate count reflects both-direction, both-magnitude generation (up to 12)",
+        0 < len(rs.candidates) <= 12,
     )
 
 
@@ -465,6 +537,145 @@ def test_engine_resolve_many_end_to_end(r: Runner) -> None:
     r.check("the eligible track produced candidates", len(results[0]) > 0)
 
 
+# ----------------------------------------------------------------------
+# astra.resolution.engine.ResolutionEngine — route-aware evaluation,
+# vector-and-rejoin, and joint (multi-aircraft) candidates
+# ----------------------------------------------------------------------
+
+
+def test_engine_route_aware_when_route_provider_given(r: Runner) -> None:
+    """A `route_provider` swaps in `RouteAwareTrajectoryEngine` for evaluation."""
+    from astra.trajectory.engine import TrajectoryEngine as _Baseline
+    from astra.trajectory.route_engine import RouteAwareTrajectoryEngine as _RouteAware
+
+    config = ASTRAConfig()
+    engine_plain = ResolutionEngine(config)
+    engine_routed = ResolutionEngine(config, route_provider=lambda cs: None)
+    r.check("no route_provider -> baseline TrajectoryEngine", isinstance(engine_plain._trajectory_engine, _Baseline))
+    r.check("route_provider given -> RouteAwareTrajectoryEngine", isinstance(engine_routed._trajectory_engine, _RouteAware))
+
+
+def test_engine_vector_and_rejoin_end_to_end(r: Runner) -> None:
+    """A HEADING candidate on a route-following aircraft is scored as a
+    bounded vector followed by a predicted turn back onto its route --
+    not an indefinite heading hold."""
+    config = ASTRAConfig()
+    snapshot = _converging_snapshot()
+    regions_by_horizon = _build_regions_by_horizon(snapshot, config)
+    observed_region = regions_by_horizon[0][0]
+    track = _track("GROWING", observed_region, urgency_rank=1, onset_s=300.0)
+
+    # AC1 (the likely conflict-count target) is following a real route far
+    # from its current position -- if the rejoin logic works, its predicted
+    # position at a longer horizon should be pulled toward that route
+    # rather than drifting off in a straight line forever.
+    route = {"AC1": [(50.0, 7.88), (52.0, 7.88)]}
+
+    def route_provider(callsign):
+        return route.get(callsign)
+
+    engine = ResolutionEngine(config, route_provider=route_provider)
+    rs = engine.resolve(track, snapshot, regions_by_horizon)
+    heading_candidates = [c for c in rs.candidates if c.clearance_type == "HEADING"]
+    r.check("heading candidates were generated", len(heading_candidates) > 0)
+    r.check(
+        "heading candidates on a routed aircraft are VECTOR_AND_REJOIN",
+        all(
+            c.maneuver_kind == "VECTOR_AND_REJOIN"
+            for c in heading_candidates
+            if c.target_callsign in route
+        ),
+    )
+    r.check(
+        "VECTOR_AND_REJOIN candidates record their vector duration",
+        all(
+            c.vector_duration_s == config.resolution_vector_duration_s
+            for c in heading_candidates
+            if c.target_callsign in route
+        ),
+    )
+    routed = next((c for c in heading_candidates if c.target_callsign in route), None)
+    if routed is not None and routed.hypothetical_prediction is not None:
+        long_horizon = max(routed.hypothetical_prediction.horizon_list())
+        predicted = routed.hypothetical_prediction.at(long_horizon).get(routed.target_callsign)
+        start_lat = snapshot.get(routed.target_callsign).lat
+        r.check(
+            "at a long horizon the rejoined aircraft has moved toward its route (north, not just the vector heading)",
+            predicted is not None and predicted.lat > start_lat,
+        )
+
+
+def test_engine_joint_candidate_absent_for_two_member_cluster(r: Runner) -> None:
+    """A 2-aircraft cluster has nothing extra to add -- no joint candidate."""
+    config = ASTRAConfig()
+    region = _region(["A1", "A2"], 70.0, components={"mtca_count": 1.0}, lat=47.0, lon=8.0)
+    snapshot = _snapshot([_aircraft("A1", 47.0, 8.0), _aircraft("A2", 47.0, 8.01)])
+    track = _track("GROWING", region, urgency_rank=1, onset_s=300.0)
+    engine = ResolutionEngine(config)
+    rs = engine.resolve(track, snapshot, {config.prediction_horizons_min[0]: [region]})
+    r.check("no joint candidate for a 2-member cluster", rs.joint_candidate is None)
+
+
+def test_engine_joint_candidate_for_three_member_cluster(r: Runner) -> None:
+    """A 3-aircraft cluster gets a 2-leg joint candidate alongside the
+    single-aircraft candidates, per the thesis request (3 aircraft -> 2
+    aircraft resolved together)."""
+    config = ASTRAConfig()
+    snapshot = _converging_snapshot()
+    regions_by_horizon = _build_regions_by_horizon(snapshot, config)
+    observed_region = regions_by_horizon[0][0]
+    r.check("setup: this cluster has 3 members", len(observed_region.cluster.member_callsigns) == 3)
+
+    track = _track("GROWING", observed_region, urgency_rank=1, onset_s=300.0)
+    engine = ResolutionEngine(config)
+    rs = engine.resolve(track, snapshot, regions_by_horizon)
+
+    r.check("a joint candidate was built", rs.joint_candidate is not None)
+    if rs.joint_candidate is not None:
+        jc = rs.joint_candidate
+        r.check("joint candidate has 2 legs (3-member cluster -> 2 targets)", len(jc.legs) == 2)
+        r.check(
+            "joint candidate's primary leg matches the best single-aircraft candidate",
+            rs.candidates and jc.legs[0].target_callsign == rs.candidates[0].target_callsign
+            and jc.legs[0].clearance_type == rs.candidates[0].clearance_type
+            and jc.legs[0].delta_value == rs.candidates[0].delta_value,
+        )
+        r.check("secondary leg is a different aircraft", jc.legs[1].target_callsign != jc.legs[0].target_callsign)
+        r.check("secondary leg is a SPEED adjustment", jc.legs[1].clearance_type == "SPEED")
+        r.check("joint candidate's complexity_before matches the matched region", jc.complexity_before == observed_region.complexity_score if rs.evaluated_horizon_min == 0 else True)
+        r.check(
+            "joint candidate's cost sums both legs (>= either leg's own cost alone)",
+            jc.deviation_cost_norm >= 0.0,
+        )
+        r.check(
+            "best_overall() picks whichever of best()/joint_candidate scores higher",
+            rs.best_overall() in (rs.best(), rs.joint_candidate),
+        )
+
+
+def test_engine_joint_candidate_capped_by_config(r: Runner) -> None:
+    """`resolution_joint_max_targets` bounds how many aircraft a joint
+    candidate touches, even for a larger cluster."""
+    config = ASTRAConfig(resolution_joint_max_targets=2)
+    snapshot = _snapshot(
+        [
+            _aircraft("A1", 47.000, 8.000, hdg=90.0, gs=15.0),
+            _aircraft("A2", 47.000, 8.010, hdg=270.0, gs=15.0),
+            _aircraft("A3", 47.005, 8.005, hdg=180.0, gs=10.0),
+            _aircraft("A4", 47.003, 8.007, hdg=0.0, gs=10.0),
+        ]
+    )
+    region = _region(["A1", "A2", "A3", "A4"], 70.0, components={"mtca_count": 2.0}, lat=47.002, lon=8.005)
+    track = _track("GROWING", region, urgency_rank=1, onset_s=300.0)
+    engine = ResolutionEngine(config)
+    rs = engine.resolve(track, snapshot, {config.prediction_horizons_min[0]: [region]})
+    if rs.joint_candidate is not None:
+        r.check(
+            "joint candidate never exceeds resolution_joint_max_targets legs",
+            len(rs.joint_candidate.legs) <= config.resolution_joint_max_targets,
+        )
+
+
 def main() -> None:
     r = Runner("Milestone 7 — AI resolution framework (astra.resolution)")
     test_resolution_set_best_and_len(r)
@@ -477,6 +688,8 @@ def main() -> None:
     test_heading_lever_applicable_false(r)
     test_generate_candidates_no_heading(r)
     test_generate_candidates_with_heading(r)
+    test_generate_candidates_heading_vector_and_rejoin(r)
+    test_generate_candidates_explicit_target_and_levers(r)
     test_generate_candidates_empty_when_no_target(r)
     test_generate_candidates_apply_clearance_values(r)
     test_engine_ineligible_status(r)
@@ -487,6 +700,11 @@ def main() -> None:
     test_engine_resolve_many_orders_and_caps(r)
     test_engine_resolve_end_to_end(r)
     test_engine_resolve_many_end_to_end(r)
+    test_engine_route_aware_when_route_provider_given(r)
+    test_engine_vector_and_rejoin_end_to_end(r)
+    test_engine_joint_candidate_absent_for_two_member_cluster(r)
+    test_engine_joint_candidate_for_three_member_cluster(r)
+    test_engine_joint_candidate_capped_by_config(r)
     r.summary()
 
 

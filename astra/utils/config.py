@@ -218,6 +218,34 @@ class ASTRAConfig:
     #: are non-zero -- see docs/milestone_7_resolution_design_review.md OQ-2.
     resolution_heading_step_deg: float = 15.0
 
+    #: Multipliers applied to each lever's base step above to widen the
+    #: candidate search space beyond one fixed magnitude per lever/sign
+    #: (e.g. [1.0, 2.0] tries both a "small" and a "large" adjustment on
+    #: every lever). Still a fully deterministic, exhaustive enumeration
+    #: -- no learning, no randomness, no optimisation library -- just
+    #: more fixed points in the same search. Must be non-empty and all
+    #: positive; 1.0 must typically be included to keep the original
+    #: base-step candidate available.
+    resolution_step_multipliers: List[float] = field(default_factory=lambda: [1.0, 2.0])
+
+    #: Duration (seconds) of the initial off-route vector for a
+    #: "vector-and-rejoin" heading candidate, before the aircraft is
+    #: predicted to turn back onto its own filed route. Only used for
+    #: aircraft with a known route (via the `route_provider` passed to
+    #: `ResolutionEngine`) -- see `astra.resolution.vector_rejoin`.
+    #: Chosen short enough to be a genuine "small nudge" (this project's
+    #: own framing for `arrival_sequencing`-style scenarios) rather than
+    #: an extended vector.
+    resolution_vector_duration_s: float = 120.0
+
+    #: Cap on how many aircraft a single *joint* (multi-aircraft)
+    #: resolution candidate adjusts simultaneously, even for larger
+    #: clusters -- keeps the joint-candidate search bounded (one primary
+    #: lever search plus a small per-secondary speed search, not a full
+    #: cross-product over every lever for every aircraft). See
+    #: `ResolutionEngine._build_joint_candidate`.
+    resolution_joint_max_targets: int = 3
+
     #: Weight on complexity-delta in `resolution_score`. Sums to 1.0 with
     #: `resolution_weight_domino` / `resolution_weight_deviation` /
     #: `resolution_weight_fuel`.
@@ -354,6 +382,14 @@ class ASTRAConfig:
             raise ValueError("resolution_altitude_step_ft must be > 0")
         if self.resolution_heading_step_deg <= 0:
             raise ValueError("resolution_heading_step_deg must be > 0")
+        if not self.resolution_step_multipliers:
+            raise ValueError("resolution_step_multipliers must be non-empty")
+        if any(m <= 0 for m in self.resolution_step_multipliers):
+            raise ValueError("resolution_step_multipliers must all be > 0")
+        if self.resolution_vector_duration_s <= 0:
+            raise ValueError("resolution_vector_duration_s must be > 0")
+        if self.resolution_joint_max_targets < 2:
+            raise ValueError("resolution_joint_max_targets must be >= 2")
         resolution_weights = (
             self.resolution_weight_complexity,
             self.resolution_weight_domino,

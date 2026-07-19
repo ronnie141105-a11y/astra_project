@@ -105,7 +105,7 @@ class Pipeline:
         self._complexity_engine = ComplexityEngine(config)
         self._tracker = TrackerEngine(config)
         self._forecaster = ForecastEngine(config)
-        self._resolver = ResolutionEngine(config)
+        self._resolver = ResolutionEngine(config, route_provider=route_provider)
         self._sector_engine = SectorComplexityEngine(config)
 
     def run_cycle(self, snapshot: TrafficSnapshot) -> CycleResult:
