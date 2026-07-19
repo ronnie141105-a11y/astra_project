@@ -29,6 +29,7 @@
     const ui = {
         selectedArhacId: null,
         selectedCandidateIndex: {}, // arhac_id -> candidate index being previewed
+        selectedAircraftCallsign: null, // set by clicking an aircraft marker on the map
         lifecycle: {}, // arhac_id -> "DRAFT" | "PROPOSED" | "ACKNOWLEDGED" | "CANCELED"
         selectedHorizon: 0,
         availableHorizons: [0],
@@ -385,14 +386,6 @@
                 btn.classList.add("active");
                 document.getElementById(btn.dataset.tab).classList.add("active");
             });
-        });
-    }
-
-    function setupCoordinationToggle() {
-        const toggle = document.getElementById("coordination-toggle");
-        const body = document.getElementById("coordination-body");
-        toggle.addEventListener("click", () => {
-            body.classList.toggle("hidden");
         });
     }
 
@@ -937,6 +930,127 @@
         ctx.restore();
     }
 
+    /** Where each aircraft is *currently drawn* at `ui.selectedHorizon`
+     * -- observed position at horizon 0, else whatever
+     * `drawScrubbedTraffic` itself would plot (hypothetical position for
+     * a resolution's target aircraft, otherwise the plain prediction).
+     * Shared by click hit-testing and the emphasized selected-aircraft
+     * trajectory, so both always agree with what's on screen. */
+    function getRenderedAircraftPosition(cycle, callsign) {
+        if (ui.selectedHorizon === 0) {
+            return cycle.snapshot.aircraft.find((ac) => ac.callsign === callsign) || null;
+        }
+        const candidate = getActiveResolutionCandidate(cycle);
+        if (candidate && candidate.target_callsign === callsign && candidate.hypothetical_path) {
+            const hypo = candidate.hypothetical_path.find((p) => p.horizon_min === ui.selectedHorizon);
+            if (hypo) {
+                return { callsign, lat: hypo.lat, lon: hypo.lon, altitude_ft: hypo.altitude_ft };
+            }
+        }
+        const points = cycle.prediction.paths[callsign];
+        const atHorizon = points ? points.find((p) => p.horizon_min === ui.selectedHorizon) : null;
+        return atHorizon ? { callsign, lat: atHorizon.lat, lon: atHorizon.lon, altitude_ft: atHorizon.altitude_ft } : null;
+    }
+
+    /** The callsign whose marker is within `radiusPx` of a click point, or
+     * null. Picks the closest one if several are within range. */
+    function findAircraftAtPixel(cycle, project, clickPx, clickPy, radiusPx) {
+        let best = null;
+        let bestDist = radiusPx;
+        cycle.snapshot.aircraft.forEach((ac) => {
+            const pos = getRenderedAircraftPosition(cycle, ac.callsign);
+            if (!pos) {
+                return;
+            }
+            const [x, y] = project(pos.lat, pos.lon);
+            const dist = Math.hypot(x - clickPx, y - clickPy);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = ac.callsign;
+            }
+        });
+        return best;
+    }
+
+    /** The selected aircraft's full trajectory (observed position through
+     * every predicted horizon, or its hypothetical path if it's also the
+     * target of the previewed resolution candidate) drawn in bright
+     * white -- deliberately independent of the "Predicted paths" toggle,
+     * since picking a single aircraft to inspect is exactly the
+     * uncluttered alternative to "every aircraft's path always on". */
+    function drawSelectedAircraftPath(ctx, project, cycle) {
+        const callsign = ui.selectedAircraftCallsign;
+        if (!callsign) {
+            return;
+        }
+        const observed = cycle.snapshot.aircraft.find((ac) => ac.callsign === callsign);
+        if (!observed) {
+            return;
+        }
+        const candidate = getActiveResolutionCandidate(cycle);
+        const useHypothetical = candidate && candidate.target_callsign === callsign && candidate.hypothetical_path;
+        const points = useHypothetical
+            ? [...candidate.hypothetical_path].sort((a, b) => a.horizon_min - b.horizon_min)
+            : (cycle.prediction.paths[callsign] || []).slice().sort((a, b) => a.horizon_min - b.horizon_min);
+
+        ctx.setLineDash([2, 3]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.beginPath();
+        const [sx, sy] = project(observed.lat, observed.lon);
+        ctx.moveTo(sx, sy);
+        points.forEach((p) => {
+            const [px, py] = project(p.lat, p.lon);
+            ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+        points.forEach((p) => {
+            const [px, py] = project(p.lat, p.lon);
+            ctx.beginPath();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+            ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    /** Populates/shows/hides the map's floating aircraft-info box for
+     * whatever `ui.selectedAircraftCallsign` currently is. Always shows
+     * the aircraft's real observed state (heading/speed/level), not a
+     * predicted-horizon snapshot of it, regardless of which horizon
+     * button is active -- the trajectory line is what shows the future. */
+    function renderAircraftInfoBox(cycle) {
+        const box = document.getElementById("aircraft-info-box");
+        if (!box) {
+            return;
+        }
+        const callsign = ui.selectedAircraftCallsign;
+        const ac = callsign ? cycle.snapshot.aircraft.find((a) => a.callsign === callsign) : null;
+        if (!ac) {
+            box.classList.add("hidden");
+            box.innerHTML = "";
+            return;
+        }
+        const fl = Math.round(ac.altitude_ft / 100);
+        box.classList.remove("hidden");
+        box.innerHTML = `
+            <div class="info-title"><span>${ac.callsign}</span><span class="info-close" id="aircraft-info-close">&times;</span></div>
+            <div class="info-row"><span>Type</span><span>${ac.aircraft_type}</span></div>
+            <div class="info-row"><span>Heading</span><span>${fmt(ac.heading_deg, 0)}&deg;</span></div>
+            <div class="info-row"><span>Speed</span><span>${fmt(ac.ground_speed_kt, 0)} kt</span></div>
+            <div class="info-row"><span>Level</span><span>FL${fl}</span></div>
+            <div class="info-row"><span>V/S</span><span>${fmt(ac.vertical_speed_fpm, 0)} fpm</span></div>
+        `;
+        const closeBtn = document.getElementById("aircraft-info-close");
+        if (closeBtn) {
+            closeBtn.addEventListener("click", () => {
+                ui.selectedAircraftCallsign = null;
+                renderAircraftInfoBox(cycle);
+                renderMap(cycle);
+            });
+        }
+    }
+
     function drawPredictedPaths(ctx, project, cycle) {
         ctx.setLineDash([5, 4]);
         ctx.lineWidth = 1.5;
@@ -1147,6 +1261,8 @@
             drawPredictedPaths(ctx, project, cycle);
             drawResolutionSolutionPath(ctx, project, cycle);
         }
+        drawSelectedAircraftPath(ctx, project, cycle);
+        renderAircraftInfoBox(cycle);
     }
 
     /** Animated overlay -- aircraft markers only, redrawn every animation
@@ -1364,6 +1480,54 @@
             } catch (e) {
                 // Live-BlueSky mode or server hiccup -- button state already
                 // reflects the click; nothing further to show here.
+            }
+        });
+    }
+
+    /** Pause/resume the mock simulation clock without leaving the
+     * Dissipation Workspace for the Scenario Builder page. Tracks
+     * running state optimistically from each action's own response
+     * (matching scenario_builder.js's pattern); reads the real current
+     * state once at startup via GET /scenario/state so the label starts
+     * correct even if the sim was already paused before this page loaded. */
+    function setupPauseResumeButton() {
+        const btn = document.getElementById("pause-resume-btn");
+        if (!btn) {
+            return;
+        }
+        let running = true;
+
+        function applyState(isRunning) {
+            running = isRunning;
+            btn.textContent = running ? "Pause" : "Resume";
+            btn.classList.toggle("active", !running);
+        }
+
+        fetch("/scenario/state")
+            .then((r) => r.json())
+            .then((body) => {
+                if (body && typeof body.running === "boolean") {
+                    applyState(body.running);
+                }
+            })
+            .catch(() => {});
+
+        btn.addEventListener("click", async () => {
+            btn.disabled = true;
+            try {
+                const resp = await fetch("/scenario/control", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: running ? "pause" : "resume" }),
+                });
+                const body = await resp.json().catch(() => ({}));
+                if (resp.ok && typeof body.running === "boolean") {
+                    applyState(body.running);
+                }
+            } catch (e) {
+                // Live-BlueSky mode or server hiccup -- leave label as-is.
+            } finally {
+                btn.disabled = false;
             }
         });
     }
@@ -1948,11 +2112,13 @@
         let dragging = false;
         let dragStartPx = null;
         let dragStartView = null;
+        let dragMoved = false;
         stack.addEventListener("mousedown", (evt) => {
             if (!ui.view) {
                 return;
             }
             dragging = true;
+            dragMoved = false;
             dragStartPx = [evt.clientX, evt.clientY];
             dragStartView = Object.assign({}, ui.view);
             stack.classList.add("map-dragging");
@@ -1964,6 +2130,9 @@
             const rect = canvas.getBoundingClientRect();
             const dxPx = ((evt.clientX - dragStartPx[0]) / rect.width) * canvas.width;
             const dyPx = ((evt.clientY - dragStartPx[1]) / rect.height) * canvas.height;
+            if (Math.hypot(dxPx, dyPx) > 3) {
+                dragMoved = true;
+            }
             const lonSpan = dragStartView.maxLon - dragStartView.minLon;
             const latSpan = dragStartView.maxLat - dragStartView.minLat;
             const dLon = -(dxPx / canvas.width) * lonSpan;
@@ -1976,13 +2145,26 @@
             };
             redraw();
         });
-        window.addEventListener("mouseup", () => {
+        window.addEventListener("mouseup", (evt) => {
             if (!dragging) {
                 return;
             }
             dragging = false;
             stack.classList.remove("map-dragging");
             savePersistedView(ui.view);
+            // A mousedown/mouseup with negligible movement in between is a
+            // click, not a pan -- select whichever aircraft marker (if any)
+            // is under the cursor at its currently-drawn position.
+            if (!dragMoved) {
+                const cycle = currentCycleOrEmpty();
+                if (cycle && ui.view) {
+                    const [px, py] = toCanvasPx(evt.clientX, evt.clientY);
+                    const project = makeProjector(ui.view, canvas.width, canvas.height);
+                    const hit = findAircraftAtPixel(cycle, project, px, py, 14);
+                    ui.selectedAircraftCallsign = hit === ui.selectedAircraftCallsign ? null : hit;
+                    redraw();
+                }
+            }
         });
 
         stack.addEventListener("dblclick", () => {
@@ -1995,9 +2177,9 @@
 
     document.addEventListener("DOMContentLoaded", () => {
         setupTabs();
-        setupCoordinationToggle();
         setupHorizonScrubber();
         setupSpeedButtons();
+        setupPauseResumeButton();
         setupManualClearanceForm();
         setupMapInteraction();
         loadPersistedUiPrefs();

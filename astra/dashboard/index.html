@@ -44,6 +44,11 @@
             </p>
             <div id="sector-charts"></div>
         </section>
+
+        <section id="panel-timeline" class="panel panel-timeline">
+            <h2>Onset &middot; Peak &middot; Dissipation Timeline</h2>
+            <div id="timeline-list"></div>
+        </section>
     </main>
 
     <main id="tab-dissipation" class="tab-page active">
@@ -107,60 +112,36 @@
             <div id="map-stack" class="map-stack">
                 <canvas id="map-canvas" width="720" height="520"></canvas>
                 <canvas id="map-traffic-canvas" width="720" height="520"></canvas>
+                <div id="aircraft-info-box" class="aircraft-info-box hidden"></div>
             </div>
             <div id="horizon-scrubber" class="scrubber">
                 <span class="scrubber-label">Horizon</span>
                 <div id="horizon-buttons" class="horizon-buttons" role="group" aria-label="Prediction horizon"></div>
                 <span class="scrubber-label speed-label">Sim speed</span>
                 <div id="speed-buttons" class="horizon-buttons" role="group" aria-label="Simulation speed"></div>
+                <button type="button" id="pause-resume-btn" class="horizon-btn pause-resume-btn">Pause</button>
             </div>
         </section>
 
-        <div id="dissipation-footer" class="dissipation-footer">
-            <section id="panel-aircraft" class="panel panel-aircraft">
-                <h2>Aircraft</h2>
-                <form id="manual-clearance-form" class="manual-clearance-form">
-                    <select id="clearance-callsign" required>
-                        <option value="" disabled selected>Aircraft&hellip;</option>
-                    </select>
-                    <select id="clearance-type">
-                        <option value="HEADING">Heading (deg)</option>
-                        <option value="FLIGHT_LEVEL">Flight level (ft)</option>
-                        <option value="SPEED">Speed (kt)</option>
-                    </select>
-                    <input id="clearance-value" type="number" step="1" placeholder="value" required>
-                    <button type="submit">Send</button>
-                    <span id="clearance-status" class="clearance-status"></span>
-                </form>
-                <div id="aircraft-list" class="aircraft-list">
-                    <p class="empty-row">No aircraft in view.</p>
-                </div>
-            </section>
-
-            <section id="panel-timeline" class="panel panel-timeline">
-                <h2>Onset &middot; Peak &middot; Dissipation Timeline</h2>
-                <div id="timeline-list"></div>
-            </section>
-
-            <section id="panel-coordination" class="panel panel-coordination">
-                <button id="coordination-toggle" class="collapsible-toggle">Coordination steps (outside ASTRA) &#9662;</button>
-                <div id="coordination-body" class="collapsible-body hidden">
-                    <p>
-                        ResolutionEngine itself is advisory-only: it never auto-applies one of its
-                        ranked candidates. Once an FMP accepts a dissipation candidate here, the
-                        following steps happen outside this tool, by phone/radio, per current ATFCM
-                        practice (the Aircraft panel's manual clearance form is a --mock testing
-                        convenience for this workflow, not a substitute for it):
-                    </p>
-                    <ol>
-                        <li>FMP-E coordinates the accepted solution with the ACC supervisor (SUP-E).</li>
-                        <li>FMP-E coordinates with FMP-A at the affected upstream ACC(s).</li>
-                        <li>FMP-A briefs the planner controller (PLC-A) of the affected sector.</li>
-                        <li>PLC-A instructs the executive controller (EC-A), who issues the clearance to the pilot.</li>
-                    </ol>
-                </div>
-            </section>
-        </div>
+        <section id="panel-aircraft" class="panel panel-aircraft">
+            <h2>Aircraft</h2>
+            <form id="manual-clearance-form" class="manual-clearance-form">
+                <select id="clearance-callsign" required>
+                    <option value="" disabled selected>Aircraft&hellip;</option>
+                </select>
+                <select id="clearance-type">
+                    <option value="HEADING">Heading (deg)</option>
+                    <option value="FLIGHT_LEVEL">Flight level (ft)</option>
+                    <option value="SPEED">Speed (kt)</option>
+                </select>
+                <input id="clearance-value" type="number" step="1" placeholder="value" required>
+                <button type="submit">Send</button>
+                <span id="clearance-status" class="clearance-status"></span>
+            </form>
+            <div id="aircraft-list" class="aircraft-list">
+                <p class="empty-row">No aircraft in view.</p>
+            </div>
+        </section>
     </main>
 
     <script>
