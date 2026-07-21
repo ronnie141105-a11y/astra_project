@@ -280,6 +280,109 @@ def test_config_weight_validation(r: Runner) -> None:
     )
 
 
+def test_effective_conflict_reference_scales_down_for_small_clusters(r: Runner) -> None:
+    """`_effective_conflict_reference` caps the configured reference at
+    C(member_count, 2), never raises it, and floors at 1."""
+    config = ASTRAConfig()
+    engine = ComplexityEngine(config)
+
+    r.check(
+        "2-aircraft cluster: reference capped at its 1 possible pair",
+        engine._effective_conflict_reference(config.complexity_mtca_reference_count, 2) == 1,
+    )
+    r.check(
+        "3-aircraft cluster: C(3,2)=3 == default reference, no change",
+        engine._effective_conflict_reference(config.complexity_mtca_reference_count, 3) == 3,
+    )
+    r.check(
+        "4-aircraft cluster: C(4,2)=6 > default reference, still just the configured reference",
+        engine._effective_conflict_reference(config.complexity_mtca_reference_count, 4)
+        == config.complexity_mtca_reference_count,
+    )
+    r.check(
+        "large cluster never exceeds the configured reference (never raised)",
+        engine._effective_conflict_reference(config.complexity_ltca_reference_count, 20)
+        == config.complexity_ltca_reference_count,
+    )
+    r.check(
+        "degenerate 1-aircraft input floors at 1, not 0 (defensive, avoids div-by-zero downstream)",
+        engine._effective_conflict_reference(config.complexity_mtca_reference_count, 1) == 1,
+    )
+
+
+def test_complexity_engine_two_aircraft_mtca_conflict_saturates(r: Runner) -> None:
+    """A 2-aircraft cluster with its one possible pair in a severe MTCA
+    conflict now reaches the conflict sub-score's full weight -- not
+    diluted against a reference calibrated for 3 concurrent pairs.
+
+    Before this fix, this exact scenario (same heading, same altitude,
+    closing to well inside MTCA minima) could contribute at most
+    ~0.7 * (100/3) ~= 23.3 points of "conflict" out of the sub-score's
+    theoretical 100 -- capping the composite score regardless of how
+    severe the conflict was (see `docs/backend_improvements_backlog.md`
+    item 2, and `_effective_conflict_reference`'s docstring). This test
+    locks in the fix: the conflict sub-score itself should now reach
+    (or come very close to) `complexity_mtca_weight_in_conflict * 100`.
+    """
+    config = ASTRAConfig()
+    engine = ComplexityEngine(config)
+
+    # Same heading, same altitude, in-trail with one aircraft faster and
+    # closing -- the exact geometry this fix targets (see
+    # arrival_sequencing_aircraft() in scenario_presets_operational.py).
+    # Close enough, with enough overtake speed, to be inside MTCA minima
+    # (mtca_distance_nm=5.5, mtca_time_min=2.5 by default) right now.
+    ac1 = _ac("AC1", 47.0, 8.0, 34000.0, hdg=0.0, gs_kt=300.0)
+    ac2 = _ac("AC2", 47.0 - 2.0 / 60.0, 8.0, 34000.0, hdg=0.0, gs_kt=400.0)
+    snapshot = TrafficSnapshot(timestamp_s=0.0, aircraft={"AC1": ac1, "AC2": ac2})
+    cluster_engine = ClusterEngine(config)
+    clusters = cluster_engine.detect(snapshot)
+    r.check("the two aircraft form one 2-member cluster", len(clusters) == 1 and len(clusters[0]) == 2)
+
+    region = engine.assess(clusters[0], snapshot)
+    r.check("exactly one MTCA pair detected", region.components["mtca_count"] == 1.0)
+    r.check("no LTCA pair (MTCA and LTCA are mutually exclusive per pair)", region.components["ltca_count"] == 0.0)
+    r.check(
+        "heading_div/alt_div are legitimately zero (identical heading/altitude)",
+        region.components["heading_div_deg"] == 0.0 and region.components["alt_div_ft"] == 0.0,
+    )
+
+    # Reconstruct the conflict sub-score the same way _combine does, to
+    # assert the saturation directly rather than just eyeballing the
+    # final composite score (which is also affected by density/type-mix).
+    effective_mtca_ref = engine._effective_conflict_reference(config.complexity_mtca_reference_count, 2)
+    r.check("effective MTCA reference scaled down to 1 for this 2-aircraft cluster", effective_mtca_ref == 1)
+    mtca_score = engine._normalise(region.components["mtca_count"], effective_mtca_ref)
+    r.check_close("MTCA sub-score fully saturates at 100", mtca_score, 100.0)
+    conflict_score = (
+        config.complexity_mtca_weight_in_conflict * mtca_score
+        + config.complexity_ltca_weight_in_conflict * 0.0
+    )
+    r.check_close(
+        "conflict sub-score reaches its full MTCA-weighted value, not diluted by a 3-pair reference",
+        conflict_score, 100.0 * config.complexity_mtca_weight_in_conflict,
+    )
+
+
+def test_complexity_engine_three_aircraft_reference_unaffected(r: Runner) -> None:
+    """A 3+-aircraft cluster's conflict scoring is byte-for-byte unchanged
+    by this fix (C(3,2)=3 already equals the default reference)."""
+    config = ASTRAConfig()
+    engine = ComplexityEngine(config)
+    lat0, lon0 = 47.0, 8.0
+
+    ac1 = _ac("AC1", lat0, lon0, 34000.0, hdg=0.0, gs_kt=300.0)
+    ac2 = _ac("AC2", lat0 + 2.0 / 60.0, lon0, 34000.0, hdg=180.0, gs_kt=300.0)
+    ac3 = _ac("AC3", lat0 + 1.0 / 60.0, lon0 + 2.0 / 60.0, 34000.0, hdg=270.0, gs_kt=300.0, actype="B738")
+    snapshot = TrafficSnapshot(timestamp_s=0.0, aircraft={"AC1": ac1, "AC2": ac2, "AC3": ac3})
+
+    effective_ref = engine._effective_conflict_reference(config.complexity_mtca_reference_count, 3)
+    r.check(
+        "effective reference equals the configured default for a 3-aircraft cluster",
+        effective_ref == config.complexity_mtca_reference_count,
+    )
+
+
 def main() -> None:
     r = Runner("Milestone 4 — Complexity assessment (astra.complexity)")
     test_local_tangent_plane(r)
@@ -295,6 +398,9 @@ def main() -> None:
     test_complexity_engine_saturation(r)
     test_complexity_engine_missing_callsign_raises(r)
     test_config_weight_validation(r)
+    test_effective_conflict_reference_scales_down_for_small_clusters(r)
+    test_complexity_engine_two_aircraft_mtca_conflict_saturates(r)
+    test_complexity_engine_three_aircraft_reference_unaffected(r)
     r.summary()
 
 

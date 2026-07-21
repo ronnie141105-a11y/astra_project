@@ -134,6 +134,11 @@ def best_track_match(
         candidate_tracks: Open tracks eligible for matching this cycle
             (callers should already exclude tracks claimed earlier in
             the same cycle, to keep matching one-to-one per cycle).
+            A track with an empty ``track`` (i.e. still ``PROVISIONAL``
+            -- see ``astra.tracking.engine``'s module docstring) is
+            matched against its ``provisional_track``'s last entry
+            instead; a track with neither (should not normally occur)
+            is skipped.
         jaccard_threshold: Minimum Jaccard similarity to accept a
             primary match (``ASTRAConfig.tracking_jaccard_threshold``).
 
@@ -144,9 +149,12 @@ def best_track_match(
     track_by_last_cluster = {}
     candidate_clusters: List[Cluster] = []
     for track in candidate_tracks:
-        if not track.track:
+        if track.track:
+            last_cluster = track.track[-1].cluster
+        elif track.provisional_track:
+            last_cluster = track.provisional_track[-1].cluster
+        else:
             continue
-        last_cluster = track.track[-1].cluster
         candidate_clusters.append(last_cluster)
         track_by_last_cluster[last_cluster] = track
 

@@ -1,5 +1,6 @@
 """
-Complexity assessment engine (Milestone 4).
+Complexity assessment engine (Milestone 4, extended with small-cluster
+conflict-reference scaling).
 
 Resolves each ``Cluster``'s member aircraft from its source snapshot,
 computes five raw diagnostic metrics, normalises and weight-combines them
@@ -7,6 +8,20 @@ into a 0-100 ``complexity_score``, and returns an immutable
 ``ComplexityRegion``. Stateless and per-instant, like ``ClusterEngine``.
 See docs/milestone_4_complexity.md for the combination method and its
 relationship to the reference ASTRA system's PCA-based approach.
+
+The MTCA/LTCA "conflict" sub-score's saturation references
+(``complexity_mtca_reference_count``/``complexity_ltca_reference_count``)
+are scaled down for small clusters -- see
+``ComplexityEngine._effective_conflict_reference`` for the full
+rationale. In short: a 2-aircraft cluster has only one possible conflict
+pair, so normalising it against a reference calibrated for 3 *concurrent*
+pairs structurally caps that pair's contribution well below
+``forecast_onset_threshold`` regardless of how severe the actual conflict
+is -- found empirically while validating this project's own
+``arrival_sequencing`` scenario preset (see
+docs/backend_improvements_backlog.md item 2). This only ever lowers the
+effective reference for clusters smaller than the configured reference
+implies; every cluster at or above that size is unaffected.
 """
 
 import math
@@ -71,7 +86,7 @@ class ComplexityEngine:
         """
         members = self._resolve_members(cluster, snapshot)
         components = self._compute_components(cluster, members)
-        score = self._combine(components)
+        score = self._combine(components, member_count=len(members))
         return ComplexityRegion(
             cluster=cluster,
             complexity_score=score,
@@ -130,8 +145,15 @@ class ComplexityEngine:
             "type_mix_count": float(type_mix),
         }
 
-    def _combine(self, components: Dict[str, float]) -> float:
-        """Normalise (0-100 vs. config reference) and weight-combine components."""
+    def _combine(self, components: Dict[str, float], member_count: int) -> float:
+        """Normalise (0-100 vs. config reference) and weight-combine components.
+
+        Args:
+            components: Raw component values from `_compute_components`.
+            member_count: Number of aircraft in the cluster -- needed to
+                scale the MTCA/LTCA saturation references for small
+                clusters; see `_effective_conflict_reference`.
+        """
         cfg = self._config
 
         density_score = self._normalise(
@@ -149,12 +171,18 @@ class ComplexityEngine:
 
         # MTCA/LTCA fold into one "conflict" sub-score before combination:
         # both represent the same driver (conflict potential) at different
-        # time horizons.
+        # time horizons. The saturation references below are scaled down
+        # for small clusters -- see `_effective_conflict_reference`'s
+        # docstring for why an un-scaled reference structurally caps a
+        # genuine 2-aircraft conflict's contribution regardless of how
+        # severe it is.
         mtca_score = self._normalise(
-            components["mtca_count"], cfg.complexity_mtca_reference_count
+            components["mtca_count"],
+            self._effective_conflict_reference(cfg.complexity_mtca_reference_count, member_count),
         )
         ltca_score = self._normalise(
-            components["ltca_count"], cfg.complexity_ltca_reference_count
+            components["ltca_count"],
+            self._effective_conflict_reference(cfg.complexity_ltca_reference_count, member_count),
         )
         conflict_score = (
             cfg.complexity_mtca_weight_in_conflict * mtca_score
@@ -169,6 +197,53 @@ class ComplexityEngine:
             + cfg.complexity_weight_type_mix * type_mix_score
         )
         return max(0.0, min(100.0, combined))
+
+    @staticmethod
+    def _effective_conflict_reference(configured_reference: int, member_count: int) -> int:
+        """Scale down an MTCA/LTCA saturation reference for small clusters.
+
+        `complexity_mtca_reference_count`/`complexity_ltca_reference_count`
+        are calibrated as "how many *concurrent* conflict pairs looks like
+        a fully complex, saturated scenario" -- e.g. 3 simultaneous MTCA
+        pairs. That calibration implicitly assumes a cluster large enough
+        to have that many pairs at all: a 2-aircraft cluster has exactly
+        one possible pair (``C(2,2) = 1``), so even a single, severe,
+        already-inside-minima MTCA conflict there is normalised against a
+        reference of 3 and can never contribute more than ~33% of the
+        conflict sub-score's own weight -- capping the achievable
+        composite score for *any* 2-aircraft conflict well below
+        `forecast_onset_threshold` regardless of how close or fast-closing
+        the pair actually is. This was found empirically while validating
+        `arrival_sequencing_aircraft()`'s preset (see
+        `astra/dashboard/scenario_presets_operational.py`): MTCA/LTCA
+        *does* correctly react to a same-heading, same-altitude pair
+        closing to minima (the CPA calculation has no heading/altitude
+        blind spot -- see `astra.complexity.conflict`), it just could
+        never be *counted* as fully saturating for a pair that small.
+
+        The fix: cap the configured reference at the cluster's actual
+        maximum possible pair count, ``C(n, 2) = n * (n - 1) / 2``, so a
+        2-aircraft cluster's one possible pair being in conflict *is*
+        treated as saturating (matching what "this pair is as bad as it
+        gets" should mean), while every cluster at or above the
+        configured reference's own implied size (``C(n,2) >= reference``,
+        e.g. n=3 for reference=3) is completely unaffected -- this only
+        ever lowers the effective reference, never raises it, so no
+        existing 3+-aircraft scenario's calibrated behaviour changes.
+
+        Args:
+            configured_reference: `complexity_mtca_reference_count` or
+                `complexity_ltca_reference_count` as configured.
+            member_count: Number of aircraft in the cluster.
+
+        Returns:
+            ``min(configured_reference, C(member_count, 2))``, floored at
+            1 to keep `_normalise` well-defined for a (structurally
+            impossible, but defensively handled) cluster of fewer than 2
+            resolvable members.
+        """
+        max_possible_pairs = member_count * (member_count - 1) // 2
+        return max(1, min(configured_reference, max_possible_pairs))
 
     @staticmethod
     def _normalise(raw_value: float, reference_value: float) -> float:

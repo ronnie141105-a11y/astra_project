@@ -21,6 +21,7 @@ from astra.interface.traffic_state import AircraftState, TrafficSnapshot
 from astra.resolution.candidates import (
     generate_candidates,
     heading_lever_applicable,
+    matches_rvsm_parity,
     select_target_aircraft,
 )
 from astra.resolution.engine import ResolutionEngine
@@ -188,17 +189,45 @@ def test_select_target_conflict_based(r: Runner) -> None:
 
 
 def test_select_target_no_conflicts_fallback(r: Runner) -> None:
-    """No conflict pairs at all -> deterministic alphabetical fallback."""
+    """No conflict pairs at all -> falls back to distance from the cluster
+    centroid (closest first), not pure alphabetical order."""
     config = ASTRAConfig()
+    # Cluster centroid is (47.0, 8.0) (see _cluster's default) -- B1 sits
+    # exactly there, A1 is far off to the NE. Despite "A1" sorting first
+    # alphabetically, B1 should win: it's the more central aircraft, so
+    # moving it does more to actually de-densify the cluster.
     snapshot = _snapshot(
         [
-            _aircraft("B1", 47.000, 8.000),
             _aircraft("A1", 47.500, 8.500),
+            _aircraft("B1", 47.000, 8.000),
         ]
     )
     cluster = _cluster(["B1", "A1"])
     target = select_target_aircraft(cluster, snapshot, config)
-    r.check("alphabetically first callsign wins", target is not None and target.callsign == "A1")
+    r.check(
+        "the most central aircraft wins, not the alphabetically-first one",
+        target is not None and target.callsign == "B1",
+    )
+
+
+def test_select_target_no_conflicts_fallback_alphabetical_last_resort(r: Runner) -> None:
+    """Two members exactly equidistant from the centroid -> alphabetical
+    order is still the final tie-break, so the ranking stays deterministic."""
+    config = ASTRAConfig()
+    # Symmetric about the centroid (47.0, 8.0): both members are the
+    # same distance away, so centroid-distance can't break the tie.
+    snapshot = _snapshot(
+        [
+            _aircraft("Z1", 47.0, 8.1),
+            _aircraft("A1", 47.0, 7.9),
+        ]
+    )
+    cluster = _cluster(["Z1", "A1"])
+    target = select_target_aircraft(cluster, snapshot, config)
+    r.check(
+        "alphabetically first callsign wins when centroid distance is tied",
+        target is not None and target.callsign == "A1",
+    )
 
 
 def test_heading_lever_applicable_true(r: Runner) -> None:
@@ -676,6 +705,292 @@ def test_engine_joint_candidate_capped_by_config(r: Runner) -> None:
         )
 
 
+def test_domino_cost_scans_every_horizon_not_just_evaluated(r: Runner) -> None:
+    """A candidate clean at the evaluated horizon but that introduces a
+    new hotspot at a *different* horizon is now penalised -- the
+    original Milestone 7 domino check only ever looked at the one
+    horizon being evaluated, silently missing this (see
+    docs/backend_improvements_backlog.md item 3)."""
+    from astra.trajectory.models import PredictedSnapshot, PredictionResult
+
+    config = ASTRAConfig()
+    engine = ResolutionEngine(config)
+
+    # The track being resolved: A1/A2, matched via before_region.
+    before_region = _region(["A1", "A2"], 60.0, lat=47.0, lon=8.0)
+
+    # "Now" (horizon 0): nothing else going on, clean.
+    hypothetical_snapshot_now = _snapshot(
+        [_aircraft("A1", 47.0, 8.0), _aircraft("A2", 47.0, 8.01), _aircraft("B1", 50.0, 9.0)]
+    )
+    regions_by_horizon = {0: [before_region]}
+
+    # Horizon 10: clean too -- no real regions, and the hypothetical
+    # snapshot's B1/A1 aren't close enough to cluster.
+    clean_snapshot = PredictedSnapshot(
+        horizon_min=10, source_time_s=0.0, predicted_time_s=600.0,
+        aircraft={
+            "A1": _aircraft("A1", 47.2, 8.0, t=600.0),
+            "A2": _aircraft("A2", 47.2, 8.05, t=600.0),
+            "B1": _aircraft("B1", 50.0, 9.0, t=600.0),
+        },
+    )
+    # Horizon 30: the candidate's own aircraft (A1) has drifted next to
+    # the bystander B1 -- a brand-new hotspot this candidate introduced,
+    # nowhere near the evaluated horizon (10).
+    domino_snapshot = PredictedSnapshot(
+        horizon_min=30, source_time_s=0.0, predicted_time_s=1800.0,
+        aircraft={
+            "A1": _aircraft("A1", 47.5, 8.2, t=1800.0),
+            "A2": _aircraft("A2", 47.9, 8.3, t=1800.0),
+            "B1": _aircraft("B1", 47.5, 8.201, t=1800.0),  # essentially on top of A1
+        },
+    )
+    prediction = PredictionResult(
+        source_time_s=0.0,
+        aircraft_count=3,
+        horizons_min=(10, 30),
+        snapshots={10: clean_snapshot, 30: domino_snapshot},
+    )
+    regions_by_horizon[10] = []
+    regions_by_horizon[30] = []
+
+    domino_at_evaluated_only = engine._domino_cost_at_horizon(
+        clean_snapshot, regions_by_horizon[10], before_region
+    )
+    r.check(
+        "the evaluated horizon alone shows no domino effect (what the old check would see)",
+        domino_at_evaluated_only == 0.0,
+    )
+
+    domino_full_scan = engine._domino_cost(
+        hypothetical_snapshot_now, prediction, regions_by_horizon, before_region
+    )
+    r.check(
+        "the full multi-horizon scan catches the domino effect the single-horizon check missed",
+        domino_full_scan > 0.0,
+    )
+
+
+def test_domino_cost_never_less_than_single_horizon_check(r: Runner) -> None:
+    """The multi-horizon scan is a strict generalisation: its result can
+    only be >= what checking just the evaluated horizon would give,
+    since that horizon is always included in the scan."""
+    from astra.trajectory.models import PredictedSnapshot, PredictionResult
+
+    config = ASTRAConfig()
+    engine = ResolutionEngine(config)
+    before_region = _region(["A1", "A2"], 55.0, lat=47.0, lon=8.0)
+    now_snapshot = _snapshot([_aircraft("A1", 47.0, 8.0), _aircraft("A2", 47.0, 8.01)])
+
+    snap_10 = PredictedSnapshot(
+        horizon_min=10, source_time_s=0.0, predicted_time_s=600.0,
+        aircraft={"A1": _aircraft("A1", 47.2, 8.0, t=600.0), "A2": _aircraft("A2", 47.25, 8.05, t=600.0)},
+    )
+    prediction = PredictionResult(
+        source_time_s=0.0, aircraft_count=2, horizons_min=(10,), snapshots={10: snap_10}
+    )
+    regions_by_horizon = {0: [before_region], 10: []}
+
+    single_horizon_result = engine._domino_cost_at_horizon(snap_10, [], before_region)
+    full_scan_result = engine._domino_cost(now_snapshot, prediction, regions_by_horizon, before_region)
+    r.check(
+        "full scan >= single-horizon check when they cover the same ground",
+        full_scan_result >= single_horizon_result,
+    )
+
+
+def test_costs_speed_now_has_nonzero_fuel_proxy(r: Runner) -> None:
+    """SPEED candidates get a real fuel-cost proxy (equal to their own
+    deviation ratio, mirroring FLIGHT_LEVEL's existing convention) --
+    previously hardcoded to 0.0 regardless of magnitude."""
+    config = ASTRAConfig()
+    engine = ResolutionEngine(config)
+    snapshot = _snapshot([_aircraft("A1", 47.0, 8.0)])
+
+    from astra.resolution.candidates import CandidateSpec
+
+    spec = CandidateSpec("SPEED", "A1", config.resolution_speed_step_kt, snapshot)
+    deviation, fuel = engine._costs(spec)
+    r.check_close("deviation is the expected step ratio", deviation, 1.0)
+    r.check_close("fuel proxy equals deviation for SPEED (mirrors FLIGHT_LEVEL)", fuel, 1.0)
+
+    spec_2x = CandidateSpec("SPEED", "A1", 2 * config.resolution_speed_step_kt, snapshot)
+    _, fuel_2x = engine._costs(spec_2x)
+    r.check_close("fuel proxy scales with magnitude", fuel_2x, 2.0)
+
+    spec_negative = CandidateSpec("SPEED", "A1", -config.resolution_speed_step_kt, snapshot)
+    _, fuel_negative = engine._costs(spec_negative)
+    r.check_close("fuel proxy is direction-agnostic (slowing down also costs)", fuel_negative, 1.0)
+
+
+def test_costs_heading_now_has_nonzero_fuel_proxy(r: Runner) -> None:
+    """HEADING candidates get a sin-based fuel-cost proxy for wasted
+    track distance -- previously hardcoded to 0.0 for both SUSTAINED
+    and VECTOR_AND_REJOIN candidates."""
+    import math
+
+    config = ASTRAConfig()
+    engine = ResolutionEngine(config)
+    snapshot = _snapshot([_aircraft("A1", 47.0, 8.0)])
+
+    from astra.resolution.candidates import CandidateSpec
+
+    spec = CandidateSpec("HEADING", "A1", 15.0, snapshot)
+    deviation, fuel = engine._costs(spec)
+    r.check_close("deviation is the expected step ratio", deviation, 1.0)
+    r.check_close("fuel proxy is sin(15 deg)", fuel, math.sin(math.radians(15.0)))
+    r.check(
+        "a modest heading vector's fuel cost is well below its deviation cost",
+        0.0 < fuel < deviation,
+    )
+
+    spec_90 = CandidateSpec("HEADING", "A1", 90.0, snapshot)
+    _, fuel_90 = engine._costs(spec_90)
+    r.check_close("a 90-degree vector wastes its full flown distance (sin(90)=1)", fuel_90, 1.0)
+
+    spec_negative = CandidateSpec("HEADING", "A1", -15.0, snapshot)
+    _, fuel_negative = engine._costs(spec_negative)
+    r.check_close("fuel proxy is direction-agnostic for heading too", fuel_negative, math.sin(math.radians(15.0)))
+
+    # Also holds for a VECTOR_AND_REJOIN candidate (rejoin_route set) --
+    # _costs only looks at clearance_type/delta_value, not maneuver kind.
+    spec_vector = CandidateSpec(
+        "HEADING", "A1", 15.0, snapshot,
+        vector_duration_s=config.resolution_vector_duration_s,
+        rejoin_route=[(48.0, 8.0)],
+    )
+    _, fuel_vector = engine._costs(spec_vector)
+    r.check_close(
+        "VECTOR_AND_REJOIN candidates get the same fuel proxy as a sustained heading change",
+        fuel_vector, math.sin(math.radians(15.0)),
+    )
+
+
+def test_costs_flight_level_unchanged(r: Runner) -> None:
+    """FLIGHT_LEVEL's cost formula is byte-for-byte unchanged by this fix."""
+    config = ASTRAConfig()
+    engine = ResolutionEngine(config)
+    snapshot = _snapshot([_aircraft("A1", 47.0, 8.0)])
+
+    from astra.resolution.candidates import CandidateSpec
+
+    spec = CandidateSpec("FLIGHT_LEVEL", "A1", config.resolution_altitude_step_ft, snapshot)
+    deviation, fuel = engine._costs(spec)
+    r.check_close("deviation is the expected step ratio", deviation, 1.0)
+    r.check_close("fuel proxy still equals deviation for FLIGHT_LEVEL", fuel, 1.0)
+
+
+def test_matches_rvsm_parity_eastbound_odd(r: Runner) -> None:
+    """Eastbound (heading < 180) expects an odd whole-thousands flight level."""
+    r.check("FL350 (odd) matches eastbound", matches_rvsm_parity(90.0, 35000.0))
+    r.check("FL340 (even) does not match eastbound", not matches_rvsm_parity(90.0, 34000.0))
+    r.check("heading exactly 0 counts as eastbound", matches_rvsm_parity(0.0, 35000.0))
+
+
+def test_matches_rvsm_parity_westbound_even(r: Runner) -> None:
+    """Westbound (heading >= 180) expects an even whole-thousands flight level."""
+    r.check("FL340 (even) matches westbound", matches_rvsm_parity(270.0, 34000.0))
+    r.check("FL350 (odd) does not match westbound", not matches_rvsm_parity(270.0, 35000.0))
+    r.check("heading exactly 180 counts as westbound", not matches_rvsm_parity(180.0, 35000.0))
+
+
+def test_matches_rvsm_parity_normalises_heading(r: Runner) -> None:
+    """Headings outside [0, 360) are normalised the same way as everywhere else."""
+    r.check(
+        "450 degrees (== 90) behaves as eastbound",
+        matches_rvsm_parity(450.0, 35000.0) == matches_rvsm_parity(90.0, 35000.0),
+    )
+    r.check(
+        "-90 degrees (== 270) behaves as westbound",
+        matches_rvsm_parity(-90.0, 34000.0) == matches_rvsm_parity(270.0, 34000.0),
+    )
+
+
+def test_costs_flight_level_rvsm_penalty_applied_when_resulting_level_wrong(r: Runner) -> None:
+    """A FLIGHT_LEVEL candidate whose *resulting* altitude violates RVSM
+    parity for the target's track direction picks up
+    resolution_rvsm_parity_penalty on deviation, but not on fuel."""
+    from astra.resolution.candidates import CandidateSpec
+
+    config = ASTRAConfig()
+    engine = ResolutionEngine(config)
+
+    # Eastbound (hdg=90), starting at FL350 (odd -- correctly matches).
+    # +1000ft candidate resolves to FL360 (even) -- wrong for eastbound.
+    starting = _aircraft("A1", 47.0, 8.0, hdg=90.0, alt=35000.0)
+    snapshot_before = _snapshot([starting])
+    hypothetical_snapshot = _snapshot(
+        [_aircraft("A1", 47.0, 8.0, hdg=90.0, alt=35000.0 + config.resolution_altitude_step_ft)]
+    )
+    spec = CandidateSpec(
+        "FLIGHT_LEVEL", "A1", config.resolution_altitude_step_ft, hypothetical_snapshot
+    )
+    r.check(
+        "setup: the resulting FL360 does violate eastbound parity",
+        not matches_rvsm_parity(90.0, 35000.0 + config.resolution_altitude_step_ft),
+    )
+    deviation, fuel = engine._costs(spec)
+    r.check_close(
+        "deviation includes the base step ratio plus the parity penalty",
+        deviation, 1.0 + config.resolution_rvsm_parity_penalty,
+    )
+    r.check_close("fuel proxy is unaffected by the parity penalty", fuel, 1.0)
+
+
+def test_costs_flight_level_no_rvsm_penalty_when_resulting_level_correct(r: Runner) -> None:
+    """A FLIGHT_LEVEL candidate whose resulting altitude matches RVSM
+    parity pays no penalty -- e.g. a 2x-magnitude step, which preserves
+    parity since it changes altitude by an even number of thousands."""
+    from astra.resolution.candidates import CandidateSpec
+
+    config = ASTRAConfig()
+    engine = ResolutionEngine(config)
+
+    two_x_step = 2 * config.resolution_altitude_step_ft
+    hypothetical_snapshot = _snapshot(
+        [_aircraft("A1", 47.0, 8.0, hdg=90.0, alt=35000.0 + two_x_step)]
+    )
+    spec = CandidateSpec("FLIGHT_LEVEL", "A1", two_x_step, hypothetical_snapshot)
+    r.check(
+        "setup: a 2x step (2000ft) preserves eastbound parity (FL370 is odd)",
+        matches_rvsm_parity(90.0, 35000.0 + two_x_step),
+    )
+    deviation, fuel = engine._costs(spec)
+    r.check_close("deviation is just the step ratio, no penalty added", deviation, 2.0)
+    r.check_close("fuel proxy matches deviation as usual", fuel, 2.0)
+
+
+def test_costs_flight_level_rvsm_penalty_lowers_resolution_score(r: Runner) -> None:
+    """All else equal, the RVSM parity penalty's extra deviation cost
+    directly lowers resolution_score by resolution_weight_deviation *
+    resolution_rvsm_parity_penalty -- confirmed via the same weighted
+    formula ResolutionEngine._evaluate uses, holding complexity_delta_norm
+    and domino_cost_norm fixed so only the cost terms differ. (An
+    end-to-end comparison through the full replay pipeline is not used
+    here: changing a candidate's altitude by 2x the base step can also
+    change whether the hypothetical cluster still re-associates with the
+    track at all -- see best_cluster_match -- which would confound the
+    comparison with an unrelated effect.)"""
+    config = ASTRAConfig()
+
+    def score(deviation, fuel, complexity_delta=0.5, domino=0.0):
+        return (
+            config.resolution_weight_complexity * complexity_delta
+            - config.resolution_weight_domino * domino
+            - config.resolution_weight_deviation * deviation
+            - config.resolution_weight_fuel * fuel
+        )
+
+    clean_score = score(deviation=1.0, fuel=1.0)
+    penalised_score = score(deviation=1.0 + config.resolution_rvsm_parity_penalty, fuel=1.0)
+    r.check(
+        "a parity-violating candidate's score is lower by weight_deviation * penalty",
+        abs((clean_score - penalised_score) - config.resolution_weight_deviation * config.resolution_rvsm_parity_penalty) < 1e-9,
+    )
+    r.check("the parity-violating candidate scores strictly worse, all else equal", penalised_score < clean_score)
+
+
 def main() -> None:
     r = Runner("Milestone 7 — AI resolution framework (astra.resolution)")
     test_resolution_set_best_and_len(r)
@@ -684,6 +999,7 @@ def main() -> None:
     test_select_target_no_members_resolve(r)
     test_select_target_conflict_based(r)
     test_select_target_no_conflicts_fallback(r)
+    test_select_target_no_conflicts_fallback_alphabetical_last_resort(r)
     test_heading_lever_applicable_true(r)
     test_heading_lever_applicable_false(r)
     test_generate_candidates_no_heading(r)
@@ -705,6 +1021,17 @@ def main() -> None:
     test_engine_joint_candidate_absent_for_two_member_cluster(r)
     test_engine_joint_candidate_for_three_member_cluster(r)
     test_engine_joint_candidate_capped_by_config(r)
+    test_domino_cost_scans_every_horizon_not_just_evaluated(r)
+    test_domino_cost_never_less_than_single_horizon_check(r)
+    test_costs_speed_now_has_nonzero_fuel_proxy(r)
+    test_costs_heading_now_has_nonzero_fuel_proxy(r)
+    test_costs_flight_level_unchanged(r)
+    test_matches_rvsm_parity_eastbound_odd(r)
+    test_matches_rvsm_parity_westbound_even(r)
+    test_matches_rvsm_parity_normalises_heading(r)
+    test_costs_flight_level_rvsm_penalty_applied_when_resulting_level_wrong(r)
+    test_costs_flight_level_no_rvsm_penalty_when_resulting_level_correct(r)
+    test_costs_flight_level_rvsm_penalty_lowers_resolution_score(r)
     r.summary()
 
 

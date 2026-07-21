@@ -63,36 +63,43 @@ def arrival_sequencing_aircraft() -> List[PresetAircraft]:
     The operational situation: both aircraft are cleared on the same
     airway, same cruise level, near-identical speed, ~5 NM in-trail --
     fully compliant with en-route separation, nothing for a tactical
-    conflict tool to flag. But because the gap stays essentially
-    constant, they will also reach the sector-boundary waypoint AC (and
-    therefore the handoff to the next sector) within about a minute of
-    each other, roughly 35-40 minutes from now -- meaning two
-    back-to-back coordination calls to the next sector instead of one
-    with breathing room. That is a flow-management problem, not a
-    safety one: the fix is a small, early nudge to the trailing
-    aircraft (a short vector off track and back), not a resolution
-    clearance.
+    (right-now) conflict tool to flag. But because the second aircraft
+    is very slightly faster, that gap will close to inside MTCA minima
+    somewhere in the second half of the ~35-40 minute transit to the
+    sector-boundary waypoint AC, meaning two back-to-back coordination
+    calls to the next sector instead of one with breathing room. That is
+    a flow-management problem more than a safety one: the fix is a
+    small, early nudge to the trailing aircraft, not an emergency
+    clearance -- but see below for why ASTRA now treats it as a real,
+    if distant, predicted conflict rather than only a workload signal.
 
     Both aircraft start 5 NM apart on the same track, which puts them
     inside `hotspot_dbscan_eps_nm`/`separation_vertical_ft` of each
     other from cycle 1 (satisfies this project's structural constraint
     1 -- see `scenario_presets.py`), so `TrackerEngine` opens a track
-    immediately and it persists/grows for the whole ~35-40 min transit
-    to AC, giving a long, watchable medium-term track. Because heading
-    and altitude are identical for both aircraft, `ComplexityEngine`'s
-    heading-divergence and altitude-divergence components are
-    structurally zero here (same as this project's existing `head_on`/
-    `parallel_overtake` presets) -- the composite score plateaus in the
-    low 40s and does not cross `forecast_onset_threshold` (50) on its
-    own. That is intentional, not a bug: it is exactly what "reduce
-    coordination workload, not avoid a conflict" should look like --
-    ASTRA keeps a persistent, growing track on a compliant-but-tight
-    pair without ever raising a hard alert. `scenarios/
-    arrival_sequencing_demo.py` demonstrates the actual proposed
-    sequencing adjustment (call `ResolutionEngine` directly against
-    this track, the way `scenarios/domino_effect_demo.py` already
-    does for its own hand-built demo track) and measures the resulting
-    spacing at AC before/after applying it.
+    immediately. Because heading and altitude are identical for both
+    aircraft, `ComplexityEngine`'s heading-divergence and
+    altitude-divergence components are structurally zero here (same as
+    this project's existing `head_on`/`parallel_overtake` presets) --
+    but unlike an earlier version of this docstring claimed, the
+    composite score does *not* stay capped below `forecast_onset_threshold`
+    (50): once the slow overtake closes the gap enough to fall inside
+    MTCA minima (predicted ~40-50 min out, well within this scenario's
+    own transit time), `ComplexityEngine`'s conflict sub-score reaches
+    its full weighted contribution for a 2-aircraft cluster -- see
+    `ComplexityEngine._effective_conflict_reference` and
+    docs/backend_improvements_backlog.md item 2, a fix made specifically
+    because this preset's original tuning surfaced the gap it closes.
+    In practice this means `ResolutionEngine` now proposes a real
+    speed-adjustment candidate automatically, from the normal pipeline,
+    typically within the first couple of poll cycles -- no hand-built
+    track needed. `scenarios/arrival_sequencing_demo.py` still also
+    demonstrates a hand-built-track call as a fallback technique (kept
+    for scenarios where the automatic path genuinely doesn't fire), but
+    for this preset specifically the automatic resolution is now the
+    interesting, representative result: a workload-motivated pair that
+    ASTRA also correctly recognises will become a genuine, if distant
+    (40-50 min out), separation concern if left unmanaged.
     """
     route = geo.sub_route("W1", "MEVON", "TSH")
     coords = [(lat, lon) for _, lat, lon in route]

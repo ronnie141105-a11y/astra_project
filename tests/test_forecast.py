@@ -361,6 +361,57 @@ def test_config_forecast_validation(r: Runner) -> None:
     )
 
 
+def test_forecast_provisional_track_gets_onset(r: Runner) -> None:
+    """A PROVISIONAL track (no real observations at all) still gets a real
+    predicted_onset_s from ForecastEngine -- the actual point of Milestone 5's
+    provisional-track extension (see astra.tracking.engine's module docstring)."""
+    config = ASTRAConfig(forecast_onset_threshold=50.0, forecast_min_matched_horizons=2)
+    anchor_region = _region(["A1", "A2"], score=30.0, valid_at_s=0.0, horizon_min=30)
+    track = FourDArhac(
+        arhac_id="PROV1",
+        status="PROVISIONAL",
+        track=[],
+        provisional_track=[anchor_region],
+        member_aircraft=frozenset({"A1", "A2"}),
+        confidence=0.5,
+        peak_complexity=30.0,
+        peak_time_s=0.0,
+    )
+    regions_by_horizon = {
+        30: [anchor_region],
+        40: [_region(["A1", "A2"], score=45.0, valid_at_s=600.0, horizon_min=40)],
+        50: [_region(["A1", "A2"], score=60.0, valid_at_s=1200.0, horizon_min=50)],
+    }
+    engine = ForecastEngine(config)
+    result = engine.forecast(track, regions_by_horizon)
+
+    r.check("provisional track was forecast at all", result.predicted_onset_s is not None)
+    r.check(
+        "onset crossing interpolated between the 45 and 60 points",
+        result.predicted_onset_s is not None and 600.0 < result.predicted_onset_s < 1200.0,
+    )
+    r.check("confidence remains > 0 (not silently zeroed)", result.confidence > 0.0)
+
+
+def test_forecast_provisional_uses_provisional_track_as_anchor(r: Runner) -> None:
+    """build_series anchors on provisional_track's last entry when track.track is empty."""
+    anchor_region = _region(["A1", "A2"], score=20.0, valid_at_s=100.0, horizon_min=20)
+    track = FourDArhac(
+        arhac_id="PROV2",
+        status="PROVISIONAL",
+        track=[],
+        provisional_track=[anchor_region],
+        member_aircraft=frozenset({"A1", "A2"}),
+    )
+    series, matched_count, total_horizons = build_series(track, {20: [anchor_region]}, jaccard_threshold=0.5)
+    r.check("series anchored on the provisional entry", series[0] == (100.0, 20.0))
+    r.check(
+        "the anchor's own source horizon matches itself (self-consistent)",
+        matched_count == 1,
+    )
+    r.check("total_horizons counts the non-zero horizon key", total_horizons == 1)
+
+
 def main() -> None:
     r = Runner("Milestone 6 — 4DARHAC forecast (astra.forecast)")
     test_linear_crossing_time_rising(r)
@@ -383,6 +434,8 @@ def main() -> None:
     test_forecast_many_assigns_urgency_rank(r)
     test_forecast_many_end_to_end(r)
     test_config_forecast_validation(r)
+    test_forecast_provisional_track_gets_onset(r)
+    test_forecast_provisional_uses_provisional_track_as_anchor(r)
     r.summary()
 
 

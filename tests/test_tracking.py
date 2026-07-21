@@ -303,6 +303,195 @@ def test_config_tracking_validation(r: Runner) -> None:
         lambda: ASTRAConfig(tracking_trend_tolerance=-1.0),
         ValueError,
     )
+    r.check_raises(
+        "tracking_provisional_min_complexity out of [0, 100] raises ValueError",
+        lambda: ASTRAConfig(tracking_provisional_min_complexity=150.0),
+        ValueError,
+    )
+    r.check_raises(
+        "tracking_provisional_confidence_multiplier <= 0 raises ValueError",
+        lambda: ASTRAConfig(tracking_provisional_confidence_multiplier=0.0),
+        ValueError,
+    )
+    r.check_raises(
+        "tracking_provisional_confidence_multiplier > 1 raises ValueError",
+        lambda: ASTRAConfig(tracking_provisional_confidence_multiplier=1.5),
+        ValueError,
+    )
+
+
+# ----------------------------------------------------------------------
+# PROVISIONAL tracks — predicted-only hotspots with no current proximity
+# ----------------------------------------------------------------------
+
+
+def test_provisional_track_opens_from_future_horizon_only(r: Runner) -> None:
+    """A cluster with no horizon-0 counterpart at all opens a PROVISIONAL track."""
+    config = ASTRAConfig(tracking_provisional_min_complexity=25.0)
+    tracker = TrackerEngine(config)
+    predicted = _region(["A1", "A2"], score=40.0, valid_at_s=1800.0, label=0)
+
+    tracks = tracker.update({0: [], 30: [predicted]})
+
+    r.check("exactly one track opened", len(tracks) == 1)
+    r.check("status is PROVISIONAL", tracks[0].status == "PROVISIONAL")
+    r.check("track.track is empty (no real observation yet)", tracks[0].track == [])
+    r.check(
+        "provisional_track has the predicted entry",
+        len(tracks[0].provisional_track) == 1
+        and tracks[0].provisional_track[0].complexity_score == 40.0,
+    )
+    r.check(
+        "first_detected_cycle_s backs out the real 'now' time (1800 - 30*60 = 0)",
+        tracks[0].first_detected_cycle_s == 0.0,
+    )
+    r.check(
+        "confidence is scaled down by tracking_provisional_confidence_multiplier",
+        0.0 < tracks[0].confidence < config.tracking_confirm_cycles and tracks[0].confidence < 1.0,
+    )
+    r.check("member_aircraft is populated", tracks[0].member_aircraft == frozenset({"A1", "A2"}))
+
+
+def test_provisional_track_ignores_below_threshold(r: Runner) -> None:
+    """A predicted cluster below tracking_provisional_min_complexity opens nothing."""
+    config = ASTRAConfig(tracking_provisional_min_complexity=50.0)
+    tracker = TrackerEngine(config)
+    faint = _region(["A1", "A2"], score=20.0, valid_at_s=1800.0, label=0)
+
+    tracks = tracker.update({0: [], 30: [faint]})
+
+    r.check("no track opened for a below-threshold prediction", tracks == [])
+
+
+def test_provisional_track_extends_across_cycles(r: Runner) -> None:
+    """A provisional track gets one new provisional_track entry per cycle it keeps matching."""
+    config = ASTRAConfig(tracking_provisional_min_complexity=25.0, poll_interval_s=300.0)
+    tracker = TrackerEngine(config)
+
+    # Cycle 1 (t=0): predicted at horizon 30 (i.e. for t=1800s).
+    tracker.update({0: [], 30: [_region(["A1", "A2"], score=40.0, valid_at_s=1800.0, label=0)]})
+    # Cycle 2 (t=300s): same phenomenon, now only 25 min out.
+    tracks = tracker.update(
+        {0: [], 25: [_region(["A1", "A2"], score=45.0, valid_at_s=1800.0, label=0)]}
+    )
+
+    r.check("still exactly one track (not duplicated)", len(tracks) == 1)
+    r.check("still PROVISIONAL", tracks[0].status == "PROVISIONAL")
+    r.check("provisional_track now has 2 entries", len(tracks[0].provisional_track) == 2)
+    r.check(
+        "peak_complexity raised to the higher predicted score",
+        tracks[0].peak_complexity == 45.0,
+    )
+
+
+def test_provisional_track_does_not_duplicate_within_one_cycle(r: Runner) -> None:
+    """The same evolving cluster visible at two horizons in one cycle opens only one track."""
+    config = ASTRAConfig(tracking_provisional_min_complexity=25.0)
+    tracker = TrackerEngine(config)
+    at_20 = _region(["A1", "A2"], score=35.0, valid_at_s=1200.0, label=0)
+    at_30 = _region(["A1", "A2"], score=42.0, valid_at_s=1800.0, label=0)
+
+    tracks = tracker.update({0: [], 20: [at_20], 30: [at_30]})
+
+    r.check("exactly one provisional track, not two", len(tracks) == 1)
+    r.check("status is PROVISIONAL", tracks[0].status == "PROVISIONAL")
+    r.check(
+        "anchored on the smaller (soonest) horizon's entry, not both",
+        len(tracks[0].provisional_track) == 1
+        and tracks[0].provisional_track[0].complexity_score == 35.0,
+    )
+
+
+def test_provisional_track_promotes_on_real_observation(r: Runner) -> None:
+    """Once the predicted cluster actually appears at horizon 0, the SAME track promotes."""
+    config = ASTRAConfig(tracking_provisional_min_complexity=25.0, tracking_confirm_cycles=2)
+    tracker = TrackerEngine(config)
+
+    provisional_tracks = tracker.update(
+        {0: [], 30: [_region(["A1", "A2"], score=40.0, valid_at_s=1800.0, label=0)]}
+    )
+    arhac_id = provisional_tracks[0].arhac_id
+    first_detected = provisional_tracks[0].first_detected_cycle_s
+
+    real = _region(["A1", "A2"], score=55.0, valid_at_s=1800.0, label=0)
+    promoted_tracks = tracker.update({0: [real]})
+
+    r.check("still exactly one track", len(promoted_tracks) == 1)
+    r.check("same arhac_id preserved across promotion", promoted_tracks[0].arhac_id == arhac_id)
+    r.check(
+        "status left PROVISIONAL (has a real observation now)",
+        promoted_tracks[0].status != "PROVISIONAL",
+    )
+    r.check(
+        "status is CANDIDATE, not CONFIRMED (provisional history doesn't count toward confirm_cycles)",
+        promoted_tracks[0].status == "CANDIDATE",
+    )
+    r.check("track.track now has exactly 1 real entry", len(promoted_tracks[0].track) == 1)
+    r.check(
+        "provisional_track is preserved as a historical record",
+        len(promoted_tracks[0].provisional_track) == 1,
+    )
+    r.check(
+        "first_detected_cycle_s preserved from the original provisional detection",
+        promoted_tracks[0].first_detected_cycle_s == first_detected,
+    )
+    r.check("peak_complexity reflects the real observation", promoted_tracks[0].peak_complexity == 55.0)
+
+    # One more real cycle should now reach CONFIRMED via the normal path.
+    real2 = _region(["A1", "A2"], score=58.0, valid_at_s=2100.0, label=0)
+    final_tracks = tracker.update({0: [real2]})
+    r.check("reaches CONFIRMED after tracking_confirm_cycles real detections", final_tracks[0].status == "CONFIRMED")
+
+
+def test_provisional_track_goes_stale_and_closes(r: Runner) -> None:
+    """A provisional track that stops matching anywhere (real or predicted) eventually closes."""
+    config = ASTRAConfig(
+        tracking_provisional_min_complexity=25.0, tracking_stale_cycles=2
+    )
+    tracker = TrackerEngine(config)
+
+    tracker.update({0: [], 30: [_region(["A1", "A2"], score=40.0, valid_at_s=1800.0, label=0)]})
+    tracker.update({0: [], 30: []})  # missed cycle 1
+    tracks = tracker.update({0: [], 30: []})  # missed cycle 2 -> stale_cycles reached
+
+    r.check("track closed after tracking_stale_cycles missed cycles", len(tracks) == 1)
+    r.check("closed status", tracks[0].status == "CLOSED")
+
+
+def test_provisional_track_never_resolvable(r: Runner) -> None:
+    """A PROVISIONAL track never clears ResolutionEngine's eligibility bar."""
+    from astra.resolution.engine import ResolutionEngine
+
+    config = ASTRAConfig(tracking_provisional_min_complexity=25.0)
+    tracker = TrackerEngine(config)
+    provisional_tracks = tracker.update(
+        {0: [], 30: [_region(["A1", "A2"], score=40.0, valid_at_s=1800.0, label=0)]}
+    )
+    track = provisional_tracks[0]
+    track.forecast_urgency_rank = 1  # even if somehow ranked urgent
+    track.predicted_onset_s = 600.0
+
+    engine = ResolutionEngine(config)
+    snapshot = _snapshot_stub(["A1", "A2"])
+    rs = engine.resolve(track, snapshot, {30: [track.provisional_track[0]]})
+
+    r.check("no candidates generated for a PROVISIONAL track", rs.candidates == [])
+    r.check("no joint candidate either", rs.joint_candidate is None)
+
+
+def _snapshot_stub(callsigns):
+    """Minimal `TrafficSnapshot` stub for the resolution-eligibility test above."""
+    from astra.interface.traffic_state import AircraftState, TrafficSnapshot
+
+    aircraft = {
+        cs: AircraftState(
+            callsign=cs, lat=47.0, lon=8.0 + i * 0.01, altitude_ft=35000.0,
+            ground_speed_kt=250.0, heading_deg=90.0, vertical_speed_fpm=0.0,
+            aircraft_type="A320", timestamp_s=0.0,
+        )
+        for i, cs in enumerate(callsigns)
+    }
+    return TrafficSnapshot(timestamp_s=0.0, aircraft=aircraft)
 
 
 def main() -> None:
@@ -320,6 +509,13 @@ def main() -> None:
     test_tracker_two_independent_tracks(r)
     test_tracker_ignores_non_zero_horizons_for_identity(r)
     test_config_tracking_validation(r)
+    test_provisional_track_opens_from_future_horizon_only(r)
+    test_provisional_track_ignores_below_threshold(r)
+    test_provisional_track_extends_across_cycles(r)
+    test_provisional_track_does_not_duplicate_within_one_cycle(r)
+    test_provisional_track_promotes_on_real_observation(r)
+    test_provisional_track_goes_stale_and_closes(r)
+    test_provisional_track_never_resolvable(r)
     r.summary()
 
 

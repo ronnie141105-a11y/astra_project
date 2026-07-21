@@ -113,6 +113,14 @@
                 <canvas id="map-canvas" width="720" height="520"></canvas>
                 <canvas id="map-traffic-canvas" width="720" height="520"></canvas>
                 <div id="aircraft-info-box" class="aircraft-info-box hidden"></div>
+                <div id="display-mode-box" class="display-mode-box">
+                    <label for="display-mode-select">Display Mode</label>
+                    <select id="display-mode-select">
+                        <option value="overall">Overall FIR</option>
+                        <option value="event">Event Sector</option>
+                    </select>
+                </div>
+                <div id="event-sector-message" class="event-sector-message hidden"></div>
             </div>
             <div id="horizon-scrubber" class="scrubber">
                 <span class="scrubber-label">Horizon</span>

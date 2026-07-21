@@ -176,6 +176,25 @@ class ASTRAConfig:
     #: than flat, for GROWING/PEAK/DISSIPATING trend classification.
     tracking_trend_tolerance: float = 1.0
 
+    #: Minimum complexity_score a *predicted* (non-zero horizon) cluster
+    #: must reach before TrackerEngine opens a "PROVISIONAL" track for
+    #: it -- i.e. a track for a hotspot that has not been observed yet
+    #: at all, only foreseen in a longer-horizon prediction. Independent
+    #: of `forecast_onset_threshold` (that governs onset *time*
+    #: prediction on an already-open track); this only gates whether a
+    #: not-yet-observed prediction is worth tracking in the first place,
+    #: keeping this from firing on every faint, sub-noise density blip
+    #: in a far horizon. See astra.tracking.engine's module docstring.
+    tracking_provisional_min_complexity: float = 25.0
+
+    #: Confidence multiplier applied to PROVISIONAL tracks on top of the
+    #: normal detection-count ramp (`TrackerEngine._confidence_for`) --
+    #: keeps a provisional track's displayed confidence visibly lower
+    #: than a real (CANDIDATE-or-later) track with the same number of
+    #: detections, since a prediction with no observation behind it yet
+    #: is inherently less certain.
+    tracking_provisional_confidence_multiplier: float = 0.5
+
     # ------------------------------------------------------------------
     # Phase 6 - 4DARHAC forecast (astra.forecast)
     # See docs/milestone_6_forecast.md for the design review these
@@ -212,6 +231,19 @@ class ASTRAConfig:
 
     #: Magnitude (feet) of the flight-level candidate's +/- adjustment.
     resolution_altitude_step_ft: float = 1000.0
+
+    #: Added to a FLIGHT_LEVEL candidate's deviation_cost_norm when the
+    #: resulting level would violate semicircular (odd/east, even/west)
+    #: RVSM flight-level convention for the target aircraft's current
+    #: track direction -- see `astra.resolution.candidates.matches_rvsm_parity`.
+    #: A flat penalty rather than a hard filter, so a non-standard level
+    #: stays a scoreable (if usually worse) option rather than being
+    #: silently removed from the candidate set -- real ATC occasionally
+    #: does assign one with coordination. Does not affect
+    #: fuel_cost_proxy_norm, which stays a pure altitude-change-magnitude
+    #: proxy independent of parity (see docs/backend_improvements_backlog.md
+    #: item 3).
+    resolution_rvsm_parity_penalty: float = 0.5
 
     #: Magnitude (degrees) of the heading candidate's +/- adjustment.
     #: Only applied when the track's conflict components (MTCA/LTCA)
@@ -353,6 +385,16 @@ class ASTRAConfig:
             raise ValueError("tracking_confirm_cycles must be >= 1")
         if self.tracking_trend_tolerance < 0:
             raise ValueError("tracking_trend_tolerance must be >= 0")
+        if not (0.0 <= self.tracking_provisional_min_complexity <= 100.0):
+            raise ValueError(
+                "tracking_provisional_min_complexity must be in [0.0, 100.0], got "
+                f"{self.tracking_provisional_min_complexity}"
+            )
+        if not (0.0 < self.tracking_provisional_confidence_multiplier <= 1.0):
+            raise ValueError(
+                "tracking_provisional_confidence_multiplier must be in (0.0, 1.0], got "
+                f"{self.tracking_provisional_confidence_multiplier}"
+            )
 
         if not (0.0 <= self.forecast_dissipation_threshold <= 100.0):
             raise ValueError(
@@ -380,6 +422,8 @@ class ASTRAConfig:
             raise ValueError("resolution_speed_step_kt must be > 0")
         if self.resolution_altitude_step_ft <= 0:
             raise ValueError("resolution_altitude_step_ft must be > 0")
+        if self.resolution_rvsm_parity_penalty < 0:
+            raise ValueError("resolution_rvsm_parity_penalty must be >= 0")
         if self.resolution_heading_step_deg <= 0:
             raise ValueError("resolution_heading_step_deg must be > 0")
         if not self.resolution_step_multipliers:

@@ -20,6 +20,13 @@ from astra.complexity.models import ComplexityRegion
 
 #: Lifecycle status of a tracked 4DARHAC.
 #:
+#: PROVISIONAL -- not yet observed at all: opened from a *predicted*
+#:                (non-zero horizon) cluster with no current real-world
+#:                counterpart. Lower confidence, forecastable (an onset
+#:                estimate is the whole point), but never resolvable --
+#:                see astra.tracking.engine's module docstring "Provisional
+#:                tracks" section and astra.resolution.engine's
+#:                `_RESOLVABLE_STATUSES` (deliberately excludes it).
 #: CANDIDATE  -- detected, not yet confirmed (damps single-cycle noise).
 #: CONFIRMED  -- seen for `tracking_confirm_cycles` consecutive cycles.
 #: GROWING    -- complexity_score rising cycle over cycle.
@@ -34,7 +41,7 @@ from astra.complexity.models import ComplexityRegion
 #: classification only; onset/peak/dissipation *time* prediction and
 #: calibrated confidence belong to Milestone 6, layered on top of this.
 ArhacStatus = Literal[
-    "CANDIDATE", "CONFIRMED", "GROWING", "PEAK", "DISSIPATING", "CLOSED"
+    "PROVISIONAL", "CANDIDATE", "CONFIRMED", "GROWING", "PEAK", "DISSIPATING", "CLOSED"
 ]
 
 
@@ -52,16 +59,41 @@ class FourDArhac:
 
     Attributes:
         arhac_id: Stable identifier assigned at first detection;
-            persists for the life of the track.
+            persists for the life of the track -- including across a
+            PROVISIONAL -> CANDIDATE promotion (see `provisional_track`),
+            so an FMP-visible track's identity never changes just
+            because a prediction turned out to be real.
         status: Current lifecycle stage (see ``ArhacStatus``).
-        track: ``ComplexityRegion`` history for this ARHAC, ordered by
-            ``valid_at_s``. Milestone 5 populates this from observed
-            (``horizon_min == 0``) regions only -- see
-            docs/milestone_5_tracking.md "Why horizon 0 only".
+        track: ``ComplexityRegion`` history for this ARHAC from *real*
+            (``horizon_min == 0``) observations only, ordered by
+            ``valid_at_s`` -- see docs/milestone_5_tracking.md "Why
+            horizon 0 only". Empty for a track that is still
+            ``PROVISIONAL`` (see `provisional_track` below); gains its
+            first entry the cycle it is promoted, at which point normal
+            Milestone 5 status-trend logic (``_next_status``) begins
+            exactly as it would for a brand-new track -- provisional
+            history does not count toward `tracking_confirm_cycles`.
+        provisional_track: ``ComplexityRegion`` history from *predicted*
+            (non-zero horizon) clusters, populated only while
+            ``status == "PROVISIONAL"`` -- i.e. before this ARHAC has
+            ever been observed for real. One entry is appended at most
+            once per poll cycle, from whichever configured horizon best
+            matches the track's last known (still-predicted) cluster --
+            see ``TrackerEngine._detect_and_extend_provisional``. Left
+            untouched (a frozen record of "we saw this coming, N cycles
+            in advance") once the track is promoted; never cleared.
+            Empty for a track that was never provisional (opened
+            directly from a real, horizon-0 detection).
         member_aircraft: Union of ``member_callsigns`` across every
-            entry in ``track`` (membership can change cycle to cycle as
-            aircraft join or leave the area).
-        first_detected_cycle_s: Absolute sim time of the first entry.
+            entry in ``track`` *and* ``provisional_track`` (membership
+            can change cycle to cycle as aircraft join or leave the
+            area, or as the predicted geometry is refined before it
+            ever becomes real).
+        first_detected_cycle_s: Absolute simulation time of the first
+            entry -- of ``provisional_track`` if this ARHAC ever was
+            provisional (preserved through promotion, so "how far in
+            advance was this flagged" is always ``track[0].computed_at_s
+            - first_detected_cycle_s``), otherwise of ``track``.
         predicted_onset_s: Set by ``ForecastEngine`` -- the estimated
             future time ``complexity_score`` first crosses
             ``forecast_onset_threshold``, interpolated from this cycle's
@@ -117,6 +149,7 @@ class FourDArhac:
     arhac_id: str
     status: ArhacStatus
     track: List[ComplexityRegion] = field(default_factory=list)
+    provisional_track: List[ComplexityRegion] = field(default_factory=list)
     member_aircraft: FrozenSet[str] = field(default_factory=frozenset)
     first_detected_cycle_s: float = 0.0
     predicted_onset_s: Optional[float] = None

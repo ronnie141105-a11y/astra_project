@@ -38,15 +38,24 @@ drive every coordinate/speed choice here:
 
 `crossing`, `merge`, and `arrival_rush` are validated to reliably cross
 `forecast_onset_threshold` (50) within the first few predicted horizons
-and trigger a resolution. `head_on` and `parallel_overtake` reliably
-open a track and grow (real, watchable FourDArhac lifecycle), but their
-2-aircraft geometry structurally caps complexity lower than the 3+
-aircraft presets (see `astra.complexity.engine` -- the MTCA/LTCA
-conflict component can't fully saturate with only one possible
-conflicting pair) so they do not always cross the resolution threshold;
-kept as-is deliberately, since "a real conflict that stays below the
-line" is itself useful demo content. `free_flow` intentionally stays
-far apart -- it is the negative control.
+and trigger a resolution. `head_on` and `parallel_overtake` also now
+reliably cross it (empirically re-validated after the fix below) --
+earlier versions of this docstring claimed their 2-aircraft geometry
+structurally capped complexity below the 3+ aircraft presets, because
+the MTCA/LTCA conflict sub-score's saturation reference
+(`complexity_mtca_reference_count`/`complexity_ltca_reference_count`,
+calibrated for 3-5 *concurrent* conflict pairs) could never be reached
+by a 2-aircraft cluster's one possible pair, no matter how severe the
+actual conflict. `ComplexityEngine._effective_conflict_reference` fixes
+this by capping the reference at each cluster's actual maximum possible
+pair count (`C(n, 2)`) -- found and fixed while validating
+`arrival_sequencing` (see docs/backend_improvements_backlog.md item 2);
+it only ever lowers the reference for clusters below the configured
+reference's own implied size, so `arrival_rush` (10 possible pairs vs. a
+default LTCA reference of 5) is completely unaffected, and `merge` (3
+possible pairs, same as the default MTCA reference) is only affected on
+its LTCA side. `free_flow` intentionally stays far apart -- it is the
+negative control, and has no possible pairs to affect either way.
 
 `dogleg_turn` is a different kind of demo and is exempt from
 constraint 1 above on purpose: its two aircraft start ~40 NM apart
@@ -102,8 +111,8 @@ PRESETS: Dict[str, Preset] = {
         "description": (
             "Two aircraft on perpendicular tracks converging on the same "
             "point and altitude -- the classic single conflict pair. "
-            "Starts below the onset threshold (~31 pts) and is forecast "
-            "to cross it by the 10-min horizon (~54 pts)."
+            "Starts below the onset threshold (~38 pts) and is forecast "
+            "to cross it by the 5-min horizon (~56 pts)."
         ),
         "aircraft": [
             {
@@ -131,7 +140,7 @@ PRESETS: Dict[str, Preset] = {
         "label": "Merging streams",
         "description": (
             "Three aircraft converging from different headings onto "
-            "roughly the same point and level. Starts at ~41 pts, "
+            "roughly the same point and level. Starts at ~45 pts, "
             "forecast to reach ~75 pts by the 5-min horizon."
         ),
         "aircraft": [
@@ -228,8 +237,8 @@ PRESETS: Dict[str, Preset] = {
         "description": (
             "Two aircraft on reciprocal headings at the same level -- "
             "tests onset/urgency timing on a fast-closing geometry. "
-            "Starts at ~37 pts, forecast to cross the 50-pt threshold by "
-            "the 5-min horizon (~57 pts)."
+            "Starts at ~44 pts, forecast to cross the 50-pt threshold by "
+            "the 5-min horizon (~71 pts)."
         ),
         "aircraft": [
             {
@@ -257,8 +266,9 @@ PRESETS: Dict[str, Preset] = {
         "label": "Parallel overtake",
         "description": (
             "Same track, same level, one aircraft faster than the other -- "
-            "a slow-building conflict with a gentle onset ramp (~29 -> ~42 "
-            "pts over the first 15 min)."
+            "a slow-building conflict. Starts at ~44 pts and now crosses "
+            "the 50-pt onset threshold by the 15-min horizon (~56 pts), "
+            "then eases off again once the faster aircraft has passed."
         ),
         "aircraft": [
             {
@@ -442,15 +452,15 @@ PRESETS: Dict[str, Preset] = {
         "description": (
             "Two aircraft in-trail on real airway W1 (MEVON-BMT-ENRIN-AC-"
             "ESDOB-TSH), 5 NM apart, same level, near-identical speed -- "
-            "fully separation-compliant, but on track to reach the "
-            "sector-boundary fix AC (and its handoff) within about a "
-            "minute of each other, ~35-40 min from now. A flow/workload "
-            "problem, not a conflict: track opens and grows immediately "
-            "but complexity plateaus in the low 40s (identical heading/alt "
-            "structurally zeroes two of the five complexity components) -- "
-            "deliberately stays below the 50-pt alert line. See "
-            "scenarios/arrival_sequencing_demo.py for the proposed "
-            "sequencing vector and its before/after spacing at AC."
+            "fully separation-compliant now, but the trailing aircraft is "
+            "slightly faster and closes to inside MTCA minima roughly "
+            "40-50 min out, well before reaching the sector-boundary fix "
+            "AC. A flow/workload story that ASTRA also correctly resolves "
+            "as a genuine, if distant, conflict: ResolutionEngine "
+            "typically proposes a speed adjustment automatically within "
+            "the first couple of poll cycles. See "
+            "scenarios/arrival_sequencing_demo.py for the measured "
+            "onset time and the resulting before/after spacing at AC."
         ),
         "aircraft": operational.arrival_sequencing_aircraft(),
     },

@@ -140,8 +140,22 @@ def serialize_track(track: FourDArhac) -> Dict:
     Milestone 5/6 lifecycle is built from -- for the timeline panel's
     onset/peak/dissipation plot. The most recent entry's `Cluster`
     supplies the track's current centroid for the map/table panels.
+
+    A `"PROVISIONAL"` track (see astra.tracking.engine's module
+    docstring) has no real observations yet, so `track.track` is empty
+    and every field above stays at its existing "nothing observed"
+    default (`current_complexity_score`/`centroid`: `null`, `history`:
+    `[]`) -- unchanged, so this remains exactly backward compatible for
+    any consumer built before provisional tracks existed. The
+    `provisional_*` fields below are purely additive: predicted-only
+    equivalents of the same information, present whenever
+    `track.provisional_track` is non-empty (which includes *after*
+    promotion too -- it is kept as a historical record, see that
+    field's docstring -- so `provisional_lead_time_s` remains available
+    even once a track is fully real).
     """
     latest_region = track.track[-1] if track.track else None
+    latest_provisional = track.provisional_track[-1] if track.provisional_track else None
     return {
         "arhac_id": track.arhac_id,
         "status": track.status,
@@ -172,6 +186,27 @@ def serialize_track(track: FourDArhac) -> Dict:
             {"time_s": region.computed_at_s, "complexity_score": region.complexity_score}
             for region in track.track
         ],
+        "provisional_current_complexity_score": (
+            latest_provisional.complexity_score if latest_provisional is not None else None
+        ),
+        "provisional_centroid": (
+            {
+                "lat": latest_provisional.cluster.centroid_lat,
+                "lon": latest_provisional.cluster.centroid_lon,
+                "alt_ft": latest_provisional.cluster.centroid_alt_ft,
+            }
+            if latest_provisional is not None
+            else None
+        ),
+        "provisional_history": [
+            {"time_s": region.computed_at_s, "complexity_score": region.complexity_score}
+            for region in track.provisional_track
+        ],
+        "provisional_lead_time_s": (
+            (track.track[0].computed_at_s - track.first_detected_cycle_s)
+            if track.track and track.provisional_track
+            else None
+        ),
     }
 
 

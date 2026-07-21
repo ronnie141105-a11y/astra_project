@@ -34,6 +34,7 @@ from astra.hotspot.models import Cluster
 from astra.interface.traffic_state import AircraftState, TrafficSnapshot
 from astra.resolution.models import ClearanceType
 from astra.utils.config import ASTRAConfig
+from astra.utils.geodesy import haversine_distance_nm
 
 #: `route_provider`'s signature -- matches `StateReader.get_route` /
 #: `astra.trajectory.route_engine.RouteProvider` exactly, so a bound
@@ -86,10 +87,23 @@ def select_target_aircraft_ranked(
     candidates for larger clusters -- see
     ``ResolutionEngine._build_joint_candidate``.
 
-    Same proxy signal as before (OQ-2): members involved in more
-    pairwise MTCA/LTCA conflicts rank first; ties, and the
-    no-conflict-pairs case, break alphabetically by callsign for
-    determinism.
+    Same primary proxy signal as before (OQ-2): members involved in more
+    pairwise MTCA/LTCA conflicts rank first. Ties -- including the
+    no-conflict-pairs case entirely (a density/diversity-only cluster,
+    where every member's conflict count is 0) -- now break by distance
+    from the cluster centroid, closest first, rather than purely
+    alphabetically: the most central member is the one whose own
+    movement does the most to actually de-densify the cluster (nudging
+    an aircraft already near the edge barely changes the cluster's
+    density/extent; nudging the one nearest the centroid does).
+    Alphabetical callsign order is now only the final, last-resort
+    tie-break, for aircraft equidistant from the centroid (e.g. a
+    perfectly symmetric geometry) -- kept so the ranking stays fully
+    deterministic even then. Previously, ties broke on callsign alone,
+    which for the all-zero-conflict-count case meant target selection
+    for density-only clusters was not grounded in anything about the
+    actual traffic picture (see docs/backend_improvements_backlog.md
+    item 3).
 
     Args:
         cluster: The track's most recent (or hypothetical) cluster.
@@ -119,9 +133,17 @@ def select_target_aircraft_ranked(
             conflict_counts[ac_a.callsign] += 1
             conflict_counts[ac_b.callsign] += 1
 
+    centroid_distance_nm = {
+        ac.callsign: haversine_distance_nm(
+            ac.lat, ac.lon, cluster.centroid_lat, cluster.centroid_lon
+        )
+        for ac in members
+    }
+
     by_callsign = {ac.callsign: ac for ac in members}
     ranked_callsigns = sorted(
-        conflict_counts, key=lambda cs: (-conflict_counts[cs], cs)
+        conflict_counts,
+        key=lambda cs: (-conflict_counts[cs], centroid_distance_nm[cs], cs),
     )
     return [by_callsign[cs] for cs in ranked_callsigns]
 
@@ -164,6 +186,38 @@ def heading_lever_applicable(region: ComplexityRegion) -> bool:
         region.components.get("mtca_count", 0.0) + region.components.get("ltca_count", 0.0)
         > 0.0
     )
+
+
+def matches_rvsm_parity(heading_deg: float, altitude_ft: float) -> bool:
+    """True if `altitude_ft` is a conventionally-correct flight level for
+    an aircraft tracking `heading_deg` -- semicircular (odd/east,
+    even/west) RVSM flight-level allocation.
+
+    Real airspace assigns flight levels by direction of flight so that
+    same-direction traffic is vertically staggered from opposite-direction
+    traffic: eastbound tracks (magnetic 000-179) fly odd flight levels
+    (FL290, 330, 370, 410, ...), westbound tracks (180-359) fly even ones
+    (FL280, 320, 360, 400, ...) -- simplified here to whole-thousands
+    parity (`round(altitude_ft / 1000)` odd/even) rather than modelling
+    the exact ICAO RVSM table (2000 ft spacing above FL290, 1000 ft
+    below), consistent with this scoring model's existing "crude proxy,
+    not a certified system" framing elsewhere (see OQ-4). Good enough to
+    tell a FLIGHT_LEVEL candidate's *resulting* level apart from a
+    same-direction one that would actually be assigned in practice.
+
+    Args:
+        heading_deg: The aircraft's track direction, degrees (any range;
+            normalised internally).
+        altitude_ft: The altitude to check -- typically a candidate's
+            *resulting* altitude (current + delta), not its current one.
+
+    Returns:
+        ``True`` if the whole-thousands parity of `altitude_ft` matches
+        the expected one for `heading_deg`'s hemisphere.
+    """
+    eastbound = (heading_deg % 360.0) < 180.0
+    is_odd_thousand = round(altitude_ft / 1000.0) % 2 == 1
+    return is_odd_thousand == eastbound
 
 
 def _apply_clearance(

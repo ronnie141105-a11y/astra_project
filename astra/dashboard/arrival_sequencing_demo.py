@@ -6,8 +6,10 @@ Demonstrates ASTRA's medium-term flow-management value for a pair of
 in-trail aircraft on the same airway, same level, ~5 NM apart, both
 converging on the sector-boundary fix AC within about a minute of each
 other some 35-40 minutes from now -- a transfer-coordination workload
-problem, not a separation conflict (see the preset's own docstring for
-the full operational reasoning).
+story, and (see the preset's own docstring, updated alongside
+docs/backend_improvements_backlog.md item 2) also a genuine, if distant,
+predicted separation conflict once the trailing aircraft's slightly
+higher speed closes the gap to inside MTCA minima ~40-50 min out.
 
 This script does three things, MockConnector only (no BlueSky, no
 .scn files):
@@ -15,16 +17,21 @@ This script does three things, MockConnector only (no BlueSky, no
 1.  Runs the real pipeline (`Pipeline.run_cycle`, `MockConnector` via
     `StateReader.for_mock`) for one cycle on the preset traffic and
     records the observed hotspot and how `ComplexityEngine`'s five
-    components combine for it (confirms this preset's own documented
-    ~40-pt plateau empirically, the same way `scenario_presets.py`
-    documents having validated its other presets).
+    components combine for it.
 2.  Hand-builds a `FourDArhac` track anchored on that observed region
-    (exactly the technique `scenarios/domino_effect_demo.py` already
-    uses for a track that wouldn't otherwise clear
-    `ResolutionEngine`'s normal eligibility bar) with a predicted onset
-    pinned to this scenario's real ETA-to-AC, and calls
+    (the same technique `scenarios/domino_effect_demo.py` uses) with a
+    predicted onset pinned to this scenario's real ETA-to-AC, and calls
     `ResolutionEngine.resolve()` directly to get real, ranked
-    HEADING/SPEED candidates for the trailing aircraft.
+    HEADING/SPEED candidates for the trailing aircraft. Kept as a
+    deliberate, controlled second data point even though (as of the
+    complexity-engine fix in item 2 of the backlog) `ResolutionEngine`
+    now also fires from the *normal*, automatic pipeline for this
+    preset within the first couple of poll cycles -- run
+    `astra/dashboard/scenario_presets_operational.py`'s preset through
+    a real multi-cycle `Pipeline` loop (see this project's own
+    `docs/backend_improvements_backlog.md` item 2 write-up) to see that
+    directly; this script's hand-built version stays useful as a single-
+    cycle, fully controlled comparison point.
 3.  Actually simulates the scenario twice with `MockConnector` end to
     end -- once with no intervention, once applying a speed reduction
     to the trailing aircraft for a short window -- and measures the
@@ -98,11 +105,13 @@ def _run_pipeline_snapshot(config: ASTRAConfig):
 def _resolve_with_hand_built_track(config: ASTRAConfig, cycle_result, onset_s: float):
     """Same technique as scenarios/domino_effect_demo.py: hand-build an
     eligible track anchored on the real observed region, then call
-    ResolutionEngine.resolve() directly. See this module's docstring
-    for why this preset structurally doesn't clear ForecastEngine's own
-    eligibility bar on its own (identical heading/altitude -> two of
-    five complexity components are zero -> composite score plateaus
-    below forecast_onset_threshold)."""
+    ResolutionEngine.resolve() directly. Gives a single-cycle, fully
+    controlled data point independent of how many real poll cycles
+    TrackerEngine/ForecastEngine would take to reach eligibility on
+    their own (which, since the complexity-engine fix in
+    docs/backend_improvements_backlog.md item 2, is typically only a
+    cycle or two for this preset anyway -- see arrival_sequencing_aircraft()'s
+    own docstring)."""
     region = cycle_result.regions_by_horizon[0][0]
     track = FourDArhac(
         arhac_id="ARRIVAL-SEQ-DEMO",

@@ -278,6 +278,54 @@ def test_serialize_track_with_no_history_has_none_centroid(r: Runner) -> None:
     r.check("current_complexity_score is None", out["current_complexity_score"] is None)
 
 
+def test_serialize_track_provisional_fields_are_additive(r: Runner) -> None:
+    """A PROVISIONAL track's existing fields stay at their 'nothing observed'
+    defaults; the new provisional_* fields carry the predicted-only data instead."""
+    provisional_entries = [
+        _region(["A1", "A2"], score, valid_at_s=float(i * 300)) for i, score in enumerate((25.0, 35.0))
+    ]
+    track = _track(
+        history_scores=(),
+        status="PROVISIONAL",
+        provisional_track=provisional_entries,
+        first_detected_cycle_s=0.0,
+        predicted_onset_s=None,
+        predicted_dissipation_s=None,
+    )
+    out = serializers.serialize_track(track)
+
+    r.check("existing history field stays empty (backward compatible)", out["history"] == [])
+    r.check("existing centroid field stays None (backward compatible)", out["centroid"] is None)
+    r.check(
+        "existing current_complexity_score field stays None (backward compatible)",
+        out["current_complexity_score"] is None,
+    )
+    r.check("provisional_history has both predicted entries", len(out["provisional_history"]) == 2)
+    r.check_close(
+        "provisional_current_complexity_score is the latest predicted entry",
+        out["provisional_current_complexity_score"], 35.0,
+    )
+    r.check("provisional_centroid is populated", out["provisional_centroid"] is not None)
+    r.check(
+        "provisional_lead_time_s is None before promotion (no real observation yet)",
+        out["provisional_lead_time_s"] is None,
+    )
+
+
+def test_serialize_track_provisional_lead_time_after_promotion(r: Runner) -> None:
+    """Once promoted (real `track` entries exist), provisional_lead_time_s reports
+    how far in advance the track was first flagged."""
+    provisional_entries = [_region(["A1", "A2"], 30.0, valid_at_s=0.0)]
+    track = _track(
+        history_scores=(50.0,),
+        status="CANDIDATE",
+        provisional_track=provisional_entries,
+        first_detected_cycle_s=-1800.0,  # flagged 30 min before its first real entry (t=0)
+    )
+    out = serializers.serialize_track(track)
+    r.check_close("lead time is 1800s (30 min flagged in advance)", out["provisional_lead_time_s"], 1800.0)
+
+
 def test_serialize_resolution_candidate(r: Runner) -> None:
     """One `ResolutionCandidate` serializes every scored field."""
     candidate = _candidate(
@@ -586,6 +634,8 @@ def main() -> None:
     test_serialize_sector_history(r)
     test_serialize_track_includes_history_and_centroid(r)
     test_serialize_track_with_no_history_has_none_centroid(r)
+    test_serialize_track_provisional_fields_are_additive(r)
+    test_serialize_track_provisional_lead_time_after_promotion(r)
     test_serialize_resolution_candidate(r)
     test_serialize_resolution_candidate_with_components_and_path(r)
     test_serialize_resolution_set_caps_candidates(r)

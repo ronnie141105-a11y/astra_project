@@ -30,6 +30,9 @@
         selectedArhacId: null,
         selectedCandidateIndex: {}, // arhac_id -> candidate index being previewed
         selectedAircraftCallsign: null, // set by clicking an aircraft marker on the map
+        displayMode: "overall", // "overall" | "event" | a specific sector's full name
+        viewTransition: null, // {fromView, toView, startMs, durationMs} while animating a mode switch
+        lastAutoFitKey: "overall", // re-arms the auto-zoom only when (mode, resolved sector) actually changes
         lifecycle: {}, // arhac_id -> "DRAFT" | "PROPOSED" | "ACKNOWLEDGED" | "CANCELED"
         selectedHorizon: 0,
         availableHorizons: [0],
@@ -725,6 +728,137 @@
         };
     }
 
+    // ------------------------------------------------------------------
+    // Event Sector mode -- sector lookup by point, bounds, and features
+    // ------------------------------------------------------------------
+
+    /** Standard ray-casting point-in-polygon test against one ring
+     * (`[[lon, lat], ...]`, GeoJSON winding order). Holes (rings after
+     * the first) are deliberately ignored -- ACC sector polygons in this
+     * dataset don't have them, and a wrong-but-simple answer here only
+     * ever affects which sector a hotspot is *labelled* as, not any
+     * safety-relevant computation. */
+    function ringContainsPoint(lat, lon, ring) {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const [xi, yi] = ring[i];
+            const [xj, yj] = ring[j];
+            const intersects = yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+            if (intersects) {
+                inside = !inside;
+            }
+        }
+        return inside;
+    }
+
+    /** True if (lat, lon) falls inside `geometry` (Polygon or
+     * MultiPolygon; outer ring only per `ringContainsPoint`). */
+    function geometryContainsPoint(lat, lon, geometry) {
+        if (!geometry) {
+            return false;
+        }
+        if (geometry.type === "Polygon") {
+            return geometry.coordinates.length > 0 && ringContainsPoint(lat, lon, geometry.coordinates[0]);
+        }
+        if (geometry.type === "MultiPolygon") {
+            return geometry.coordinates.some((poly) => poly.length > 0 && ringContainsPoint(lat, lon, poly[0]));
+        }
+        return false;
+    }
+
+    /** The full sector name (e.g. "Sector 2 Ho Chi Minh ACC") whose
+     * polygon contains (lat, lon), or null if none does -- used to
+     * auto-identify "the sector associated with the currently selected
+     * alert" for Event Sector mode. Deliberately returns null rather
+     * than a nearest-sector guess on a miss (e.g. a hotspot centroid
+     * just outside every drawn boundary): Event Sector mode shows an
+     * explicit "no sector identified" message in that case instead of
+     * silently picking one, per the operator never being able to trust
+     * a display that might be guessing. */
+    function findSectorNameForPoint(lat, lon) {
+        const layer = geoLayers.layers.find((l) => l.id === "sectors");
+        if (!layer) {
+            return null;
+        }
+        const hit = (layer.geojson.features || []).find(
+            (f) => f.properties && f.properties.name && geometryContainsPoint(lat, lon, f.geometry)
+        );
+        return hit ? hit.properties.name : null;
+    }
+
+    function sectorFeaturesByName(name) {
+        const layer = geoLayers.layers.find((l) => l.id === "sectors");
+        if (!layer) {
+            return [];
+        }
+        return (layer.geojson.features || []).filter((f) => f.properties && f.properties.name === name);
+    }
+
+    /** Bounding box (with padding) of every polygon sharing `name` --
+     * usually 2+ features (one per altitude layer sharing one sector
+     * name), same shape as `geoLayerBounds()`. Null if the name isn't
+     * found (e.g. sectors.json hasn't loaded yet). */
+    function sectorBoundsByName(name, pad) {
+        const features = sectorFeaturesByName(name);
+        if (features.length === 0) {
+            return null;
+        }
+        const lats = [];
+        const lons = [];
+        features.forEach((f) => forEachCoordinate(f.geometry, ([lon, lat]) => { lats.push(lat); lons.push(lon); }));
+        if (lats.length === 0) {
+            return null;
+        }
+        const p = pad === undefined ? 0.08 : pad;
+        const minLat = Math.min(...lats);
+        const maxLat = Math.max(...lats);
+        const minLon = Math.min(...lons);
+        const maxLon = Math.max(...lons);
+        const latSpan = Math.max(maxLat - minLat, 0.02);
+        const lonSpan = Math.max(maxLon - minLon, 0.02);
+        return {
+            minLat: minLat - latSpan * p,
+            maxLat: maxLat + latSpan * p,
+            minLon: minLon - lonSpan * p,
+            maxLon: maxLon + lonSpan * p,
+        };
+    }
+
+    /** Resolves Event Sector mode's target sector name from whichever
+     * track is currently selected (`ui.selectedArhacId`) -- the
+     * "automatically display the sector associated with the currently
+     * selected alert" behaviour. Returns null if no track is selected,
+     * or if its centroid doesn't fall inside any drawn sector polygon
+     * (both are shown as an explicit message, never guessed). */
+    function resolveEventSectorName(cycle) {
+        const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
+        if (!track || !track.centroid) {
+            return null;
+        }
+        return findSectorNameForPoint(track.centroid.lat, track.centroid.lon);
+    }
+
+    /** Aircraft coloring for Event Sector / named-sector display modes:
+     * members of the currently selected track get the normal pink at
+     * full opacity; every other aircraft is greyed out and dimmed, per
+     * "do not remove them, de-emphasize them" -- so the operator sees
+     * at a glance which aircraft the alert is actually about without
+     * losing situational awareness of everything else nearby. Falls
+     * back to plain grey-out for all aircraft if no track is selected
+     * (still useful for a manually-picked "Sector N" with no active
+     * alert -- nothing is "involved" yet, so nothing is highlighted). */
+    function buildEventModeHighlightMap(cycle) {
+        const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
+        const involved = new Set(track ? track.member_aircraft : []);
+        const map = {};
+        cycle.snapshot.aircraft.forEach((ac) => {
+            map[ac.callsign] = involved.has(ac.callsign)
+                ? { color: AIRCRAFT_COLOR, opacity: 1, bucket: "involved" }
+                : { color: "#8494a2", opacity: 0.32, bucket: "dimmed" };
+        });
+        return map;
+    }
+
     function drawGrid(ctx, width, height) {
         // Faint square reference grid (kept subtle -- the range rings below
         // are the primary "this is a radar" visual cue).
@@ -1019,6 +1153,63 @@
      * the aircraft's real observed state (heading/speed/level), not a
      * predicted-horizon snapshot of it, regardless of which horizon
      * button is active -- the trajectory line is what shows the future. */
+    /** Shows/hides the "can't determine a sector" message for Event
+     * Sector mode -- deliberately never guesses (see
+     * `resolveEventSectorName`'s docstring), so this is the only thing
+     * drawn in that case rather than an empty or misleading map. */
+    function updateEventSectorMessage(eventMode, targetSectorName) {
+        const box = document.getElementById("event-sector-message");
+        if (!box) {
+            return;
+        }
+        if (!eventMode || targetSectorName) {
+            box.classList.add("hidden");
+            return;
+        }
+        box.classList.remove("hidden");
+        box.textContent =
+            ui.displayMode === "event" && !ui.selectedArhacId
+                ? "No alert selected. Select an alert to view its Event Sector."
+                : "Could not identify a sector for the selected alert's location.";
+    }
+
+    /** Moves the (already-populated) aircraft info box to sit next to its
+     * aircraft's current on-screen position -- called every animation
+     * frame (not just once per poll) so it tracks the same
+     * sub-poll-interval interpolated motion the aircraft marker itself
+     * has, and keeps up smoothly during a display-mode view transition
+     * too. Content (heading/speed/etc.) is set separately by
+     * `renderAircraftInfoBox`, once per poll -- no need to rebuild that
+     * every frame, only its position. */
+    function positionAircraftInfoBox() {
+        const box = document.getElementById("aircraft-info-box");
+        const callsign = ui.selectedAircraftCallsign;
+        if (!box || !callsign || box.classList.contains("hidden") || !ui.mapProject) {
+            return;
+        }
+        const cycle = window.__astraLastCycle;
+        if (!cycle) {
+            return;
+        }
+        const pos =
+            ui.selectedHorizon === 0
+                ? interpolatedObservedAircraft().find((a) => a.callsign === callsign)
+                : getRenderedAircraftPosition(cycle, callsign);
+        if (!pos) {
+            return;
+        }
+        const [x, y] = ui.mapProject(pos.lat, pos.lon);
+        const stack = document.getElementById("map-stack");
+        const stackWidth = stack ? stack.clientWidth : 0;
+        // Flip to the aircraft's left if it's in the right-hand portion of
+        // the map, so the box doesn't run off the edge for traffic near
+        // the right boundary.
+        const flip = stackWidth > 0 && x > stackWidth * 0.65;
+        box.style.left = flip ? "" : `${x + 14}px`;
+        box.style.right = flip ? `${stackWidth - x + 14}px` : "";
+        box.style.top = `${Math.max(4, y - 14)}px`;
+    }
+
     function renderAircraftInfoBox(cycle) {
         const box = document.getElementById("aircraft-info-box");
         if (!box) {
@@ -1086,6 +1277,7 @@
     function drawAircraftMarker(ctx, project, ac, opts) {
         const options = opts || {};
         const color = options.color || AIRCRAFT_COLOR;
+        const opacity = options.opacity === undefined ? 1 : options.opacity;
         const [x, y] = project(ac.lat, ac.lon);
 
         if (options.showHeading && ac.heading_deg !== undefined && ac.heading_deg !== null) {
@@ -1099,12 +1291,12 @@
             const ly = y - Math.cos(headingRad) * leaderLen;
             ctx.beginPath();
             ctx.strokeStyle = color;
-            ctx.globalAlpha = 0.55;
+            ctx.globalAlpha = 0.55 * opacity;
             ctx.lineWidth = 1;
             ctx.moveTo(x, y);
             ctx.lineTo(lx, ly);
             ctx.stroke();
-            ctx.globalAlpha = 1;
+            ctx.globalAlpha = opacity;
 
             ctx.save();
             ctx.translate(x, y);
@@ -1120,6 +1312,7 @@
         } else {
             ctx.beginPath();
             ctx.fillStyle = color;
+            ctx.globalAlpha = opacity;
             ctx.arc(x, y, 5, 0, Math.PI * 2);
             ctx.fill();
         }
@@ -1130,16 +1323,18 @@
             const textWidth = ctx.measureText(label).width;
             const boxX = x + 8;
             const boxY = y - 9;
+            ctx.globalAlpha = opacity;
             ctx.fillStyle = "rgba(6, 10, 15, 0.72)";
             ctx.fillRect(boxX - 3, boxY - 2, textWidth + 6, 16);
             ctx.strokeStyle = color;
-            ctx.globalAlpha = 0.7;
+            ctx.globalAlpha = 0.7 * opacity;
             ctx.lineWidth = 1;
             ctx.strokeRect(boxX - 3, boxY - 2, textWidth + 6, 16);
-            ctx.globalAlpha = 1;
+            ctx.globalAlpha = opacity;
             ctx.fillStyle = "#d7e2ea";
             ctx.fillText(label, boxX, y + 3);
         }
+        ctx.globalAlpha = 1;
     }
 
     /** Traffic at the scrubbed horizon: observed/interpolated aircraft (with
@@ -1152,7 +1347,11 @@
             const list = observedOverride || cycle.snapshot.aircraft;
             list.forEach((ac) => {
                 const h = highlight[ac.callsign];
-                drawAircraftMarker(ctx, project, ac, { color: h ? h.color : AIRCRAFT_COLOR, showHeading: true });
+                drawAircraftMarker(ctx, project, ac, {
+                    color: h ? h.color : AIRCRAFT_COLOR,
+                    opacity: h ? h.opacity : 1,
+                    showHeading: true,
+                });
             });
             return;
         }
@@ -1180,7 +1379,11 @@
                 ctx,
                 project,
                 { callsign, lat: atHorizon.lat, lon: atHorizon.lon, altitude_ft: atHorizon.altitude_ft },
-                { color: isHypoTarget ? SOLUTION_COLOR : h ? h.color : "#e0a63c", showHeading: false }
+                {
+                    color: isHypoTarget ? SOLUTION_COLOR : h ? h.color : "#e0a63c",
+                    opacity: h ? h.opacity : 1,
+                    showHeading: false,
+                }
             );
         });
     }
@@ -1226,6 +1429,19 @@
      * Also called directly (not just per-poll) after a pan/zoom/reset, so
      * the view updates instantly without waiting for the next tick --
      * `cycle` is always `window.__astraLastCycle` in that case. */
+    /** Resolves what "the selected sector" is for the current display
+     * mode: null for Overall FIR, the alert-derived sector for "event",
+     * or the literal chosen name for a manually-picked "Sector N". */
+    function getTargetSectorName(cycle) {
+        if (ui.displayMode === "overall") {
+            return null;
+        }
+        if (ui.displayMode === "event") {
+            return resolveEventSectorName(cycle);
+        }
+        return ui.displayMode;
+    }
+
     function renderMap(cycle) {
         const canvas = document.getElementById("map-canvas");
         ensureCanvasSize(canvas);
@@ -1233,6 +1449,39 @@
         const width = canvas.clientWidth;
         const height = canvas.clientHeight;
         ctx.clearRect(0, 0, width, height);
+
+        const eventMode = ui.displayMode !== "overall";
+        const targetSectorName = getTargetSectorName(cycle);
+        const stack = document.getElementById("map-stack");
+        if (stack) {
+            stack.classList.toggle("event-mode", eventMode && !!targetSectorName);
+        }
+        const sectorToggleRow = document.getElementById("map-sector-toggles");
+        if (sectorToggleRow) {
+            // The "Sectors shown" chips only govern Overall FIR's sector
+            // visibility -- irrelevant once Event Sector mode has already
+            // picked exactly one sector to show.
+            sectorToggleRow.classList.toggle("hidden", eventMode);
+        }
+        updateEventSectorMessage(eventMode, targetSectorName);
+        syncDisplayModeSelector();
+        // Auto-zoom exactly once per (mode, resolved sector) change -- not
+        // every render, or a drag/zoom the operator just did would get
+        // fought every frame. Re-arms whenever the mode or the resolved
+        // sector name changes (e.g. picking a different alert while
+        // already in Event Sector mode re-centers on its sector too).
+        const autoFitKey = eventMode ? `${ui.displayMode}:${targetSectorName || ""}` : "overall";
+        if (autoFitKey !== ui.lastAutoFitKey) {
+            ui.lastAutoFitKey = autoFitKey;
+            if (eventMode && targetSectorName) {
+                const target = sectorBoundsByName(targetSectorName, 0.15);
+                if (target) {
+                    startViewTransition(target, 750);
+                }
+            } else if (!eventMode) {
+                startViewTransition(fitToDataView(cycle), 750);
+            }
+        }
 
         if (!ui.view) {
             ui.view = loadPersistedView() || fitToDataView(cycle);
@@ -1244,16 +1493,42 @@
         // (recomputing from interpolated positions would make the view
         // visibly "breathe" as aircraft move).
         ui.mapProject = project;
-        ui.aircraftHighlight = buildAircraftHighlightMap(cycle);
+        ui.aircraftHighlight = eventMode ? buildEventModeHighlightMap(cycle) : buildAircraftHighlightMap(cycle);
 
-        drawGrid(ctx, width, height);
+        if (!eventMode) {
+            drawGrid(ctx, width, height);
+        }
         geoLayers.draw(ctx, project, (layer, feature) => {
+            if (eventMode) {
+                // Event Sector mode: coastlines/country borders/FIR
+                // boundary are hidden outright (a solid-black, sector-only
+                // picture); the sectors layer is suppressed here too --
+                // handled separately below via a dedicated dark-fill draw
+                // of only the target sector, not the generic teal style
+                // every sector otherwise shares.
+                if (layer.id === "coastlines" || layer.id === "country_borders" || layer.id === "firs" || layer.id === "sectors") {
+                    return false;
+                }
+                return true;
+            }
             if (layer.id !== "sectors") {
                 return true;
             }
             const name = feature.properties && feature.properties.name;
             return !ui.hiddenSectorNames.has(name);
         });
+        if (eventMode && targetSectorName) {
+            const eventSectorStyle = { stroke: "#35c3a3", fill: "rgba(90, 100, 110, 0.55)", width: 1.5, dash: [] };
+            sectorFeaturesByName(targetSectorName).forEach((feature) => {
+                if (feature.geometry.type === "Polygon") {
+                    geoLayers._drawPolygon(ctx, project, eventSectorStyle, feature.geometry.coordinates, targetSectorName);
+                } else if (feature.geometry.type === "MultiPolygon") {
+                    feature.geometry.coordinates.forEach((poly) =>
+                        geoLayers._drawPolygon(ctx, project, eventSectorStyle, poly, targetSectorName)
+                    );
+                }
+            });
+        }
         drawSectorBoundaries(ctx, project, bounds, width, cycle.sector_regions);
         const regionsAtHorizon = cycle.regions_by_horizon[String(ui.selectedHorizon)] || [];
         drawComplexityRegions(ctx, project, bounds, width, regionsAtHorizon, cycle);
@@ -1263,6 +1538,7 @@
         }
         drawSelectedAircraftPath(ctx, project, cycle);
         renderAircraftInfoBox(cycle);
+        positionAircraftInfoBox();
     }
 
     /** Animated overlay -- aircraft markers only, redrawn every animation
@@ -1280,6 +1556,7 @@
         ctx.clearRect(0, 0, width, height);
         const observed = ui.selectedHorizon === 0 ? interpolatedObservedAircraft() : null;
         drawScrubbedTraffic(ctx, ui.mapProject, cycle, ui.selectedHorizon, ui.aircraftHighlight, observed);
+        positionAircraftInfoBox();
     }
 
     // ------------------------------------------------------------------
@@ -1530,6 +1807,41 @@
                 btn.disabled = false;
             }
         });
+    }
+
+    /** One-time wiring for the Display Mode selector. Sector options
+     * ("Sector 1", "Sector 2", ...) are appended once the sectors geo
+     * layer has loaded (same short-name extraction as the "Sectors
+     * shown" chips, so the two stay consistent). */
+    function setupDisplayModeSelector() {
+        const select = document.getElementById("display-mode-select");
+        if (!select) {
+            return;
+        }
+        distinctSectorNames().forEach((name) => {
+            const short = (name.match(/\d+/) || [name])[0];
+            const opt = document.createElement("option");
+            opt.value = name;
+            opt.textContent = `Sector ${short}`;
+            select.appendChild(opt);
+        });
+        select.addEventListener("change", () => {
+            ui.displayMode = select.value;
+            ui.lastAutoFitKey = null; // force the auto-zoom to re-arm on the very next render
+            if (window.__astraLastCycle) {
+                renderMap(window.__astraLastCycle);
+            }
+        });
+    }
+
+    /** Keeps the Display Mode dropdown in sync when the mode changes from
+     * elsewhere (e.g. clicking an alert switches into Event Sector mode
+     * automatically -- see `selectTrack`). */
+    function syncDisplayModeSelector() {
+        const select = document.getElementById("display-mode-select");
+        if (select && select.value !== ui.displayMode) {
+            select.value = ui.displayMode;
+        }
     }
 
     /** All currently-observed aircraft, sorted callsign-wise, each with an
@@ -1973,6 +2285,14 @@
 
     function selectTrack(arhacId) {
         ui.selectedArhacId = arhacId;
+        // Selecting an alert is the operator saying "focus on this" --
+        // Event Sector mode (auto-identify sector, dim uninvolved
+        // traffic, zoom in) is exactly that focus, so clicking an alert
+        // switches into it automatically rather than requiring a second
+        // manual step. Switching *back* to Overall FIR is still always
+        // available from the dropdown.
+        ui.displayMode = "event";
+        ui.lastAutoFitKey = null; // force the auto-zoom to re-arm even if the resolved sector is unchanged
         if (window.__astraLastCycle) {
             renderTracksTable(window.__astraLastCycle, selectTrack);
             renderEventPanel(window.__astraLastCycle);
@@ -2025,7 +2345,50 @@
             .finally(() => setTimeout(poll, POLL_INTERVAL_MS));
     }
 
+    function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    /** Smoothly animates `ui.view` from wherever it currently is to
+     * `targetView` over `durationMs` -- used when switching display mode
+     * (Overall FIR <-> Event Sector <-> a named sector) so the camera
+     * move reads as "the map is taking you there", not a jump cut. The
+     * animation loop (`animateTrafficOverlay`) does the actual per-frame
+     * interpolation; this just registers where it's headed. */
+    function startViewTransition(targetView, durationMs) {
+        if (!ui.view || !targetView) {
+            ui.view = targetView;
+            return;
+        }
+        ui.viewTransition = {
+            fromView: Object.assign({}, ui.view),
+            toView: targetView,
+            startMs: performance.now(),
+            durationMs: durationMs || 700,
+        };
+    }
+
     function animateTrafficOverlay() {
+        if (ui.viewTransition && window.__astraLastCycle) {
+            const t = (performance.now() - ui.viewTransition.startMs) / ui.viewTransition.durationMs;
+            if (t >= 1) {
+                ui.view = ui.viewTransition.toView;
+                ui.viewTransition = null;
+            } else {
+                const e = easeInOutCubic(Math.max(0, t));
+                const { fromView: fv, toView: tv } = ui.viewTransition;
+                ui.view = {
+                    minLat: fv.minLat + (tv.minLat - fv.minLat) * e,
+                    maxLat: fv.maxLat + (tv.maxLat - fv.maxLat) * e,
+                    minLon: fv.minLon + (tv.minLon - fv.minLon) * e,
+                    maxLon: fv.maxLon + (tv.maxLon - fv.maxLon) * e,
+                };
+            }
+            // A view change moves every feature on screen, not just
+            // traffic -- needs the full base-layer redraw, not just the
+            // lightweight traffic-only overlay pass below.
+            renderMap(window.__astraLastCycle);
+        }
         renderTrafficOverlay();
         requestAnimationFrame(animateTrafficOverlay);
     }
@@ -2178,6 +2541,7 @@
     document.addEventListener("DOMContentLoaded", () => {
         setupTabs();
         setupHorizonScrubber();
+        setupDisplayModeSelector();
         setupSpeedButtons();
         setupPauseResumeButton();
         setupManualClearanceForm();

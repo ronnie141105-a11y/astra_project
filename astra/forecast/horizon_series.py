@@ -27,7 +27,10 @@ def build_series(
 
     Args:
         track: The track to forecast. Must have at least one entry in
-            ``track.track`` (true for every ``CONFIRMED`` or later track).
+            ``track.track`` (any ``CONFIRMED``-or-later track) *or*
+            ``track.provisional_track`` (a ``PROVISIONAL`` track -- see
+            ``astra.tracking.engine``'s module docstring). The most
+            recent entry from whichever is non-empty anchors the series.
         regions_by_horizon: This cycle's fresh ``ComplexityRegion``s,
             keyed by ``horizon_min`` (0 = observed, already folded into
             ``track`` by ``TrackerEngine``; only non-zero horizons are
@@ -41,7 +44,8 @@ def build_series(
     Returns:
         ``(series, matched_count, total_horizons)``:
             ``series`` -- ascending-time ``(time_s, complexity_score)``
-                points: the track's most recent observed entry, followed
+                points: the track's most recent entry (observed if any,
+                otherwise its most recent predicted-only entry), followed
                 by every predicted horizon whose cluster matched this
                 track this cycle.
             ``matched_count`` -- number of predicted horizons that
@@ -50,7 +54,7 @@ def build_series(
                 in ``regions_by_horizon`` this cycle (the denominator for
                 horizon coverage).
     """
-    last_region = track.track[-1]
+    last_region = track.track[-1] if track.track else track.provisional_track[-1]
     series: List[SeriesPoint] = [(last_region.computed_at_s, last_region.complexity_score)]
 
     predicted_horizons = {

@@ -48,18 +48,19 @@ Three extensions beyond the original Milestone 7 design:
     ``ResolutionSet.joint_candidate`` field.
 """
 
+import math
 from typing import Dict, List, Optional, Tuple
 
 from astra.complexity.engine import ComplexityEngine
 from astra.complexity.models import ComplexityRegion
 from astra.hotspot.engine import ClusterEngine
-from astra.hotspot.models import Cluster
 from astra.interface.traffic_state import AircraftState, TrafficSnapshot
 from astra.resolution.candidates import (
     CandidateSpec,
     RouteProvider,
     apply_clearances,
     generate_candidates,
+    matches_rvsm_parity,
     select_target_aircraft_ranked,
 )
 from astra.resolution.models import (
@@ -192,15 +193,14 @@ class ResolutionEngine:
         specs = generate_candidates(
             before_region, snapshot, self._config, route_provider=self._route_provider
         )
-        original_regions = regions_by_horizon.get(horizon_min, [])
         candidates = [
-            self._evaluate(spec, before_region, horizon_min, original_regions)
+            self._evaluate(spec, before_region, horizon_min, regions_by_horizon)
             for spec in specs
         ]
         candidates.sort(key=lambda c: c.resolution_score, reverse=True)
 
         joint_candidate = self._build_joint_candidate(
-            before_region, snapshot, horizon_min, original_regions, candidates
+            before_region, snapshot, horizon_min, regions_by_horizon, candidates
         )
 
         return ResolutionSet(
@@ -290,13 +290,12 @@ class ResolutionEngine:
         spec: CandidateSpec,
         before_region: ComplexityRegion,
         horizon_min: int,
-        original_regions: List[ComplexityRegion],
+        regions_by_horizon: Dict[int, List[ComplexityRegion]],
     ) -> ResolutionCandidate:
         """Replay Trajectory -> Cluster -> Complexity on one hypothetical
         snapshot and score the result against `before_region` (OQ-3/OQ-4),
-        plus a domino-effect penalty against `original_regions` (every
-        real region at `horizon_min` this cycle, i.e. the track being
-        resolved and everything else).
+        plus a domino-effect penalty scanned across every horizon (see
+        `_domino_cost`).
 
         For a ``VECTOR_AND_REJOIN`` candidate (``spec.vector_duration_s``
         set), the target's predicted trajectory from
@@ -336,10 +335,9 @@ class ResolutionEngine:
             )
 
         domino_cost_norm = self._domino_cost(
-            hypothetical_clusters,
-            match,
-            hypothetical_snapshot_at_horizon,
-            original_regions,
+            spec.hypothetical_snapshot,
+            prediction,
+            regions_by_horizon,
             before_region,
         )
 
@@ -434,7 +432,7 @@ class ResolutionEngine:
         before_region: ComplexityRegion,
         snapshot: TrafficSnapshot,
         horizon_min: int,
-        original_regions: List[ComplexityRegion],
+        regions_by_horizon: Dict[int, List[ComplexityRegion]],
         primary_candidates: List[ResolutionCandidate],
     ) -> Optional[JointResolutionCandidate]:
         """Build one multi-aircraft candidate for clusters of 3+ members.
@@ -478,8 +476,10 @@ class ResolutionEngine:
                 does).
             horizon_min: The evaluated horizon (same one every
                 single-aircraft candidate used).
-            original_regions: This cycle's real regions at
-                ``horizon_min``, for the domino-cost penalty.
+            regions_by_horizon: This cycle's real regions at every
+                horizon, for the domino-cost penalty (scanned across
+                all of them, not just `horizon_min` -- see
+                `_domino_cost`).
             primary_candidates: This track's already-ranked
                 single-aircraft candidates (``resolve()`` computes
                 these first) -- ``primary_candidates[0]`` becomes the
@@ -540,7 +540,7 @@ class ResolutionEngine:
             if not specs:
                 continue
             scored = [
-                self._evaluate(spec, before_region, horizon_min, original_regions)
+                self._evaluate(spec, before_region, horizon_min, regions_by_horizon)
                 for spec in specs
             ]
             best_secondary = max(scored, key=lambda c: c.resolution_score)
@@ -592,10 +592,9 @@ class ResolutionEngine:
             )
 
         domino_cost_norm = self._domino_cost(
-            hypothetical_clusters,
-            match,
-            hypothetical_snapshot_at_horizon,
-            original_regions,
+            joint_snapshot,
+            prediction,
+            regions_by_horizon,
             before_region,
         )
 
@@ -622,20 +621,91 @@ class ResolutionEngine:
 
     def _domino_cost(
         self,
-        hypothetical_clusters: List[Cluster],
-        matched_cluster: Optional[Cluster],
-        hypothetical_snapshot_at_horizon: TrafficSnapshot,
-        original_regions: List[ComplexityRegion],
+        hypothetical_snapshot_now: TrafficSnapshot,
+        prediction: PredictionResult,
+        regions_by_horizon: Dict[int, List[ComplexityRegion]],
         before_region: ComplexityRegion,
     ) -> float:
-        """Penalty in ``[0, 1]`` for hotspots this candidate creates or
-        worsens *elsewhere* -- i.e. everywhere in the hypothetical
-        picture at this horizon except the track being resolved.
+        """Worst-case penalty in ``[0, 1]`` for hotspots this candidate
+        creates or worsens *elsewhere*, scanned across every horizon this
+        cycle has real regions or a prediction for -- not just the one
+        horizon the primary before/after comparison uses.
 
-        For every hypothetical cluster other than the one matched back
-        to the track (`matched_cluster`), this re-associates it against
-        this cycle's real ("before") regions at the same horizon (again
-        via `best_cluster_match`, excluding `before_region` itself):
+        A candidate can look clean at `evaluated_horizon_min` (where the
+        target track's own onset is expected) while still spiking a
+        *different* hotspot at an earlier or later horizon -- e.g. a
+        SPEED reduction that fixes the resolved track's own conflict at
+        40 min but pushes the same aircraft into a new one at 20 min.
+        The original (Milestone 7) domino check only ever looked at
+        `evaluated_horizon_min`, so this was silently uncounted; see
+        docs/backend_improvements_backlog.md item 3.
+
+        This scans horizon 0 (the clearance's immediate effect, via
+        `hypothetical_snapshot_now`) plus every horizon in
+        `prediction.horizons_min` (the same configured horizons
+        `ResolutionEngine`'s own trajectory engine predicts), and takes
+        the maximum per-horizon penalty from `_domino_cost_at_horizon`.
+        Because `evaluated_horizon_min` is always one of the horizons
+        scanned, this is a strict generalisation: the result can only be
+        greater than or equal to what the original single-horizon check
+        would have returned, never less -- no existing candidate's
+        domino cost silently drops.
+
+        This does cost more per candidate than the original single-
+        horizon check (one `ClusterEngine.detect()` + a
+        `ComplexityEngine.assess()` per new hypothetical cluster, now
+        repeated at every horizon instead of one) -- see
+        docs/backend_improvements_backlog.md item 4, which flags this as
+        a compounding cost alongside the wider step-multiplier search
+        and joint candidates. Not yet a measured problem at this
+        project's traffic scale (~40 aircraft).
+
+        Args:
+            hypothetical_snapshot_now: The candidate's clearance applied
+                to the current, real (horizon-0) snapshot -- `_evaluate`
+                passes `spec.hypothetical_snapshot`;
+                `_build_joint_candidate` passes its own `joint_snapshot`.
+            prediction: The full multi-horizon prediction already
+                computed for this candidate (including any
+                vector-and-rejoin override already applied -- callers
+                pass the same `prediction` they used for their own
+                before/after comparison, so this sees exactly the same
+                predicted future).
+            regions_by_horizon: This cycle's real regions at every
+                horizon (as passed to `resolve()`).
+            before_region: The track's own matched region -- excluded
+                from the "elsewhere" scan at every horizon (by cluster
+                identity, same as the original single-horizon check).
+
+        Returns:
+            The worst (maximum) per-horizon penalty across every horizon
+            scanned, in ``[0, 1]``.
+        """
+        worst = self._domino_cost_at_horizon(
+            hypothetical_snapshot_now, regions_by_horizon.get(0, []), before_region
+        )
+        for horizon_min in prediction.horizons_min:
+            hypothetical_snapshot = prediction.at(horizon_min)
+            real_regions = regions_by_horizon.get(horizon_min, [])
+            worst = max(
+                worst,
+                self._domino_cost_at_horizon(hypothetical_snapshot, real_regions, before_region),
+            )
+        return worst
+
+    def _domino_cost_at_horizon(
+        self,
+        hypothetical_snapshot: TrafficSnapshot,
+        real_regions: List[ComplexityRegion],
+        before_region: ComplexityRegion,
+    ) -> float:
+        """Domino-cost penalty at a single horizon (see `_domino_cost`).
+
+        For every hypothetical cluster at this horizon other than the
+        one matched back to the track being resolved (`before_region`),
+        this re-associates it against `real_regions` (this cycle's real
+        regions at the *same* horizon, again via `best_cluster_match`,
+        excluding `before_region` itself):
 
         * If it matches an existing real region, only a *worsening*
           (``after - before`` clipped to ``>= 0``) counts -- an
@@ -643,24 +713,30 @@ class ResolutionEngine:
           improves contributes nothing.
         * If it matches no real region at all, it is a brand-new
           hotspot the candidate introduced; its full complexity score
-          counts.
+          counts (this also correctly handles a horizon with no real
+          regions at all: every hypothetical cluster there counts in
+          full, since there is no real baseline to compare against).
 
         Contributions sum in raw ``complexity_score`` units (0-100,
         see ``ComplexityEngine``) and are clipped to ``[0, 1]`` by
         dividing by 100 -- so a single new max-severity hotspot alone
         saturates the penalty.
         """
+        hypothetical_clusters = self._cluster_engine.detect(hypothetical_snapshot)
+        matched_cluster = best_cluster_match(
+            before_region.cluster, hypothetical_clusters, self._config.tracking_jaccard_threshold
+        )
         other_hypothetical = [c for c in hypothetical_clusters if c is not matched_cluster]
         if not other_hypothetical:
             return 0.0
 
-        other_real_regions = [r for r in original_regions if r.cluster != before_region.cluster]
+        other_real_regions = [r for r in real_regions if r.cluster != before_region.cluster]
         real_region_by_cluster = {region.cluster: region for region in other_real_regions}
         real_clusters = list(real_region_by_cluster.keys())
 
         total_penalty = 0.0
         for cluster in other_hypothetical:
-            region = self._complexity_engine.assess(cluster, hypothetical_snapshot_at_horizon)
+            region = self._complexity_engine.assess(cluster, hypothetical_snapshot)
             match = best_cluster_match(
                 cluster, real_clusters, self._config.tracking_jaccard_threshold
             )
@@ -675,16 +751,70 @@ class ResolutionEngine:
     def _costs(self, spec: CandidateSpec) -> Tuple[float, float]:
         """Deviation-cost and fuel-cost-proxy norms for one candidate (OQ-4).
 
-        Both are normalised against this lever's own configured step, so
-        a candidate built at exactly that step (the only magnitude
-        Milestone 7 generates -- see OQ-5) always yields 1.0; kept as a
-        ratio (rather than a hardcoded 1.0) so a future sweep over step
-        sizes would not require touching this method.
+        Deviation is normalised against this lever's own configured step
+        for every clearance type, so a candidate built at exactly the
+        base step always yields 1.0 (a candidate at 2x the base step,
+        from `resolution_step_multipliers`, yields 2.0, and so on) --
+        kept as a ratio rather than a hardcoded 1.0 so the wider
+        step-multiplier search does not require touching this method.
+
+        Fuel-cost proxy is lever-specific, and -- as everywhere else in
+        this scoring model -- explicitly a crude proxy, not a real
+        fuel-burn model (no aircraft-type fuel-flow curves, no altitude/
+        speed/weight interaction; see OQ-4):
+
+        * ``FLIGHT_LEVEL``: the altitude-change magnitude itself
+          (climbing/descending burns extra fuel beyond level cruise) --
+          same value as deviation, unchanged from the original
+          Milestone 7 design.
+        * ``SPEED``: also the deviation magnitude itself, mirroring
+          FLIGHT_LEVEL's convention -- a sustained speed change away
+          from filed cruise speed, in either direction, costs fuel
+          (flying faster increases drag-driven burn; flying slower
+          means more total time at the burn rate for a given distance).
+          This was previously hardcoded to 0.0 -- SPEED candidates paid
+          no fuel cost at all regardless of magnitude, discovered while
+          working through docs/backend_improvements_backlog.md item 3.
+        * ``HEADING``: ``|sin(radians(delta_value))|`` -- the fraction of
+          distance flown during the vector that goes *sideways* rather
+          than toward the destination, a standard great-circle-agnostic
+          proxy for wasted track miles on a modest-angle vector (bounded
+          in ``[0, 1]``, peaking at a 90-degree vector). Also previously
+          hardcoded to 0.0, including for `VECTOR_AND_REJOIN` candidates
+          -- even a bounded, rejoin-ending vector still flies extra
+          distance during the vector phase itself, which was going
+          uncounted. Deliberately smaller than the deviation cost for
+          the same modest angle (e.g. `sin(15 deg) ~= 0.26` vs. a
+          deviation ratio of 1.0) -- a heading nudge wastes proportionally
+          less of its flown distance than its "operational deviation"
+          magnitude alone would suggest, since most of that distance
+          still counts toward covering ground.
+
+        FLIGHT_LEVEL's deviation cost also picks up a flat
+        `resolution_rvsm_parity_penalty` on top of the magnitude ratio
+        above when the candidate's *resulting* altitude would violate
+        semicircular (odd-east/even-west) RVSM flight-level convention
+        for the target's current track direction -- see
+        `astra.resolution.candidates.matches_rvsm_parity`. This only
+        affects deviation, not fuel: a non-standard level costs extra
+        coordination, not (in this crude model) extra fuel. Previously
+        unmodelled entirely -- a FLIGHT_LEVEL candidate that happened to
+        recommend a level wrong for the aircraft's direction of flight
+        scored no worse than one that didn't.
         """
         cfg = self._config
         if spec.clearance_type == "SPEED":
-            return abs(spec.delta_value) / cfg.resolution_speed_step_kt, 0.0
+            deviation = abs(spec.delta_value) / cfg.resolution_speed_step_kt
+            return deviation, deviation
         if spec.clearance_type == "FLIGHT_LEVEL":
             deviation = abs(spec.delta_value) / cfg.resolution_altitude_step_ft
-            return deviation, deviation
-        return abs(spec.delta_value) / cfg.resolution_heading_step_deg, 0.0
+            fuel_proxy = deviation
+            target = spec.hypothetical_snapshot.get(spec.target_callsign)
+            if target is not None and not matches_rvsm_parity(
+                target.heading_deg, target.altitude_ft
+            ):
+                deviation += cfg.resolution_rvsm_parity_penalty
+            return deviation, fuel_proxy
+        deviation = abs(spec.delta_value) / cfg.resolution_heading_step_deg
+        fuel_proxy = abs(math.sin(math.radians(spec.delta_value)))
+        return deviation, fuel_proxy
