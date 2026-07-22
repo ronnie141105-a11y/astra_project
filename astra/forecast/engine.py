@@ -22,11 +22,17 @@ from astra.utils.logger import get_logger
 
 _LOG = get_logger(__name__)
 
-#: Statuses eligible for forecasting. CANDIDATE tracks are excluded
-#: (forecasting a possibly-noise track risks amplifying single-cycle
-#: DBSCAN artifacts); CLOSED tracks are no longer being observed, so
-#: there is nothing left to associate predicted horizons against.
-_FORECASTABLE_STATUSES = frozenset({"CONFIRMED", "GROWING", "PEAK", "DISSIPATING"})
+#: Statuses eligible for forecasting. PROVISIONAL tracks *are* included
+#: -- an onset time estimate for a hotspot that has not been observed at
+#: all yet is the actual point (see astra.tracking.engine's module
+#: docstring, "Provisional tracks"); they are just never resolvable
+#: (astra.resolution.engine._RESOLVABLE_STATUSES excludes PROVISIONAL --
+#: there is nothing concrete yet to issue a clearance against). CLOSED
+#: tracks are no longer being observed, so there is nothing left to
+#: associate predicted horizons against.
+_FORECASTABLE_STATUSES = frozenset(
+    {"PROVISIONAL", "CONFIRMED", "GROWING", "PEAK", "DISSIPATING"}
+)
 
 
 class ForecastEngine:
@@ -75,7 +81,9 @@ class ForecastEngine:
         Returns:
             The same ``track``, for convenient chaining.
         """
-        if track.status not in _FORECASTABLE_STATUSES or not track.track:
+        if track.status not in _FORECASTABLE_STATUSES or not (
+            track.track or track.provisional_track
+        ):
             return track
 
         track.forecast_urgency_rank = None

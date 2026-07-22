@@ -21,6 +21,19 @@ reasoning.
 
 ## Status at a glance
 
+**Note (this session):** while picking up items 6/7, found that
+`astra/forecast/engine.py`'s item-1 change (PROVISIONAL tracks being
+forecastable) had been silently reverted somewhere in an intermediate
+merge -- confirmed by diffing against the original item-1 commit, every
+other backend file matched exactly, only this one file had reverted to
+its pre-item-1 state. Restored to match the original fix exactly (byte-
+for-byte, re-diffed to confirm); this is why `test_forecast.py` briefly
+showed 2 failures when this session started before the restore. Not a
+new design change, just recovering something that existed before and
+was lost in an unrelated merge -- worth knowing if other reverted-file
+surprises like this turn up later.
+
+
 | # | Item | Status |
 |---|------|--------|
 | 1 | Provisional tracks from future-only clusters | **DONE** (this session) |
@@ -28,6 +41,8 @@ reasoning.
 | 3 | Resolution engine follow-ups: domino cost (**done**), fuel-cost proxy (**done**), target selection fallback (**done**), RVSM/level-parity (**done**, this session), feedback loop (not started) | **Partially done** |
 | 4 | Performance: per-candidate full-snapshot replay cost | Not started |
 | 5 | Test suite / pytest collision with the custom `Runner` convention | Not started |
+| 6 | TrackerEngine could report DISSIPATING/GROWING indefinitely during a genuine but slow trend reversal | **DONE** (this session, found via user report) |
+| 7 | Dashboard resolution-candidate cap hardcoded to a fixed 3, silently dropping real candidates | **DONE** (this session, found via user report) |
 
 ---
 
@@ -546,3 +561,125 @@ Fix is small and self-contained: either
 
 Not started -- flagged as a low-effort, high-clarity-payoff fix for
 anyone else opening this repo cold.
+
+---
+
+## Item 6 — TrackerEngine could get stuck reporting DISSIPATING (or GROWING) during a genuine but slow trend reversal — **DONE**
+
+Found via a direct user report: "its kinda stupid to say the hotspot is
+dissipating when the complexity is getting higher and the aircraft is
+about to meet and crash each other." Investigated and confirmed as a
+real, reproducible bug, not a misunderstanding.
+
+### The bug
+
+`TrackerEngine._next_status` classified GROWING/PEAK/DISSIPATING purely
+by comparing each cycle's `complexity_score` to the *immediately
+preceding* cycle's score. Once a track entered `DISSIPATING`, escaping
+back to `GROWING` required a single cycle's rise to exceed
+`tracking_trend_tolerance` on its own -- comparing only to the previous
+cycle reset the baseline every single cycle, so a genuine recovery
+unfolding as many small steps (each individually under tolerance) could
+hide from detection indefinitely, even while the score climbed
+steadily and substantially over many cycles. The mirror case existed
+too: a track stuck reporting `PEAK` (never advancing to `DISSIPATING`)
+during a slow, genuine decline.
+
+Reproduced directly before fixing (see git history for the exact
+repro): a score sequence rising 50 -> 60 -> dipping to 56.0 (correctly
+entering `DISSIPATING`) -> then climbing back up in 0.4-point steps,
+56.4, 56.8, 57.2, ... all the way to 59.2 -- stayed `DISSIPATING` for
+every one of those climbing cycles, only correcting once a single big
+jump (to 65.0) finally exceeded tolerance on its own.
+
+### What shipped
+
+New `FourDArhac.trend_extremum_score` field: the running peak (while
+`GROWING`/`PEAK`) or trough (while `DISSIPATING`) reached so far during
+the *current* trend regime, maintained by a new
+`TrackerEngine._next_trend_extremum` helper. `_next_status` now compares
+against this regime-local extremum instead of just the previous cycle
+when deciding whether to leave `PEAK` or `DISSIPATING` -- so a genuine
+cumulative reversal is caught even when no single step crosses the
+tolerance alone.
+
+Care was taken to preserve two properties of the original design that a
+naive fix could have broken:
+
+* **`GROWING` still always passes through `PEAK` for at least one cycle**
+  before `DISSIPATING`, regardless of how sharp the reversal is --
+  `GROWING`'s own transition rule still compares only to the immediately
+  preceding cycle (matching the original design exactly), so the
+  "local maximum" marker semantics of `PEAK` are unchanged. Hysteresis
+  only applies once a track is already in `PEAK` or `DISSIPATING`
+  deciding whether to leave.
+* **A large, unambiguous single-cycle reversal is still immediately
+  responsive** -- the fix only changes behaviour for slow/noisy
+  reversals that a single-previous-cycle comparison would miss; a sharp
+  crash or recovery is detected exactly as fast as before.
+
+### Verification
+
+5 new tests in `tests/test_tracking.py`: the exact reported bug
+(DISSIPATING recovering from a slow cumulative climb), the mirror case
+(PEAK correctly advancing to DISSIPATING during a slow decline, not
+stuck forever), PEAK correctly holding through small genuine noise
+(confirming the fix doesn't overcorrect into flapping), the extremum
+field's own reset/initialisation behaviour, and a regression check that
+a big single-cycle reversal is still immediately responsive. 523/523
+checks across the full suite pass (zero regressions to any existing
+test -- none of them exercised a multi-cycle slow-reversal sequence,
+which is exactly why this bug shipped unnoticed in the first place).
+
+---
+
+## Item 7 — Dashboard resolution-candidate cap hardcoded to a fixed 3, silently dropping real candidates — **DONE**
+
+Found via a direct user report: "why is the solution proposal always 3,
+cant they make more proposal? ... it dont need to always be 5 or 3, it
+can be 1 or 2 solution too." Investigated and confirmed: not a frontend
+rendering choice, a backend serializer cap.
+
+### The bug
+
+`ASTRAConfig.dashboard_max_resolution_candidates_shown` defaulted to
+`3`, and `serialize_resolution_set` truncates the ranked candidate list
+to that count before it ever reaches the dashboard. Since the Milestone
+7 resolution-engine improvements (wider step-multiplier search, up to
+~12 single-aircraft candidates per track now, plus an optional joint
+candidate), this cap was silently dropping the majority of what
+`ResolutionEngine` actually generated and ranked -- confirmed directly:
+a live 3-aircraft scenario generated 12 real candidates, of which the
+dashboard would only have shown 3, silently discarding 9.
+
+### What shipped
+
+Raised the default to `20` -- comfortably above any realistic candidate
+count today, functioning as a safety upper bound rather than a display
+page size (the field's docstring was rewritten to say so explicitly:
+"a track with 1 or 2 real options should show exactly that many, not be
+padded or truncated to a fixed count"). This is a one-line default
+change plus documentation -- the underlying mechanism (a configurable
+cap, capable of showing any count) was already correct; only the
+default value was the problem.
+
+Per the user's own request, this backend change deliberately stops
+short of implementing the fixed-size-page-with-arrows carousel UI
+described (show 5 at a time, `<`/`>` to page through more) -- that is
+frontend/rendering work, out of scope for this backend-only track (see
+this file's header note on the boundary with the parallel UI redesign
+work). What this fix guarantees is that the frontend now has the *real*
+data to build that UI against: the full ranked list `ResolutionEngine`
+generated, not a silently-truncated one.
+
+### Verification
+
+1 new test in `tests/test_dashboard.py` confirming variable candidate
+counts (1, 2, 5, 9) all pass through the serializer unpadded and
+untruncated at the new default cap -- directly validating the user's
+"it dont need to always be 5 or 3, it can be 1 or 2" requirement. The
+existing cap-enforcement and empty-list tests already covered the
+mechanism generically (both continue to pass unchanged). 527/527 checks
+across the full suite pass (zero regressions -- the one test that
+hardcoded the old default value of `3` was updated to `20`, matching
+the intentional default change).

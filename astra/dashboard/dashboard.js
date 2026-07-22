@@ -22,13 +22,14 @@
     // mirror :root's --aircraft-pink / --solution-magenta / --amber in
     // dashboard.css. Keep the two in sync if either changes.
     const AIRCRAFT_COLOR = "#ff3d9a";
+    const AIRCRAFT_SECONDARY_PINK = "#ff9fc7";
     const SOLUTION_COLOR = "#ff2fd6";
     const PREDICTED_PATH_COLOR = "#ffbf69";
 
     // Session-only UI state. Never sent to the backend; resets on reload.
     const ui = {
         selectedArhacId: null,
-        selectedCandidateIndex: {}, // arhac_id -> candidate index being previewed
+        selectedCandidateIndex: {}, // arhac_id -> candidate index being previewed, or the string "joint" for the joint_candidate
         selectedAircraftCallsign: null, // set by clicking an aircraft marker on the map
         displayMode: "overall", // "overall" | "event" | a specific sector's full name
         viewTransition: null, // {fromView, toView, startMs, durationMs} while animating a mode switch
@@ -284,8 +285,12 @@
         return horizonMin === 0 ? "observed" : `+${horizonMin} min`;
     }
 
-    function statusPill(status) {
-        return `<span class="status-pill status-${status}">${status}</span>`;
+    function statusPill(status, leadTimeS) {
+        const title =
+            leadTimeS !== null && leadTimeS !== undefined
+                ? ` title="Flagged ${Math.round(leadTimeS / 60)} min in advance, from a predicted horizon"`
+                : "";
+        return `<span class="status-pill status-${status}"${title}>${status}</span>`;
     }
 
     /** Rough planar distance in NM between two lat/lon points (display use only). */
@@ -396,84 +401,188 @@
     // Header
     // ------------------------------------------------------------------
 
+    /** No-op: the header no longer shows a LIVE/WAITING badge or cycle
+     * count (removed per the header clean-up), leaving just the live UTC
+     * clock (`startLiveUtcClock`, independent of poll data). Kept as a
+     * function so its call site doesn't need to change if that ever
+     * comes back. */
     function renderHeader(payload) {
-        const badge = document.getElementById("status-badge");
-        const timeEl = document.getElementById("status-time");
-        const cycleEl = document.getElementById("status-cycle");
+        void payload;
+    }
 
-        if (payload.has_data) {
-            badge.textContent = "LIVE";
-            badge.className = "badge badge-live";
-            timeEl.textContent = "t = " + clockFmt(payload.updated_at_s);
-        } else {
-            badge.textContent = "WAITING";
-            badge.className = "badge badge-waiting";
-            timeEl.textContent = "t = \u2013";
+    /** Formats a JS Date as "HH:MM" in UTC (the vector time slider's edge
+     * labels and time box) -- always UTC so it reads consistently
+     * alongside the header's live UTC clock, regardless of the
+     * operator's own browser timezone. */
+    function utcHm(date) {
+        const h = String(date.getUTCHours()).padStart(2, "0");
+        const m = String(date.getUTCMinutes()).padStart(2, "0");
+        return `${h}:${m}`;
+    }
+
+    /** Starts the header's independent live UTC clock (HH:MM:SS), ticking
+     * every second off the operator's real system clock -- deliberately
+     * not derived from the simulation's own elapsed-time cycle (that
+     * would freeze it whenever the sim is paused), since this is meant
+     * to always read as "the actual current real-world time". */
+    function startLiveUtcClock() {
+        const el = document.getElementById("status-time-value");
+        if (!el) {
+            return;
         }
-        cycleEl.textContent = "cycle " + payload.cycle_count;
+        function tick() {
+            const now = new Date();
+            const h = String(now.getUTCHours()).padStart(2, "0");
+            const m = String(now.getUTCMinutes()).padStart(2, "0");
+            const s = String(now.getUTCSeconds()).padStart(2, "0");
+            el.textContent = `${h}:${m}:${s}`;
+        }
+        tick();
+        setInterval(tick, 1000);
     }
 
     // ------------------------------------------------------------------
-    // Horizon scrubber (button group -- one click per horizon)
+    // Vector time slider (Now / T=0 through +60 min prediction horizon)
     // ------------------------------------------------------------------
 
-    //: Curated set of horizons shown as buttons. `0` ("Now") is always
-    //: shown first if available; the rest are intersected with whatever
-    //: horizons the backend actually computed this cycle
-    //: (`ASTRAConfig.prediction_horizons_min`), so this degrades
-    //: gracefully if that list ever changes server-side.
+    //: Every horizon the slider can land on. Matches
+    //: `ASTRAConfig.prediction_horizons_min` on the backend (0 plus
+    //: 10-minute steps to 60) -- the slider snaps to the nearest of
+    //: whichever of these the current cycle actually computed
+    //: (`ui.availableHorizons`), the same graceful-degradation the old
+    //: horizon button group had.
     const HORIZON_BUTTON_MINUTES = [10, 20, 30, 40, 50, 60];
+
+    /** Nearest value in `ui.availableHorizons` to a raw slider minute value. */
+    function nearestAvailableHorizon(rawMinutes) {
+        const options = ui.availableHorizons && ui.availableHorizons.length ? ui.availableHorizons : [0];
+        return options.reduce((best, h) => (Math.abs(h - rawMinutes) < Math.abs(best - rawMinutes) ? h : best));
+    }
 
     function selectHorizon(horizonMin) {
         ui.selectedHorizon = horizonMin;
-        document.querySelectorAll("#horizon-buttons .horizon-btn").forEach((btn) => {
-            btn.classList.toggle("active", Number(btn.dataset.horizon) === horizonMin);
-        });
+        const slider = document.getElementById("time-slider");
+        if (slider && Number(slider.value) !== horizonMin) {
+            slider.value = String(horizonMin);
+        }
+        updateTimeBox();
         if (window.__astraLastCycle) {
             renderMap(window.__astraLastCycle);
         }
     }
 
-    function setupHorizonScrubber() {
-        const container = document.getElementById("horizon-buttons");
-        container.addEventListener("click", (evt) => {
-            const btn = evt.target.closest(".horizon-btn");
-            if (!btn || btn.disabled) {
-                return;
-            }
-            selectHorizon(Number(btn.dataset.horizon));
-        });
+    /** Refreshes the time box ("Now" / actual clock time the slider is
+     * currently at) and the bar's start/end edge labels. Uses the
+     * operator's real current time as T=0, per `utcHm`'s docstring --
+     * not the sim's own elapsed-seconds clock, which has no fixed
+     * relationship to a real time of day. */
+    function updateTimeBox() {
+        const valueEl = document.getElementById("time-box-value");
+        const labelEl = document.querySelector("#time-box .time-box-label");
+        const startEl = document.getElementById("time-slider-start-label");
+        const endEl = document.getElementById("time-slider-end-label");
+        const now = new Date();
+        if (startEl) {
+            startEl.textContent = utcHm(now);
+        }
+        if (endEl) {
+            endEl.textContent = utcHm(new Date(now.getTime() + 60 * 60000));
+        }
+        if (valueEl) {
+            const at = new Date(now.getTime() + ui.selectedHorizon * 60000);
+            valueEl.textContent = utcHm(at);
+        }
+        if (labelEl) {
+            labelEl.textContent = ui.selectedHorizon === 0 ? "Now" : `+${ui.selectedHorizon} min`;
+        }
     }
 
-    function syncHorizonScrubber(cycle) {
+    /** Pink alert-period segment along the bar: only drawn when a hotspot
+     * alert is selected (`ui.selectedArhacId`), spanning that alert's
+     * predicted onset -> dissipation window, mapped from sim-elapsed
+     * seconds onto the slider's 0-60 minute range via each track's
+     * offset from the current cycle's `snapshot.timestamp_s`. Hidden
+     * entirely in nominal operations (no alert selected), or if the
+     * selected alert has no predicted onset/dissipation yet. */
+    function updateTimeSliderAlertSegment(cycle) {
+        const segment = document.getElementById("time-slider-alert-segment");
+        if (!segment) {
+            return;
+        }
+        const track = cycle ? cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId) : null;
+        if (!track || track.predicted_onset_s === null || track.predicted_onset_s === undefined) {
+            segment.classList.add("hidden");
+            return;
+        }
+        const nowS = cycle.snapshot.timestamp_s;
+        const onsetMin = (track.predicted_onset_s - nowS) / 60;
+        const dissipationS =
+            track.predicted_dissipation_s === null || track.predicted_dissipation_s === undefined
+                ? track.predicted_onset_s
+                : track.predicted_dissipation_s;
+        const dissipationMin = (dissipationS - nowS) / 60;
+        const startMin = Math.max(0, Math.min(60, Math.min(onsetMin, dissipationMin)));
+        const endMin = Math.max(0, Math.min(60, Math.max(onsetMin, dissipationMin)));
+        if (endMin <= startMin) {
+            segment.classList.add("hidden");
+            return;
+        }
+        segment.classList.remove("hidden");
+        segment.style.left = `${(startMin / 60) * 100}%`;
+        segment.style.width = `${((endMin - startMin) / 60) * 100}%`;
+    }
+
+    /** Coalesces rapid-fire calls (e.g. a range input's `input` event,
+     * which can fire dozens of times per second while dragging) to at
+     * most once per animation frame -- the slider's displayed `value`
+     * always reflects the very latest drag position, but the expensive
+     * work (`fn`) only actually runs once per frame, so a fast drag
+     * doesn't queue up a backlog of full map redraws and lag behind the
+     * pointer. */
+    function rafThrottle(fn) {
+        let scheduled = false;
+        let latestArgs = null;
+        return (...args) => {
+            latestArgs = args;
+            if (scheduled) {
+                return;
+            }
+            scheduled = true;
+            requestAnimationFrame(() => {
+                scheduled = false;
+                fn(...latestArgs);
+            });
+        };
+    }
+
+    function setupTimeSlider() {
+        const slider = document.getElementById("time-slider");
+        if (!slider) {
+            return;
+        }
+        const throttledSelect = rafThrottle((minutes) => selectHorizon(minutes));
+        slider.addEventListener("input", () => {
+            throttledSelect(Number(slider.value));
+        });
+        updateTimeBox();
+        setInterval(updateTimeBox, 1000);
+    }
+
+    function syncTimeSlider(cycle) {
         const horizons = Object.keys(cycle.regions_by_horizon)
             .map(Number)
             .sort((a, b) => a - b);
         ui.availableHorizons = horizons.length > 0 ? horizons : [0];
-        const available = new Set(ui.availableHorizons);
-        const wanted = [0, ...HORIZON_BUTTON_MINUTES];
-
-        const container = document.getElementById("horizon-buttons");
-        const alreadyBuilt = container.childElementCount === wanted.length;
-        if (!alreadyBuilt) {
-            container.innerHTML = wanted
-                .map((h) => {
-                    const label = h === 0 ? "Now" : `+${h}m`;
-                    return `<button type="button" class="horizon-btn" data-horizon="${h}">${label}</button>`;
-                })
-                .join("");
+        // The slider itself now moves in true 1-min steps (see
+        // rafThrottle above) rather than snapping to the backend's
+        // 10-min computed horizons -- only clamp to the valid overall
+        // range here, don't force onto one of the discrete values.
+        const maxHorizon = ui.availableHorizons[ui.availableHorizons.length - 1];
+        const clamped = Math.min(Math.max(ui.selectedHorizon, 0), maxHorizon);
+        if (clamped !== ui.selectedHorizon) {
+            selectHorizon(clamped);
         }
-        container.querySelectorAll(".horizon-btn").forEach((btn) => {
-            const h = Number(btn.dataset.horizon);
-            btn.disabled = !available.has(h);
-        });
-
-        if (!available.has(ui.selectedHorizon)) {
-            ui.selectedHorizon = ui.availableHorizons[0];
-        }
-        container.querySelectorAll(".horizon-btn").forEach((btn) => {
-            btn.classList.toggle("active", Number(btn.dataset.horizon) === ui.selectedHorizon);
-        });
+        updateTimeSliderAlertSegment(cycle);
     }
 
     // ------------------------------------------------------------------
@@ -832,10 +941,21 @@
      * (both are shown as an explicit message, never guessed). */
     function resolveEventSectorName(cycle) {
         const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
-        if (!track || !track.centroid) {
+        if (!track) {
             return null;
         }
-        return findSectorNameForPoint(track.centroid.lat, track.centroid.lon);
+        // A freshly-opened alert is "PROVISIONAL" (see astra.tracking.engine):
+        // it was opened from a *predicted* horizon and has no real (horizon-0)
+        // observation yet, so `track.centroid` is still null even though the
+        // alert is fully real and has sector-relevant data via
+        // `provisional_centroid`. Falling back to it here is what makes
+        // sector lookup work for a hotspot the instant it's raised, instead
+        // of only after it gets promoted to a real observed track.
+        const centroid = track.centroid || track.provisional_centroid;
+        if (!centroid) {
+            return null;
+        }
+        return findSectorNameForPoint(centroid.lat, centroid.lon);
     }
 
     /** Aircraft coloring for Event Sector / named-sector display modes:
@@ -999,17 +1119,60 @@
      * Shared by `drawResolutionSolutionPath` (the magenta line) and
      * `drawScrubbedTraffic` (so the target aircraft's marker at a future
      * horizon reflects the proposed clearance instead of "do nothing"). */
+    /** Single source of truth for "what's currently selected for this
+     * track's resolution set" -- a numeric candidate index (clamped to
+     * the current candidate count, same as before) or the joint
+     * candidate (stored as the sentinel string `"joint"` in
+     * `ui.selectedCandidateIndex`, the same per-track map used for
+     * numeric indices). Every consumer (map preview, the chip list, the
+     * event panel's charts) calls this instead of re-deriving it, so
+     * they can't disagree with each other about what's selected. Falls
+     * back to candidate 0 if "joint" was selected but the track no
+     * longer has a joint_candidate this cycle (e.g. it dropped below 3
+     * members). */
+    function resolveActiveSelection(rs) {
+        if (!rs) {
+            return { isJoint: false, index: null, candidate: null };
+        }
+        const stored = ui.selectedCandidateIndex[rs.arhac_id];
+        if (stored === "joint" && rs.joint_candidate) {
+            return { isJoint: true, index: null, candidate: rs.joint_candidate };
+        }
+        if (rs.candidates.length === 0) {
+            return { isJoint: false, index: null, candidate: null };
+        }
+        const index = Math.min(typeof stored === "number" ? stored : 0, rs.candidates.length - 1);
+        return { isJoint: false, index, candidate: rs.candidates[index] };
+    }
+
+    /** Short human label for a candidate's maneuver_kind/vector_duration_s
+     * -- only meaningful for HEADING candidates (see the backend handoff
+     * notes); other clearance types return "". */
+    function maneuverLabel(c) {
+        if (!c || c.clearance_type !== "HEADING" || !c.maneuver_kind) {
+            return "";
+        }
+        if (c.maneuver_kind === "VECTOR_AND_REJOIN" && c.vector_duration_s) {
+            return `vector ${Math.round(c.vector_duration_s)}s, then direct`;
+        }
+        if (c.maneuver_kind === "SUSTAINED") {
+            return "sustained heading";
+        }
+        return "";
+    }
+
     function getActiveResolutionCandidate(cycle) {
         const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
         if (!track) {
             return null;
         }
         const rs = cycle.resolution_sets.find((r) => r.arhac_id === track.arhac_id);
-        if (!rs || rs.candidates.length === 0) {
-            return null;
-        }
-        const activeIdx = Math.min(ui.selectedCandidateIndex[track.arhac_id] || 0, rs.candidates.length - 1);
-        return rs.candidates[activeIdx];
+        const sel = resolveActiveSelection(rs);
+        // A joint candidate has no single target_callsign/hypothetical_path
+        // (it's 2-3 simultaneous per-aircraft legs, see serializers.py) --
+        // nothing sane to draw as "the" magenta preview line, so skip it
+        // rather than passing an object callers don't expect.
+        return sel.isJoint ? null : sel.candidate;
     }
 
     /** The resolution candidate currently being previewed in the Event
@@ -1076,13 +1239,17 @@
         }
         const candidate = getActiveResolutionCandidate(cycle);
         if (candidate && candidate.target_callsign === callsign && candidate.hypothetical_path) {
-            const hypo = candidate.hypothetical_path.find((p) => p.horizon_min === ui.selectedHorizon);
+            const hypo = interpolatePredictedPoint(candidate.hypothetical_path, ui.selectedHorizon, null);
             if (hypo) {
                 return { callsign, lat: hypo.lat, lon: hypo.lon, altitude_ft: hypo.altitude_ft };
             }
         }
         const points = cycle.prediction.paths[callsign];
-        const atHorizon = points ? points.find((p) => p.horizon_min === ui.selectedHorizon) : null;
+        if (!points) {
+            return null;
+        }
+        const origin = cycle.snapshot.aircraft.find((ac) => ac.callsign === callsign);
+        const atHorizon = interpolatePredictedPoint(points, ui.selectedHorizon, origin);
         return atHorizon ? { callsign, lat: atHorizon.lat, lon: atHorizon.lon, altitude_ft: atHorizon.altitude_ft } : null;
     }
 
@@ -1106,17 +1273,14 @@
         return best;
     }
 
-    /** The selected aircraft's full trajectory (observed position through
+    /** Draws one aircraft's full trajectory (observed position through
      * every predicted horizon, or its hypothetical path if it's also the
-     * target of the previewed resolution candidate) drawn in bright
-     * white -- deliberately independent of the "Predicted paths" toggle,
-     * since picking a single aircraft to inspect is exactly the
-     * uncluttered alternative to "every aircraft's path always on". */
-    function drawSelectedAircraftPath(ctx, project, cycle) {
-        const callsign = ui.selectedAircraftCallsign;
-        if (!callsign) {
-            return;
-        }
+     * target of the previewed resolution candidate) as a white dashed
+     * line -- the shared drawing routine behind both "click a single
+     * aircraft" (`drawSelectedAircraftPath`) and "click a hotspot alert"
+     * (`drawHotspotMemberTrajectories`), so both contexts render the
+     * exact same style. */
+    function drawAircraftDashedTrajectory(ctx, project, cycle, callsign) {
         const observed = cycle.snapshot.aircraft.find((ac) => ac.callsign === callsign);
         if (!observed) {
             return;
@@ -1145,6 +1309,43 @@
             ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
             ctx.arc(px, py, 2.5, 0, Math.PI * 2);
             ctx.fill();
+        });
+    }
+
+    /** The selected aircraft's full trajectory -- deliberately independent
+     * of the "Predicted paths" toggle, since picking a single aircraft to
+     * inspect is exactly the uncluttered alternative to "every aircraft's
+     * path always on". */
+    function drawSelectedAircraftPath(ctx, project, cycle) {
+        const callsign = ui.selectedAircraftCallsign;
+        if (!callsign) {
+            return;
+        }
+        drawAircraftDashedTrajectory(ctx, project, cycle, callsign);
+    }
+
+    /** The currently-selected hotspot alert's member aircraft (the track
+     * behind `ui.selectedArhacId`), or `[]` if no alert is selected. Used
+     * by both the trajectory drawing below and the dual info-box
+     * rendering, so "which aircraft is this alert about" has one answer
+     * shared by both. */
+    function selectedHotspotMemberCallsigns(cycle) {
+        const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
+        return track ? track.member_aircraft : [];
+    }
+
+    /** Renders the white dashed trajectory for every aircraft involved in
+     * the currently-selected hotspot alert -- "where the aircraft will
+     * meet/trigger the hotspot" -- independent of whether either of them
+     * is also individually clicked (`ui.selectedAircraftCallsign`). Skips
+     * any callsign already drawn by `drawSelectedAircraftPath` so the two
+     * paths never double-stroke the same aircraft. */
+    function drawHotspotMemberTrajectories(ctx, project, cycle) {
+        selectedHotspotMemberCallsigns(cycle).forEach((callsign) => {
+            if (callsign === ui.selectedAircraftCallsign) {
+                return;
+            }
+            drawAircraftDashedTrajectory(ctx, project, cycle, callsign);
         });
     }
 
@@ -1240,6 +1441,81 @@
                 renderMap(cycle);
             });
         }
+    }
+
+    /** Builds/updates one small floating info box per aircraft involved in
+     * the currently-selected hotspot alert (`selectedHotspotMemberCallsigns`)
+     * inside `#hotspot-info-boxes`. Unlike `#aircraft-info-box` (a
+     * singleton for one manually-clicked aircraft), this container can
+     * hold several boxes at once -- typically the 2 aircraft converging
+     * on the hotspot -- each keyed by callsign so per-box DOM nodes are
+     * reused across renders instead of being torn down every cycle. */
+    function renderHotspotAircraftBoxes(cycle) {
+        const container = document.getElementById("hotspot-info-boxes");
+        if (!container) {
+            return;
+        }
+        const callsigns = selectedHotspotMemberCallsigns(cycle);
+        // Drop boxes for aircraft no longer relevant (alert cleared, or
+        // deselected) before (re)building the ones that are.
+        Array.from(container.children).forEach((el) => {
+            if (!callsigns.includes(el.dataset.callsign)) {
+                el.remove();
+            }
+        });
+        callsigns.forEach((callsign) => {
+            const ac = cycle.snapshot.aircraft.find((a) => a.callsign === callsign);
+            if (!ac) {
+                return;
+            }
+            let box = container.querySelector(`[data-callsign="${callsign}"]`);
+            if (!box) {
+                box = document.createElement("div");
+                box.className = "aircraft-info-box hotspot-info-box";
+                box.dataset.callsign = callsign;
+                container.appendChild(box);
+            }
+            const fl = Math.round(ac.altitude_ft / 100);
+            box.innerHTML = `
+                <div class="info-title"><span>${ac.callsign}</span></div>
+                <div class="info-row"><span>Type</span><span>${ac.aircraft_type}</span></div>
+                <div class="info-row"><span>Heading</span><span>${fmt(ac.heading_deg, 0)}&deg;</span></div>
+                <div class="info-row"><span>Speed</span><span>${fmt(ac.ground_speed_kt, 0)} kt</span></div>
+                <div class="info-row"><span>Level</span><span>FL${fl}</span></div>
+            `;
+        });
+    }
+
+    /** Positions every box in `#hotspot-info-boxes`, offset to the side of
+     * its aircraft's current icon (never centered on top of it) so the
+     * plane symbol and its dashed trajectory line stay visible -- same
+     * left/right-flip-near-the-edge rule as `positionAircraftInfoBox`. */
+    function positionHotspotAircraftBoxes() {
+        const container = document.getElementById("hotspot-info-boxes");
+        if (!container || !ui.mapProject) {
+            return;
+        }
+        const cycle = window.__astraLastCycle;
+        if (!cycle) {
+            return;
+        }
+        const stack = document.getElementById("map-stack");
+        const stackWidth = stack ? stack.clientWidth : 0;
+        Array.from(container.children).forEach((box) => {
+            const callsign = box.dataset.callsign;
+            const pos =
+                ui.selectedHorizon === 0
+                    ? interpolatedObservedAircraft().find((a) => a.callsign === callsign)
+                    : getRenderedAircraftPosition(cycle, callsign);
+            if (!pos) {
+                return;
+            }
+            const [x, y] = ui.mapProject(pos.lat, pos.lon);
+            const flip = stackWidth > 0 && x > stackWidth * 0.65;
+            box.style.left = flip ? "" : `${x + 14}px`;
+            box.style.right = flip ? `${stackWidth - x + 14}px` : "";
+            box.style.top = `${Math.max(4, y - 14)}px`;
+        });
     }
 
     function drawPredictedPaths(ctx, project, cycle) {
@@ -1341,6 +1617,45 @@
      * heading+leader line) at horizon 0, predicted-position dots (no
      * heading data) at future horizons. Delegates every marker to
      * `drawAircraftMarker` so both cases render identically apart from that. */
+    /** Linearly interpolates a predicted lat/lon/altitude at any
+     * `horizonMin`, from a sparse `points` array the backend actually
+     * computed (every `HORIZON_BUTTON_MINUTES` step -- 10, 20, ... 60)
+     * plus an optional `originPoint` for horizon 0 (the observed
+     * aircraft, when available). This is what makes the time slider's
+     * 1-minute steps show real motion instead of the marker only
+     * updating every 10 minutes and holding still in between: positions
+     * for in-between minutes are a straight-line estimate, not a second
+     * prediction run, but that's a fair approximation over an interval
+     * this short (<=10 min) and costs nothing extra to compute per frame.
+     * Returns null only if there's truly nothing to anchor to. */
+    function interpolatePredictedPoint(points, horizonMin, originPoint) {
+        if (horizonMin <= 0) {
+            return originPoint || null;
+        }
+        const sorted = points; // already ascending by horizon_min from the backend
+        let prev = originPoint ? { horizon_min: 0, ...originPoint } : null;
+        for (let i = 0; i < sorted.length; i++) {
+            const p = sorted[i];
+            if (p.horizon_min === horizonMin) {
+                return p;
+            }
+            if (p.horizon_min > horizonMin) {
+                if (!prev) {
+                    return p; // nothing earlier to interpolate from -- use the first computed point
+                }
+                const frac = (horizonMin - prev.horizon_min) / (p.horizon_min - prev.horizon_min);
+                return {
+                    horizon_min: horizonMin,
+                    lat: prev.lat + (p.lat - prev.lat) * frac,
+                    lon: prev.lon + (p.lon - prev.lon) * frac,
+                    altitude_ft: prev.altitude_ft + (p.altitude_ft - prev.altitude_ft) * frac,
+                };
+            }
+            prev = p;
+        }
+        return prev; // horizonMin is past the last computed point -- hold the final position
+    }
+
     function drawScrubbedTraffic(ctx, project, cycle, horizonMin, aircraftHighlight, observedOverride) {
         const highlight = aircraftHighlight || {};
         if (horizonMin === 0) {
@@ -1365,12 +1680,14 @@
         const candidate = getActiveResolutionCandidate(cycle);
         const hypoPoint =
             candidate && candidate.hypothetical_path
-                ? candidate.hypothetical_path.find((p) => p.horizon_min === horizonMin)
+                ? interpolatePredictedPoint(candidate.hypothetical_path, horizonMin, null)
                 : null;
+
+        const observedByCallsign = new Map(cycle.snapshot.aircraft.map((ac) => [ac.callsign, ac]));
 
         Object.entries(cycle.prediction.paths).forEach(([callsign, points]) => {
             const isHypoTarget = candidate && callsign === candidate.target_callsign && hypoPoint;
-            const atHorizon = isHypoTarget ? hypoPoint : points.find((p) => p.horizon_min === horizonMin);
+            const atHorizon = isHypoTarget ? hypoPoint : interpolatePredictedPoint(points, horizonMin, observedByCallsign.get(callsign));
             if (!atHorizon) {
                 return;
             }
@@ -1530,13 +1847,18 @@
             });
         }
         drawSectorBoundaries(ctx, project, bounds, width, cycle.sector_regions);
-        const regionsAtHorizon = cycle.regions_by_horizon[String(ui.selectedHorizon)] || [];
+        // Complexity regions are only ever computed at the backend's real
+        // horizons (10-min steps) -- unlike aircraft, which now interpolate
+        // every 1-min slider step, there's no sane way to "interpolate" a
+        // polygon, so this snaps to whichever computed horizon is nearest.
+        const regionsAtHorizon = cycle.regions_by_horizon[String(nearestAvailableHorizon(ui.selectedHorizon))] || [];
         drawComplexityRegions(ctx, project, bounds, width, regionsAtHorizon, cycle);
         if (ui.showPredictedPaths) {
             drawPredictedPaths(ctx, project, cycle);
             drawResolutionSolutionPath(ctx, project, cycle);
         }
         drawSelectedAircraftPath(ctx, project, cycle);
+        drawHotspotMemberTrajectories(ctx, project, cycle);
         renderAircraftInfoBox(cycle);
         positionAircraftInfoBox();
     }
@@ -1571,14 +1893,15 @@
     function nearestSectorName(track, cycle) {
         const sectorRegions = cycle.sector_regions || {};
         const names = Object.keys(sectorRegions);
-        if (names.length === 0 || !track.centroid) {
+        const centroid = track.centroid || track.provisional_centroid;
+        if (names.length === 0 || !centroid) {
             return "-";
         }
         let best = null;
         let bestDist = Infinity;
         names.forEach((name) => {
             const c = sectorRegions[name].cluster;
-            const d = roughDistanceNm(track.centroid.lat, track.centroid.lon, c.centroid_lat, c.centroid_lon);
+            const d = roughDistanceNm(centroid.lat, centroid.lon, c.centroid_lat, c.centroid_lon);
             if (d < bestDist) {
                 bestDist = d;
                 best = name;
@@ -1595,11 +1918,21 @@
         return `<span style="color:${confidenceColor(confidence)}">${pct}%</span>`;
     }
 
+    //: Minimum rows always shown in the alerts table (padded with dash
+    //: placeholder rows when there are fewer real tracks than this, so
+    //: the panel reads as "table with room for more", not "nearly empty").
+    const MIN_ALERT_ROWS = 3;
+
+    function placeholderRowHtml() {
+        return `<tr class="placeholder-row">${"<td>\u2013</td>".repeat(7)}</tr>`;
+    }
+
     function renderTracksTable(cycle, onSelect) {
         const tbody = document.getElementById("tracks-tbody");
         const tracks = cycle.tracks;
         if (tracks.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="empty-row">No open tracks.</td></tr>';
+            const filler = Array.from({ length: MIN_ALERT_ROWS - 1 }, placeholderRowHtml).join("");
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-row">No open tracks.</td></tr>' + filler;
             return;
         }
         const nowS = cycle.snapshot.timestamp_s;
@@ -1611,7 +1944,7 @@
             }
             return a.priority - b.priority;
         });
-        tbody.innerHTML = sorted
+        const rowsHtml = sorted
             .map((t) => {
                 const onsetInS = t.predicted_onset_s === null ? null : t.predicted_onset_s - nowS;
                 const onsetLabel = onsetInS === null ? "-" : countdownFmt(onsetInS);
@@ -1621,16 +1954,17 @@
                 return `
             <tr class="${selected}" data-arhac-id="${t.arhac_id}">
                 <td>${t.arhac_id.slice(0, 8)}</td>
-                <td>${statusPill(t.status)}</td>
+                <td>${statusPill(t.status, t.provisional_lead_time_s)}</td>
                 <td class="${onsetClass(onsetInS)}">${onsetLabel}</td>
                 <td>${actByLabel}</td>
-                <td>${t.member_aircraft.join(", ")}</td>
+                <td>${t.member_aircraft.length}</td>
                 <td>${nearestSectorName(t, cycle)}</td>
                 <td style="color:${complexityColor(complexityNow)}">${fmt(complexityNow)}</td>
-                <td>${confidenceBadge(t.confidence)}</td>
             </tr>`;
             })
             .join("");
+        const filler = Array.from({ length: Math.max(0, MIN_ALERT_ROWS - sorted.length) }, placeholderRowHtml).join("");
+        tbody.innerHTML = rowsHtml + filler;
         tbody.querySelectorAll("tr[data-arhac-id]").forEach((row) => {
             row.addEventListener("click", () => onSelect(row.dataset.arhacId));
         });
@@ -1830,6 +2164,7 @@
             ui.lastAutoFitKey = null; // force the auto-zoom to re-arm on the very next render
             if (window.__astraLastCycle) {
                 renderMap(window.__astraLastCycle);
+                renderAircraftPanel(window.__astraLastCycle);
             }
         });
     }
@@ -1848,27 +2183,83 @@
      * urgency badge colour (shared with the map highlight/hotspot rings)
      * when the aircraft belongs to an open track. Click a row to pan the
      * map to that aircraft. */
+    /** Classifies every aircraft for the Aircraft Box while a non-"overall"
+     * display mode is active (an alert selected -> Event Sector, or a
+     * manually-picked named sector): "primary" (the alert's own conflict
+     * aircraft, i.e. `track.member_aircraft`), "secondary" (other traffic
+     * physically inside the resolved sector -- affected/in-sector but not
+     * a direct party to the conflict), or omitted entirely (hidden).
+     * Returns `null` for Overall FIR, meaning "no filtering, show
+     * everyone" -- the one signal the caller needs to fully restore
+     * normal behavior when switching back to Overall FIR. */
+    function buildAircraftInvolvementMap(cycle) {
+        if (ui.displayMode === "overall") {
+            return null;
+        }
+        const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
+        const primary = new Set(track ? track.member_aircraft : []);
+        const targetSectorName = getTargetSectorName(cycle);
+        const map = {};
+        cycle.snapshot.aircraft.forEach((ac) => {
+            if (primary.has(ac.callsign)) {
+                map[ac.callsign] = "primary";
+            } else if (targetSectorName && findSectorNameForPoint(ac.lat, ac.lon) === targetSectorName) {
+                map[ac.callsign] = "secondary";
+            }
+            // Neither: left out of the map entirely -- the caller hides it.
+        });
+        return map;
+    }
+
     function renderAircraftPanel(cycle) {
         const container = document.getElementById("aircraft-list");
         if (!container) {
             return;
         }
-        const aircraft = [...cycle.snapshot.aircraft].sort((a, b) => a.callsign.localeCompare(b.callsign));
+        // null (Overall FIR) => no filtering, no special colors, every
+        // aircraft shown -- the explicit "back to normal" escape hatch.
+        const involvement = buildAircraftInvolvementMap(cycle);
+        let aircraft = [...cycle.snapshot.aircraft];
+        if (involvement) {
+            aircraft = aircraft.filter((ac) => Object.prototype.hasOwnProperty.call(involvement, ac.callsign));
+        }
+        // Primary conflict aircraft always sort strictly to the top,
+        // then secondary/in-sector traffic, then (Overall FIR only)
+        // plain callsign order -- computed fresh from `involvement` every
+        // render rather than relying on stale highlight-map membership,
+        // which is what let uninvolved aircraft slip above the 2 primary
+        // ones with larger traffic counts.
+        const rank = (ac) => {
+            if (!involvement) {
+                return 0;
+            }
+            return involvement[ac.callsign] === "primary" ? 0 : 1;
+        };
+        aircraft.sort((a, b) => {
+            const ra = rank(a);
+            const rb = rank(b);
+            if (ra !== rb) {
+                return ra - rb;
+            }
+            return a.callsign.localeCompare(b.callsign);
+        });
         syncClearanceCallsignOptions(aircraft);
         if (aircraft.length === 0) {
-            container.innerHTML = '<p class="empty-row">No aircraft in view.</p>';
+            container.innerHTML = involvement
+                ? '<p class="empty-row">No aircraft involved in this alert.</p>'
+                : '<p class="empty-row">No aircraft in view.</p>';
             return;
         }
-        const highlight = ui.aircraftHighlight || {};
         container.innerHTML = aircraft
             .map((ac) => {
-                const h = highlight[ac.callsign];
-                const badgeColor = h ? h.color : "#4a5866";
+                const level = involvement ? involvement[ac.callsign] : null;
+                const badgeColor = level === "primary" ? AIRCRAFT_COLOR : level === "secondary" ? AIRCRAFT_SECONDARY_PINK : "#4a5866";
+                const rowClass = level === "primary" ? "aircraft-row-primary" : level === "secondary" ? "aircraft-row-secondary" : "";
                 const fl = `FL${Math.round(ac.altitude_ft / 100)}`;
                 const hdg = ac.heading_deg !== null && ac.heading_deg !== undefined ? `${Math.round(ac.heading_deg)}\u00b0` : "-";
                 const gs = ac.ground_speed_kt !== null && ac.ground_speed_kt !== undefined ? `${Math.round(ac.ground_speed_kt)}kt` : "-";
                 return `
-            <div class="aircraft-row" data-callsign="${ac.callsign}">
+            <div class="aircraft-row ${rowClass}" data-callsign="${ac.callsign}">
                 <span class="ac-badge" style="background:${badgeColor}"></span>
                 <span class="ac-callsign">${ac.callsign}</span>
                 <span class="ac-field">${fl}</span>
@@ -1982,35 +2373,119 @@
         }
     }
 
-    /** Numbered "solution proposal" chips (one per ranked candidate) plus a
-     * single detail line for whichever chip is active. */
-    function renderCandidateList(rs, onSelectCandidate) {
+    //: Candidate chips per page. Arrows appear only once a track's real
+    //: candidate count exceeds this -- never padded/capped otherwise
+    //: (see ui_handoff_notes.md #1: "the count is never fixed").
+    const CANDIDATE_PAGE_SIZE = 5;
+
+    /** Numbered "solution proposal" chips (one per ranked candidate, up to
+     * `CANDIDATE_PAGE_SIZE` at a time with </> paging beyond that), an
+     * optional trailing "J" chip for a multi-aircraft joint_candidate,
+     * and a detail line for whichever is currently active. Paging always
+     * follows selection -- the visible page is derived from the active
+     * index/joint state (`resolveActiveSelection`), not tracked
+     * separately, so they can never fall out of sync with each other. */
+    function renderCandidateList(rs, onSelectCandidate, onSelectJoint) {
         const container = document.getElementById("candidate-list");
-        if (!rs || rs.candidates.length === 0) {
+        if (!rs || (rs.candidates.length === 0 && !rs.joint_candidate)) {
             container.innerHTML = '<p class="panel-hint">No eligible resolution candidates this cycle.</p>';
             return;
         }
-        const activeIdx = Math.min(ui.selectedCandidateIndex[rs.arhac_id] || 0, rs.candidates.length - 1);
-        const c = rs.candidates[activeIdx];
-        const scoreClass = c.resolution_score >= 0 ? "cand-score-positive" : "cand-score-negative";
-        const sign = c.delta_value >= 0 ? "+" : "";
-        container.innerHTML = `
-            <div class="panel-hint" style="margin-bottom:6px;">Solution proposal (evaluated at +${rs.evaluated_horizon_min} min)</div>
-            <div class="candidate-chips">
-                ${rs.candidates
-                    .map((_, idx) => `<button class="candidate-chip ${idx === activeIdx ? "active" : ""}" data-idx="${idx}">${idx + 1}</button>`)
-                    .join("")}
-            </div>
+        const sel = resolveActiveSelection(rs);
+        const totalPages = Math.max(1, Math.ceil(rs.candidates.length / CANDIDATE_PAGE_SIZE));
+        const currentPage = sel.isJoint ? 0 : Math.floor((sel.index || 0) / CANDIDATE_PAGE_SIZE);
+        const pageStart = currentPage * CANDIDATE_PAGE_SIZE;
+        const pageCandidates = rs.candidates.slice(pageStart, pageStart + CANDIDATE_PAGE_SIZE);
+        const needsPaging = rs.candidates.length > CANDIDATE_PAGE_SIZE;
+
+        const chipsHtml = pageCandidates
+            .map((_, i) => {
+                const idx = pageStart + i;
+                const active = !sel.isJoint && idx === sel.index;
+                return `<button class="candidate-chip ${active ? "active" : ""}" data-idx="${idx}">${idx + 1}</button>`;
+            })
+            .join("");
+        const prevArrow = `<button type="button" class="candidate-page-arrow" data-dir="prev" ${currentPage <= 0 ? "disabled" : ""}>&lsaquo;</button>`;
+        const nextArrow = `<button type="button" class="candidate-page-arrow" data-dir="next" ${currentPage >= totalPages - 1 ? "disabled" : ""}>&rsaquo;</button>`;
+        const jointChipHtml = rs.joint_candidate
+            ? `<button type="button" class="candidate-chip candidate-chip-joint ${sel.isJoint ? "active" : ""}" data-joint="1" title="Joint multi-aircraft solution">J</button>`
+            : "";
+
+        let detailHtml = "";
+        if (sel.isJoint) {
+            const jc = rs.joint_candidate;
+            const scoreClass = jc.resolution_score >= 0 ? "cand-score-positive" : "cand-score-negative";
+            const legsHtml = jc.legs
+                .map((leg) => {
+                    const sign = leg.delta_value >= 0 ? "+" : "";
+                    const maneuver = maneuverLabel(leg);
+                    return `
+                <div class="joint-leg">
+                    <span class="cand-type">${leg.clearance_type}</span>
+                    <span>${leg.target_callsign}</span>
+                    <span>${sign}${fmt(leg.delta_value, 0)}</span>
+                    ${maneuver ? `<span class="cand-maneuver">${maneuver}</span>` : ""}
+                </div>`;
+                })
+                .join("");
+            detailHtml = `
+            <div class="candidate-current candidate-current-joint">
+                <div class="joint-label">Joint solution &middot; ${jc.legs.length} aircraft</div>
+                ${legsHtml}
+                <span class="${scoreClass}">score ${fmt(jc.resolution_score, 2)}</span>
+            </div>`;
+        } else if (sel.candidate) {
+            const c = sel.candidate;
+            const scoreClass = c.resolution_score >= 0 ? "cand-score-positive" : "cand-score-negative";
+            const sign = c.delta_value >= 0 ? "+" : "";
+            const maneuver = maneuverLabel(c);
+            detailHtml = `
             <div class="candidate-current">
                 <span class="cand-type">${c.clearance_type}</span>
                 <span>${c.target_callsign}</span>
                 <span>${sign}${fmt(c.delta_value, 0)}</span>
+                ${maneuver ? `<span class="cand-maneuver">${maneuver}</span>` : ""}
                 <span class="${scoreClass}">score ${fmt(c.resolution_score, 2)}</span>
             </div>`;
-        container.querySelectorAll(".candidate-chip").forEach((chip) => {
+        }
+
+        container.innerHTML = `
+            <div class="panel-hint" style="margin-bottom:6px;">Solution proposal (evaluated at +${rs.evaluated_horizon_min} min)</div>
+            <div class="candidate-chips">
+                ${needsPaging ? prevArrow : ""}${chipsHtml}${needsPaging ? nextArrow : ""}${jointChipHtml}
+            </div>
+            ${detailHtml}`;
+
+        container.querySelectorAll(".candidate-chip[data-idx]").forEach((chip) => {
             chip.addEventListener("click", () => onSelectCandidate(Number(chip.dataset.idx)));
         });
+        const jointChip = container.querySelector(".candidate-chip-joint");
+        if (jointChip && onSelectJoint) {
+            jointChip.addEventListener("click", onSelectJoint);
+        }
+        container.querySelectorAll(".candidate-page-arrow").forEach((btn) => {
+            if (btn.disabled) {
+                return;
+            }
+            btn.addEventListener("click", () => {
+                const targetPage = btn.dataset.dir === "prev" ? currentPage - 1 : currentPage + 1;
+                // Jump selection to the first candidate of the target page --
+                // the page shown next render is derived from this, per the
+                // "paging follows selection" design above.
+                onSelectCandidate(Math.min(rs.candidates.length - 1, Math.max(0, targetPage * CANDIDATE_PAGE_SIZE)));
+            });
+        });
     }
+
+    //: Only these complexity components are shown in the "before/after"
+    //: breakdown -- LTCA_COUNT, MTCA_COUNT, and TYPE_MIX_COUNT are
+    //: dropped per the Event Analysis box clean-up, keeping just Alt,
+    //: Heading, and Density. Order here is display order.
+    const COMPONENT_KEYS_SHOWN = {
+        ALT_DIV_FT: "Alt",
+        HEADING_DIV_DEG: "Heading",
+        DENSITY_AC_PER_NM2: "Density",
+    };
 
     function renderComponentBars(candidate) {
         const container = document.getElementById("component-bars");
@@ -2020,7 +2495,7 @@
         }
         const before = candidate.complexity_before_components;
         const after = candidate.complexity_after_components || {};
-        const keys = Object.keys(before);
+        const keys = Object.keys(COMPONENT_KEYS_SHOWN).filter((key) => before[key] !== undefined);
         container.innerHTML = keys
             .map((key) => {
                 const b = before[key];
@@ -2030,7 +2505,7 @@
                 const aPct = (a / max) * 100;
                 return `
                 <div class="component-row">
-                    <div class="component-name">${key}: ${fmt(b, 2)} &rarr; ${fmt(a, 2)}</div>
+                    <div class="component-name">${COMPONENT_KEYS_SHOWN[key]}: ${fmt(b, 2)} &rarr; ${fmt(a, 2)}</div>
                     <div class="component-bar-track">
                         <div class="component-bar-fill before" style="width:${bPct}%"></div>
                     </div>
@@ -2152,21 +2627,39 @@
         body.classList.remove("hidden");
 
         const rs = cycle.resolution_sets.find((r) => r.arhac_id === track.arhac_id);
-        const activeIdx = ui.selectedCandidateIndex[track.arhac_id] || 0;
-        const candidate = rs && rs.candidates.length > 0 ? rs.candidates[Math.min(activeIdx, rs.candidates.length - 1)] : null;
+        const sel = resolveActiveSelection(rs);
+        const candidate = sel.candidate;
+        // Complexity rings and the before/after component bars read only
+        // complexity_before/after(_components), which joint_candidate has
+        // in the same shape -- safe either way. The what-if path charts
+        // need a single target_callsign + hypothetical_path, which a
+        // joint candidate doesn't have (2-3 simultaneous legs instead),
+        // so they explicitly get null for a joint selection rather than
+        // being handed an object missing the fields they expect.
+        const candidateForCharts = sel.isJoint ? null : candidate;
 
         renderEventStepper(rs, () => renderEventPanel(cycle));
         renderComplexityReduction(track, candidate);
-        renderCandidateList(rs, (idx) => {
-            ui.selectedCandidateIndex[track.arhac_id] = idx;
-            renderEventPanel(cycle);
-            if (window.__astraLastCycle) {
-                renderMap(window.__astraLastCycle);
+        renderCandidateList(
+            rs,
+            (idx) => {
+                ui.selectedCandidateIndex[track.arhac_id] = idx;
+                renderEventPanel(cycle);
+                if (window.__astraLastCycle) {
+                    renderMap(window.__astraLastCycle);
+                }
+            },
+            () => {
+                ui.selectedCandidateIndex[track.arhac_id] = "joint";
+                renderEventPanel(cycle);
+                if (window.__astraLastCycle) {
+                    renderMap(window.__astraLastCycle);
+                }
             }
-        });
+        );
         renderComponentBars(candidate);
-        renderWhatIfVertical(cycle, candidate);
-        renderWhatIfHorizontal(cycle, candidate);
+        renderWhatIfVertical(cycle, candidateForCharts);
+        renderWhatIfHorizontal(cycle, candidateForCharts);
     }
 
     // ------------------------------------------------------------------
@@ -2214,7 +2707,7 @@
         return `
             <div class="track-timeline">
                 <div class="track-timeline-label">
-                    ARHAC ${track.arhac_id.slice(0, 8)} ${statusPill(track.status)}
+                    ARHAC ${track.arhac_id.slice(0, 8)} ${statusPill(track.status, track.provisional_lead_time_s)}
                 </div>
                 <svg width="${width}" height="${height}">
                     ${markerSvg}
@@ -2293,10 +2786,18 @@
         // available from the dropdown.
         ui.displayMode = "event";
         ui.lastAutoFitKey = null; // force the auto-zoom to re-arm even if the resolved sector is unchanged
+        ui.selectedHorizon = 0; // a newly-selected alert always starts the inspection at Now, not wherever the slider was left
+        const slider = document.getElementById("time-slider");
+        if (slider) {
+            slider.value = "0";
+        }
+        updateTimeBox();
         if (window.__astraLastCycle) {
+            updateTimeSliderAlertSegment(window.__astraLastCycle);
             renderTracksTable(window.__astraLastCycle, selectTrack);
             renderEventPanel(window.__astraLastCycle);
             renderMap(window.__astraLastCycle);
+            renderAircraftPanel(window.__astraLastCycle);
         }
     }
 
@@ -2328,7 +2829,7 @@
             ui.selectedArhacId = sorted[0].arhac_id;
         }
 
-        syncHorizonScrubber(cycle);
+        syncTimeSlider(cycle);
         renderMap(cycle);
         renderTracksTable(cycle, selectTrack);
         renderAircraftPanel(cycle);
@@ -2538,11 +3039,34 @@
         });
     }
 
+    /** Wires the header's "Options" button to show/hide the layer-toggle
+     * dropdown (moved here from an always-visible checkbox row above the
+     * map, to save screen space -- see the map layout clean-up). The
+     * checkboxes themselves are unchanged; `setupGeoLayerToggles()` still
+     * builds them into `#map-layer-toggles`, just relocated in the DOM. */
+    function setupOptionsDropdown() {
+        const btn = document.getElementById("options-btn");
+        const panel = document.getElementById("options-panel");
+        const wrap = document.getElementById("options-dropdown");
+        if (!btn || !panel || !wrap) {
+            return;
+        }
+        btn.addEventListener("click", (evt) => {
+            evt.stopPropagation();
+            panel.classList.toggle("hidden");
+        });
+        document.addEventListener("click", (evt) => {
+            if (!wrap.contains(evt.target)) {
+                panel.classList.add("hidden");
+            }
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         setupTabs();
-        setupHorizonScrubber();
-        setupDisplayModeSelector();
-        setupSpeedButtons();
+        setupTimeSlider();
+        startLiveUtcClock();
+        setupOptionsDropdown();
         setupPauseResumeButton();
         setupManualClearanceForm();
         setupMapInteraction();
@@ -2550,6 +3074,7 @@
         geoLayers.init().then(() => {
             applyPersistedLayerVisibility();
             setupGeoLayerToggles();
+            setupDisplayModeSelector();
             // Prefer a fresh fit-to-FIR over whatever bounds an even-earlier
             // render used (e.g. the very first poll landing before geo
             // layers finished loading, which can only have fit to traffic) --

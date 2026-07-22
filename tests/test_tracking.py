@@ -242,6 +242,122 @@ def test_tracker_full_lifecycle(r: Runner) -> None:
     r.check("cycle 8: no longer in the open set", len(tracker.open_tracks()) == 0)
 
 
+def test_tracker_dissipating_recovers_from_slow_cumulative_climb(r: Runner) -> None:
+    """Regression test: a track must not report DISSIPATING forever while
+    complexity_score is actually climbing back up, just because each
+    individual cycle's rise is smaller than tracking_trend_tolerance.
+
+    Reproduces a real bug: comparing only to the immediately preceding
+    cycle's score reset the comparison baseline every single cycle, so a
+    genuine recovery unfolding as many small steps could hide from
+    detection indefinitely. Fixed via `trend_extremum_score` hysteresis
+    -- see that field's docstring and docs/backend_improvements_backlog.md
+    item 6.
+    """
+    config = ASTRAConfig(tracking_confirm_cycles=1, tracking_trend_tolerance=1.0)
+    tracker = TrackerEngine(config)
+    members = ["A1", "A2"]
+
+    tracker.update({0: [_region(members, score=50.0, valid_at_s=0.0)]})
+    t = tracker.update({0: [_region(members, score=60.0, valid_at_s=60.0)]})
+    r.check("becomes GROWING", t[0].status == "GROWING")
+
+    t = tracker.update({0: [_region(members, score=58.5, valid_at_s=120.0)]})
+    r.check("one PEAK cycle marks the local maximum", t[0].status == "PEAK")
+
+    t = tracker.update({0: [_region(members, score=56.0, valid_at_s=180.0)]})
+    r.check("a real decline becomes DISSIPATING", t[0].status == "DISSIPATING")
+
+    # Recover slowly: each step (+0.4) is well under tol=1.0.
+    for i, score in enumerate([56.4, 56.8], start=1):
+        t = tracker.update({0: [_region(members, score=score, valid_at_s=180.0 + i * 60.0)]})
+        r.check(
+            f"still DISSIPATING after a {score - (56.0 + (i - 1) * 0.4):.1f}-point sub-tolerance step",
+            t[0].status == "DISSIPATING",
+        )
+
+    # The cumulative recovery from the trough (56.0) now exceeds tol.
+    t = tracker.update({0: [_region(members, score=57.2, valid_at_s=360.0)]})
+    r.check(
+        "cumulative recovery beyond tol from the trough is detected as GROWING, "
+        "even though the last single-cycle step (0.4) was not",
+        t[0].status == "GROWING",
+    )
+
+
+def test_tracker_peak_holds_through_small_noisy_dips(r: Runner) -> None:
+    """A track genuinely holding near its peak (small noisy dips, none
+    individually exceeding tol) should stay PEAK, not incorrectly flip to
+    DISSIPATING on every tiny down-tick."""
+    config = ASTRAConfig(tracking_confirm_cycles=1, tracking_trend_tolerance=1.0)
+    tracker = TrackerEngine(config)
+    members = ["A1", "A2"]
+
+    tracker.update({0: [_region(members, score=50.0, valid_at_s=0.0)]})
+    tracker.update({0: [_region(members, score=65.0, valid_at_s=60.0)]})
+    t = tracker.update({0: [_region(members, score=64.6, valid_at_s=120.0)]})
+    r.check("first dip after growing is PEAK", t[0].status == "PEAK")
+
+    for i, score in enumerate([64.9, 64.5, 64.8, 64.3], start=1):
+        t = tracker.update({0: [_region(members, score=score, valid_at_s=120.0 + i * 60.0)]})
+        r.check(f"holds PEAK through small noise (score={score})", t[0].status == "PEAK")
+
+
+def test_tracker_growing_recovers_dissipation_detection_after_slow_decline(r: Runner) -> None:
+    """Mirror of the DISSIPATING-recovery test: a track genuinely
+    declining slowly from its peak (steps under tol) must still
+    eventually be detected as DISSIPATING, not stay stuck at PEAK
+    forever."""
+    config = ASTRAConfig(tracking_confirm_cycles=1, tracking_trend_tolerance=1.0)
+    tracker = TrackerEngine(config)
+    members = ["A1", "A2"]
+
+    tracker.update({0: [_region(members, score=50.0, valid_at_s=0.0)]})
+    tracker.update({0: [_region(members, score=65.0, valid_at_s=60.0)]})
+
+    t = None
+    for i, score in enumerate([64.7, 64.4, 64.1], start=1):
+        t = tracker.update({0: [_region(members, score=score, valid_at_s=60.0 + i * 60.0)]})
+    r.check("still PEAK after small sub-tolerance dips from the true peak (65.0)", t[0].status == "PEAK")
+
+    t = tracker.update({0: [_region(members, score=63.8, valid_at_s=300.0)]})
+    r.check(
+        "cumulative decline beyond tol from the peak is detected as DISSIPATING",
+        t[0].status == "DISSIPATING",
+    )
+
+
+def test_tracker_trend_extremum_resets_outside_active_regime(r: Runner) -> None:
+    """trend_extremum_score is None while CANDIDATE/CONFIRMED (no trend
+    regime established yet), and gets a fresh value -- not a stale one --
+    each time a new regime (GROWING or DISSIPATING) starts."""
+    config = ASTRAConfig(tracking_confirm_cycles=1, tracking_trend_tolerance=1.0)
+    tracker = TrackerEngine(config)
+    members = ["A1", "A2"]
+
+    t = tracker.update({0: [_region(members, score=50.0, valid_at_s=0.0)]})
+    r.check("no active regime yet -> extremum is None", t[0].trend_extremum_score is None)
+
+    t = tracker.update({0: [_region(members, score=60.0, valid_at_s=60.0)]})
+    r.check("GROWING establishes an extremum at the new score", t[0].trend_extremum_score == 60.0)
+
+
+def test_tracker_big_single_cycle_reversal_still_responsive(r: Runner) -> None:
+    """A large, unambiguous single-cycle reversal is still detected
+    immediately -- the hysteresis fix does not dull responsiveness to a
+    real, sharp change, only to slow/noisy ones."""
+    config = ASTRAConfig(tracking_confirm_cycles=1, tracking_trend_tolerance=1.0)
+    tracker = TrackerEngine(config)
+    members = ["A1", "A2"]
+
+    tracker.update({0: [_region(members, score=50.0, valid_at_s=0.0)]})
+    tracker.update({0: [_region(members, score=70.0, valid_at_s=60.0)]})
+    t = tracker.update({0: [_region(members, score=30.0, valid_at_s=120.0)]})
+    r.check("a sharp crash still shows one PEAK cycle first", t[0].status == "PEAK")
+    t = tracker.update({0: [_region(members, score=10.0, valid_at_s=180.0)]})
+    r.check("continuing to crash immediately shows DISSIPATING", t[0].status == "DISSIPATING")
+
+
 def test_tracker_two_independent_tracks(r: Runner) -> None:
     """Two spatially and compositionally distinct clusters open two tracks."""
     config = ASTRAConfig(tracking_confirm_cycles=1)
@@ -506,6 +622,11 @@ def main() -> None:
     test_tracker_promotes_to_confirmed(r)
     test_tracker_arhac_id_stable_across_cycles(r)
     test_tracker_full_lifecycle(r)
+    test_tracker_dissipating_recovers_from_slow_cumulative_climb(r)
+    test_tracker_peak_holds_through_small_noisy_dips(r)
+    test_tracker_growing_recovers_dissipation_detection_after_slow_decline(r)
+    test_tracker_trend_extremum_resets_outside_active_regime(r)
+    test_tracker_big_single_cycle_reversal_still_responsive(r)
     test_tracker_two_independent_tracks(r)
     test_tracker_ignores_non_zero_horizons_for_identity(r)
     test_config_tracking_validation(r)

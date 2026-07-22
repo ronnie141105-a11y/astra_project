@@ -144,6 +144,23 @@ class FourDArhac:
         last_updated_cycle_s: ``valid_at_s`` of the most recent
             extending observation; compared against
             ``tracking_stale_cycles`` to detect staleness.
+        trend_extremum_score: The running peak (while ``GROWING``/``PEAK``)
+            or trough (while ``DISSIPATING``) ``complexity_score`` reached
+            so far during the *current* trend regime -- ``None`` outside
+            a trend regime (``CANDIDATE``/``CONFIRMED``/``PROVISIONAL``/
+            ``CLOSED``). Owned by ``TrackerEngine._next_status``/
+            ``_next_trend_extremum``, used as the comparison baseline
+            instead of just the immediately-preceding cycle's score, so
+            that a genuine trend reversal is detected even when it
+            unfolds as many small per-cycle steps that never
+            individually exceed ``tracking_trend_tolerance`` -- fixes a
+            real bug where a track could report ``DISSIPATING``
+            indefinitely while ``complexity_score`` was actually
+            climbing back up (or the mirror case, stuck ``GROWING``
+            during a slow decline), because comparing only to the
+            previous cycle reset the baseline every single cycle and a
+            slow-enough reversal could hide from it forever. See
+            docs/backend_improvements_backlog.md item 6.
     """
 
     arhac_id: str
@@ -161,6 +178,7 @@ class FourDArhac:
     priority: int = 0
     forecast_urgency_rank: Optional[int] = None
     last_updated_cycle_s: float = 0.0
+    trend_extremum_score: Optional[float] = None
 
     def __len__(self) -> int:
         """Number of distinct aircraft that have ever been part of this track."""

@@ -11,6 +11,7 @@
     --red: #ff5d73;
     --blue: #3b6bf5;
     --aircraft-pink: #ff3d9a;
+    --aircraft-light-pink: #ff9fc7;
     --solution-magenta: #ff2fd6;
     --grid-line: #1c2a34;
     --shadow: rgba(0, 0, 0, 0.6);
@@ -20,8 +21,16 @@
     box-sizing: border-box;
 }
 
+html {
+    height: 100%;
+}
+
 body {
+    height: 100%;
     margin: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
     background: var(--bg);
     color: var(--text);
     font-family: "Consolas", "Menlo", "Courier New", monospace;
@@ -47,6 +56,7 @@ body {
     padding: 12px 20px;
     background: var(--panel-bg);
     border-bottom: 1px solid var(--panel-border);
+    flex: 0 0 auto;
 }
 
 #hmi-brand {
@@ -130,6 +140,52 @@ body {
     color: var(--accent);
 }
 
+.status-time-utc {
+    font-variant-numeric: tabular-nums;
+}
+
+.header-btn {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    padding: 6px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    margin-left: 8px;
+    transition: color 180ms ease, border-color 180ms ease;
+}
+
+.header-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
+}
+
+.options-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.options-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 20;
+    min-width: 200px;
+    max-height: 340px;
+    overflow-y: auto;
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 8px;
+    box-shadow: 0 8px 24px var(--shadow);
+}
+
+.options-panel.hidden {
+    display: none;
+}
+
 /* ---------------------------------------------------------------- */
 /* Tab pages / layout                                                */
 /* ---------------------------------------------------------------- */
@@ -137,27 +193,42 @@ body {
 .tab-page {
     display: none;
     padding: 14px;
+    min-height: 0;
 }
 
 .tab-page.active {
     display: grid;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
 }
 
 /* Dissipation Workspace: alerts + event + aircraft stacked in the left
    column, the traffic projection map filling the entire right column
    (spanning all three rows). */
 #tab-dissipation {
-    grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.85fr);
+    grid-template-columns: minmax(420px, 1.15fr) minmax(0, 1.55fr);
     grid-template-areas:
         "alerts   map"
         "event    map"
         "aircraft map";
     grid-template-rows: auto auto 1fr;
     gap: 14px;
+    height: 100%;
 }
 
 #panel-alerts { grid-area: alerts; }
-#panel-event { grid-area: event; }
+#panel-event {
+    grid-area: event;
+    /* Fixed footprint regardless of alert state (see .panel-event min-/max-height
+       below) -- content taller than this scrolls internally rather than
+       growing the panel and shifting the map/aircraft panels beside it.
+       #panel-aircraft is the grid's 1fr row, so raising this value directly
+       reduces the Aircraft Box's height (no separate edit needed there) --
+       both must still fit within the tab-page's fixed viewport height. */
+    height: 420px;
+    overflow-y: auto;
+}
 #panel-map { grid-area: map; }
 #panel-aircraft { grid-area: aircraft; min-height: 0; }
 
@@ -196,6 +267,15 @@ body {
     color: var(--text-dim);
 }
 
+/* #panel-event no longer has a title above this hint (removed in the
+   panel-title clean-up), so the margin-top .panel-hint normally reserves
+   for "space below the title" is now just a dead gap -- zero it out
+   here specifically, since .panel-hint is still used correctly (below a
+   real title) on the Complexity Forecast tab. */
+#event-empty {
+    margin-top: 0;
+}
+
 .panel-head {
     display: flex;
     align-items: center;
@@ -210,84 +290,158 @@ body {
 /* Map / horizon scrubber                                            */
 /* ---------------------------------------------------------------- */
 
-.scrubber {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-top: 10px;
-    flex-wrap: wrap;
-}
-
-.horizon-buttons {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.speed-label {
-    margin-left: 14px;
-}
-
-.pause-resume-btn {
-    margin-left: 14px;
-}
-
 .pause-resume-btn.active {
     background: rgba(224, 166, 60, 0.16);
     border-color: var(--amber);
     color: var(--amber);
 }
 
-.horizon-btn {
-    font: inherit;
-    font-size: 11px;
-    font-family: inherit;
-    color: var(--text-dim);
-    background: var(--panel-bg-raised);
-    border: 1px solid var(--panel-border);
-    border-radius: 4px;
-    padding: 4px 10px;
-    cursor: pointer;
-    transition: border-color 0.15s, color 0.15s, background 0.15s;
+/* Vector time slider: Now (T=0) through +60 min, replacing the old
+   horizon-button / sim-speed-button row. */
+.time-slider-bar {
+    margin-top: 10px;
 }
 
-.horizon-btn:hover:not(:disabled) {
-    border-color: var(--accent);
+.time-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.time-slider-track-wrap {
+    position: relative;
+    flex: 1;
+    height: 22px;
+    display: flex;
+    align-items: center;
+}
+
+.time-slider-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    pointer-events: none;
+}
+
+.time-slider-alert-segment {
+    position: absolute;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--aircraft-pink);
+    box-shadow: 0 0 8px rgba(255, 61, 154, 0.7);
+    pointer-events: none;
+}
+
+.time-slider-alert-segment.hidden {
+    display: none;
+}
+
+/* Native range input, transparent track -- the visual bar underneath
+   (.time-slider-track / .time-slider-alert-segment) does the drawing;
+   this element only supplies the draggable thumb + interaction. */
+#time-slider {
+    position: relative;
+    width: 100%;
+    margin: 0;
+    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+}
+
+#time-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    background: transparent;
+}
+
+#time-slider::-moz-range-track {
+    height: 4px;
+    background: transparent;
+}
+
+#time-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -5px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--text);
+    box-shadow: 0 0 6px rgba(90, 182, 255, 0.6);
+}
+
+#time-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--text);
+    box-shadow: 0 0 6px rgba(90, 182, 255, 0.6);
+}
+
+.time-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.3;
+    width: 68px;
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.time-box-value {
+    font-size: 14px;
+    font-weight: 600;
     color: var(--text);
 }
 
-.horizon-btn.active {
-    background: var(--accent-dim);
-    border-color: var(--accent);
-    color: var(--accent);
-    font-weight: 600;
+.time-slider-labels {
+    display: flex;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 2px;
 }
 
-.horizon-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
+.time-slider-spacer {
+    width: 68px;
+    flex: 0 0 auto;
+    margin-right: 12px;
+}
+
+.time-slider-labels-track {
+    display: flex;
+    justify-content: space-between;
+    flex: 1;
 }
 
 .layer-toggles {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    font-size: 11px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    font-size: 12px;
     color: var(--text-dim);
 }
 
 .layer-toggle {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
     cursor: pointer;
     user-select: none;
-    padding: 2px 6px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.03);
+    padding: 5px 8px;
+    border-radius: 4px;
+}
+
+.layer-toggle:hover {
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .layer-toggle input {
@@ -349,7 +503,7 @@ body {
     position: relative;
     width: 100%;
     flex: 1 1 auto;
-    min-height: 620px;
+    min-height: 480px;
     margin-top: 8px;
     cursor: grab;
     border-radius: 6px;
@@ -381,7 +535,13 @@ body {
     font-size: 12px;
     line-height: 1.6;
     color: var(--text);
-    min-width: 150px;
+    /* Fixed footprint (was min-width only) -- content length varies
+       (callsign, aircraft type, V/S sign) but the box itself must not,
+       or it visibly resizes every time a different aircraft is
+       selected. */
+    width: 170px;
+    height: 128px;
+    overflow: hidden;
     pointer-events: auto;
     box-shadow: 0 4px 16px var(--shadow);
 }
@@ -457,6 +617,30 @@ body {
     display: none;
 }
 
+/* Container for the selected hotspot alert's per-aircraft boxes (usually
+   2). Each child box is positioned individually in JS
+   (positionHotspotAircraftBoxes()) via absolute left/top, so this wrapper
+   itself needs no layout of its own -- it just fills the map stack so
+   its children's absolute coordinates are relative to the map. */
+.hotspot-info-boxes {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 4;
+}
+
+.hotspot-info-boxes .hotspot-info-box {
+    width: 140px;
+    height: 104px;
+    min-width: 0;
+    padding: 8px 10px;
+    font-size: 11px;
+    pointer-events: none;
+}
+
 .aircraft-info-box .info-title {
     font-weight: 700;
     color: var(--aircraft-pink);
@@ -524,6 +708,22 @@ th, td {
     text-overflow: ellipsis;
 }
 
+/* #tracks-table only: taller rows than the base th/td rule (readability),
+   with an explicit line-height so every row's height is a known, fixed
+   quantity -- deterministic 29px/row -- rather than depending on the
+   browser/font's default line-height, which is what made the old
+   .table-scroll height (guessed from an approximate row-height) end up
+   showing a sliver of a phantom next row instead of cleanly cutting off
+   after exactly 3. */
+#tracks-table {
+    border-collapse: collapse;
+}
+
+#tracks-table th, #tracks-table td {
+    padding: 6px 6px;
+    line-height: 16px;
+}
+
 th {
     color: var(--text-dim);
     font-size: 11px;
@@ -534,12 +734,23 @@ th {
    tracks; the Flights column (many callsigns) wraps instead of
    pushing the row width past the panel, everything else stays
    single-line with an ellipsis if it's ever too long to fit. */
+/* Alerts table: fixed height shows exactly MIN_ALERT_ROWS (3) data rows
+   -- a real 4th+ track scrolls; fewer than 3 real tracks are padded with
+   dash placeholder rows (see placeholderRowHtml()) so the panel is a
+   constant size either way, never a near-empty sliver. */
 .table-scroll {
-    max-height: 360px;
+    height: 116px;
     overflow-y: auto;
     overflow-x: hidden;
     border-radius: 6px;
     border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.table-scroll thead th {
+    position: sticky;
+    top: 0;
+    background: var(--panel-bg);
+    z-index: 1;
 }
 
 .table-scroll::-webkit-scrollbar {
@@ -561,19 +772,32 @@ th {
     word-break: break-word;
 }
 
-#tracks-table th:nth-child(1), #tracks-table td:nth-child(1) { width: 12%; }
-#tracks-table th:nth-child(2), #tracks-table td:nth-child(2) { width: 12%; }
-#tracks-table th:nth-child(3), #tracks-table td:nth-child(3) { width: 11%; }
-#tracks-table th:nth-child(4), #tracks-table td:nth-child(4) { width: 15%; }
-#tracks-table th:nth-child(5), #tracks-table td:nth-child(5) { width: 22%; }
-#tracks-table th:nth-child(6), #tracks-table td:nth-child(6) { width: 10%; }
-#tracks-table th:nth-child(7), #tracks-table td:nth-child(7) { width: 9%; }
-#tracks-table th:nth-child(8), #tracks-table td:nth-child(8) { width: 9%; }
+#tracks-table th:nth-child(1), #tracks-table td:nth-child(1) { width: 14%; }
+#tracks-table th:nth-child(2), #tracks-table td:nth-child(2) { width: 14%; }
+#tracks-table th:nth-child(3), #tracks-table td:nth-child(3) { width: 12%; }
+#tracks-table th:nth-child(4), #tracks-table td:nth-child(4) { width: 16%; }
+#tracks-table th:nth-child(5), #tracks-table td:nth-child(5) { width: 8%; }
+#tracks-table th:nth-child(6), #tracks-table td:nth-child(6) { width: 24%; }
+#tracks-table th:nth-child(7), #tracks-table td:nth-child(7) { width: 12%; }
 
 .empty-row {
     color: var(--text-dim);
     text-align: center;
     white-space: normal;
+}
+
+.placeholder-row td {
+    color: var(--text-dim);
+    opacity: 0.35;
+    text-align: center;
+}
+
+#tracks-tbody tr.placeholder-row {
+    cursor: default;
+}
+
+#tracks-tbody tr.placeholder-row:hover {
+    background: none;
 }
 
 #tracks-tbody tr {
@@ -673,18 +897,30 @@ th {
 }
 
 .aircraft-list {
-    max-height: 220px;
+    height: 192px;
     overflow-y: auto;
 }
 
 .aircraft-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 6px;
+    gap: 14px;
+    padding: 7px 10px;
     border-bottom: 1px solid var(--grid-line);
     cursor: pointer;
     font-size: 12px;
+}
+
+.aircraft-row-primary {
+    background: rgba(255, 61, 154, 0.14);
+    border-left: 3px solid var(--aircraft-pink);
+    padding-left: 7px;
+}
+
+.aircraft-row-secondary {
+    background: rgba(255, 159, 199, 0.07);
+    border-left: 3px solid var(--aircraft-light-pink);
+    padding-left: 7px;
 }
 
 .aircraft-row:hover {
@@ -714,6 +950,17 @@ th {
 .status-PEAK        { background: #3a2020; color: var(--red); }
 .status-DISSIPATING { background: #253a2b; color: var(--accent); }
 .status-CLOSED      { background: #202020; color: var(--text-dim); }
+/* Predicted from a future horizon, not yet actually observed (see
+   ui_handoff_notes.md #2) -- deliberately the only pill with no solid
+   fill and a dashed border, so it reads as categorically different
+   (a forecast, not an observation) rather than just another severity
+   level next to the six solid statuses above. */
+.status-PROVISIONAL {
+    background: transparent;
+    border: 1px dashed var(--text-dim);
+    color: var(--text-dim);
+    font-style: italic;
+}
 
 .onset-soon { color: var(--red); font-weight: bold; }
 .onset-near { color: var(--amber); }
@@ -957,6 +1204,70 @@ th {
     color: #fff;
 }
 
+.candidate-page-arrow {
+    width: 22px;
+    height: 26px;
+    border-radius: 4px;
+    border: 1px solid var(--panel-border);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.candidate-page-arrow:hover:not(:disabled) {
+    border-color: var(--blue);
+    color: var(--text);
+}
+
+.candidate-page-arrow:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Joint (multi-aircraft) candidate: same chip shape, magenta instead of
+   blue -- matches --solution-magenta, the map's own color for a
+   previewed hypothetical path -- so it visually reads as "a different
+   kind of candidate", not just another numbered one. */
+.candidate-chip-joint {
+    margin-left: 6px;
+    border-color: var(--solution-magenta);
+    color: var(--solution-magenta);
+}
+
+.candidate-chip-joint:hover {
+    color: var(--text);
+}
+
+.candidate-chip-joint.active {
+    background: var(--solution-magenta);
+    border-color: var(--solution-magenta);
+    color: #fff;
+}
+
+.candidate-current-joint {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.joint-label {
+    font-weight: bold;
+    color: var(--solution-magenta);
+}
+
+.joint-leg {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cand-maneuver {
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
 .candidate-current {
     display: flex;
     align-items: center;
@@ -1060,6 +1371,9 @@ th {
 }
 
 @media (max-width: 1100px) {
+    .tab-page.active {
+        overflow-y: auto;
+    }
     #tab-dissipation {
         grid-template-columns: 1fr;
         grid-template-rows: none;
@@ -1068,6 +1382,7 @@ th {
             "alerts"
             "event"
             "aircraft";
+        height: auto;
     }
     .event-bottom {
         grid-template-columns: 1fr;

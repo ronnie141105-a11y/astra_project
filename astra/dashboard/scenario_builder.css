@@ -9,6 +9,12 @@
 #scenario-page {
     display: block;
     padding: 12px;
+    /* .tab-page.active (dashboard.css) sets overflow:hidden for the main
+       dashboard's fixed-height, internally-scrolling panels -- this page
+       has a different, taller, normally-flowing layout and needs the
+       page itself to scroll instead of silently clipping content. */
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .sb-banner {
@@ -158,6 +164,8 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 8px;
+    max-height: 320px;
+    overflow-y: auto;
 }
 
 .sb-preset-card {
@@ -205,6 +213,11 @@
     font-family: inherit;
     padding: 6px 8px;
     border-radius: 3px;
+}
+
+.sb-saved-list {
+    max-height: 320px;
+    overflow-y: auto;
 }
 
 .sb-saved-list .sb-saved-row {

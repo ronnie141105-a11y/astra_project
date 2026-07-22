@@ -66,7 +66,7 @@ nothing concrete yet to issue a clearance against).
 """
 
 import uuid
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
 
 from astra.complexity.models import ComplexityRegion
 from astra.tracking.association import best_cluster_match, best_track_match
@@ -223,7 +223,12 @@ class TrackerEngine:
             track.peak_complexity = region.complexity_score
             track.peak_time_s = region.computed_at_s
 
-        track.status = self._next_status(track, previous_score, region.complexity_score)
+        old_status = track.status
+        new_status = self._next_status(track, previous_score, region.complexity_score)
+        track.trend_extremum_score = self._next_trend_extremum(
+            old_status, new_status, track.trend_extremum_score, region.complexity_score
+        )
+        track.status = new_status
 
     def _promote_provisional_track(self, track: FourDArhac, region: ComplexityRegion) -> None:
         """First-ever real (horizon-0) observation for a PROVISIONAL track.
@@ -406,6 +411,30 @@ class TrackerEngine:
         (Milestone 6 adds onset/peak/dissipation *time* prediction on
         top of this). ``track.track`` already includes the new entry
         when this is called.
+
+        ``GROWING`` only ever moves to ``GROWING`` or ``PEAK`` -- the
+        first cycle a track stops actively growing (by more than `tol`
+        over the *immediately preceding* cycle) always becomes ``PEAK``
+        for at least one cycle first, preserving that status's "the
+        local maximum" meaning regardless of how sharp the reversal is.
+
+        From ``PEAK`` or ``DISSIPATING``, the comparison baseline is
+        ``track.trend_extremum_score`` (the regime's own running
+        peak/trough so far, established back when the track was last
+        actively ``GROWING``/``DISSIPATING``) rather than just
+        ``previous_score``. This matters specifically for detecting a
+        recovery out of ``DISSIPATING``: comparing only to the
+        immediately preceding cycle let a track get stuck reporting
+        ``DISSIPATING`` indefinitely even while ``complexity_score`` was
+        genuinely climbing back up, whenever the recovery happened as
+        many small per-cycle steps that never individually exceeded
+        `tol` -- see `FourDArhac.trend_extremum_score`'s docstring and
+        docs/backend_improvements_backlog.md item 6. Outside an active
+        regime (``CONFIRMED``, just promoted from
+        ``CANDIDATE``/``PROVISIONAL``), there is no established extremum
+        yet, so the immediately-preceding cycle is the only available
+        baseline -- the original Milestone 5 rule, unchanged for that
+        case.
         """
         length = len(track.track)
         confirm_cycles = self._config.tracking_confirm_cycles
@@ -418,14 +447,78 @@ class TrackerEngine:
             return "CONFIRMED"
 
         tol = self._config.tracking_trend_tolerance
+
+        if track.status == "GROWING":
+            return "GROWING" if new_score - previous_score > tol else "PEAK"
+
+        if track.status == "PEAK":
+            reference = (
+                track.trend_extremum_score
+                if track.trend_extremum_score is not None
+                else previous_score
+            )
+            if new_score - reference < -tol:
+                return "DISSIPATING"
+            return "GROWING" if new_score - previous_score > tol else "PEAK"
+
+        if track.status == "DISSIPATING":
+            reference = (
+                track.trend_extremum_score
+                if track.trend_extremum_score is not None
+                else previous_score
+            )
+            return "GROWING" if new_score - reference > tol else "DISSIPATING"
+
+        # CONFIRMED: no established trend regime yet -- single-cycle
+        # comparison starts one.
         delta = new_score - previous_score
         if delta > tol:
             return "GROWING"
         if delta < -tol:
-            return "PEAK" if track.status == "GROWING" else "DISSIPATING"
-        # Roughly flat: a plateau right after growth is the local max;
-        # otherwise the track simply holds its current phase.
-        return "PEAK" if track.status == "GROWING" else track.status
+            return "DISSIPATING"
+        return "CONFIRMED"
+
+    @staticmethod
+    def _next_trend_extremum(
+        old_status: ArhacStatus,
+        new_status: ArhacStatus,
+        current_extremum: Optional[float],
+        new_score: float,
+    ) -> Optional[float]:
+        """Advance ``trend_extremum_score`` for one ``_extend_track`` call.
+
+        ``GROWING``/``PEAK`` track a running *maximum*; ``DISSIPATING``
+        tracks a running *minimum*; anything else (``CONFIRMED``,
+        ``CANDIDATE``, ``CLOSED``) has no active trend regime, so the
+        extremum resets to ``None``. A regime continues its existing
+        extremum only when the *previous* status was already in the
+        same family (``GROWING``/``PEAK`` together count as one
+        continuous "at or near the top" regime, matching
+        ``_next_status``'s own grouping) -- entering a family fresh
+        (e.g. ``CONFIRMED`` -> ``GROWING``, or ``PEAK`` -> ``DISSIPATING``)
+        starts a brand new extremum at ``new_score``.
+
+        Args:
+            old_status: ``track.status`` *before* this cycle's update
+                (i.e. what ``_next_status`` used as its ``track.status``).
+            new_status: This cycle's freshly computed status.
+            current_extremum: ``track.trend_extremum_score`` before this
+                update.
+            new_score: This cycle's ``complexity_score``.
+
+        Returns:
+            The updated extremum to store, or ``None`` if `new_status`
+            has no active trend regime.
+        """
+        if new_status in ("GROWING", "PEAK"):
+            if old_status in ("GROWING", "PEAK") and current_extremum is not None:
+                return max(current_extremum, new_score)
+            return new_score
+        if new_status == "DISSIPATING":
+            if old_status == "DISSIPATING" and current_extremum is not None:
+                return min(current_extremum, new_score)
+            return new_score
+        return None
 
     def _age_and_close_unmatched(self, matched_ids: Set[str]) -> List[FourDArhac]:
         """Increment staleness for unmatched tracks; close and evict stale ones."""

@@ -313,11 +313,23 @@ class ASTRAConfig:
     #: Bind port for the dashboard's local Flask web server.
     dashboard_port: int = 8050
 
-    #: Cap on ranked `ResolutionCandidate`s shown per track in the
-    #: dashboard's resolution table (OQ-3) -- independent of
+    #: Safety cap on ranked `ResolutionCandidate`s exposed per track in
+    #: the dashboard's resolution table (OQ-3) -- independent of
     #: `resolution_max_tracks_per_cycle`, which caps how many *tracks*
-    #: are resolved, not how many candidates are displayed per track.
-    dashboard_max_resolution_candidates_shown: int = 3
+    #: are resolved, not how many candidates are shown per track.
+    #:
+    #: `ResolutionEngine` generates a variable number of candidates per
+    #: track (0 to ~12+, depending on which levers apply and
+    #: `resolution_step_multipliers`) -- this should very rarely trim
+    #: anything in practice; it exists as an upper bound in case a
+    #: future change widens the candidate search further, not as a
+    #: display page size. A track with 1 or 2 real options should show
+    #: exactly that many, not be padded or truncated to a fixed count.
+    #: Paging a long list down to a fixed number visible at once (e.g.
+    #: 5 with next/previous arrows) is a dashboard/frontend concern, not
+    #: this backend cap -- keep this generous so the frontend always
+    #: receives the engine's real output to paginate over.
+    dashboard_max_resolution_candidates_shown: int = 20
 
     # ------------------------------------------------------------------
     # Phase 9 - sector complexity (astra.complexity.sector)

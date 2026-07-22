@@ -291,12 +291,16 @@ def serialize_resolution_set(resolution_set: ResolutionSet, max_candidates: int)
     """One `ResolutionSet` -> its track id plus its top-ranked candidates.
 
     Per design review OQ-3(B), the full ranked list is shown (not just
-    `.best()`), capped at `max_candidates`
-    (`ASTRAConfig.dashboard_max_resolution_candidates_shown`) -- a display
-    cap only; it does not change how many candidates `ResolutionEngine`
-    generated or ranked. `joint_candidate` (present only for 3+ member
-    clusters -- see `ResolutionEngine._build_joint_candidate`) is never
-    capped/truncated: it is always exactly one candidate or absent.
+    `.best()`), bounded by `max_candidates`
+    (`ASTRAConfig.dashboard_max_resolution_candidates_shown`, a generous
+    safety cap -- see that field's docstring for why this should very
+    rarely trim anything in practice, and why fixed-size pagination for
+    display belongs in the frontend, not here). A track with only 1 or 2
+    real candidates is returned with just that many -- this never pads
+    the list out to a fixed count. `joint_candidate` (present only for
+    3+ member clusters -- see `ResolutionEngine._build_joint_candidate`)
+    is never capped/truncated: it is always exactly one candidate or
+    absent.
     """
     return {
         "arhac_id": resolution_set.track.arhac_id,

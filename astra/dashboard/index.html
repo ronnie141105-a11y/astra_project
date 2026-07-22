@@ -28,10 +28,15 @@
         </nav>
 
         <a id="scenario-builder-link" href="/scenario" class="tab-btn tab-link">Scenario Builder &#8599;</a>
+        <button type="button" id="pause-resume-btn" class="header-btn pause-resume-btn">Pause</button>
+        <div id="options-dropdown" class="options-dropdown">
+            <button type="button" id="options-btn" class="header-btn">Options</button>
+            <div id="options-panel" class="options-panel hidden">
+                <div id="map-layer-toggles" class="layer-toggles"></div>
+            </div>
+        </div>
         <div id="hmi-status">
-            <span id="status-badge" class="badge badge-waiting">WAITING</span>
-            <span id="status-time">t = &ndash;</span>
-            <span id="status-cycle">cycle 0</span>
+            <span id="status-time" class="status-time-utc"><span id="status-time-value">&ndash;&ndash;:&ndash;&ndash;:&ndash;&ndash;</span> UTC</span>
         </div>
     </header>
 
@@ -53,7 +58,6 @@
 
     <main id="tab-dissipation" class="tab-page active">
         <section id="panel-alerts" class="panel panel-alerts">
-            <h2>Alerts</h2>
             <div class="table-scroll">
                 <table id="tracks-table">
                     <thead>
@@ -62,10 +66,9 @@
                             <th>Status</th>
                             <th>Onset in</th>
                             <th>Act by</th>
-                            <th>Flights</th>
+                            <th>N. flights</th>
                             <th>Sector</th>
                             <th>Complexity</th>
-                            <th>Confidence</th>
                         </tr>
                     </thead>
                     <tbody id="tracks-tbody">
@@ -76,9 +79,6 @@
         </section>
 
         <section id="panel-event" class="panel panel-event">
-            <div class="panel-head">
-                <h2>Event &amp; Dissipation Analysis</h2>
-            </div>
             <div id="event-empty" class="panel-hint">Select an alert above to inspect its dissipation options.</div>
             <div id="event-body" class="hidden">
                 <div id="event-stepper" class="event-stepper"></div>
@@ -104,15 +104,12 @@
         </section>
 
         <section id="panel-map" class="panel panel-map">
-            <div class="panel-head">
-                <h2>Traffic Projection Display</h2>
-                <div id="map-layer-toggles" class="layer-toggles"></div>
-            </div>
             <div id="map-sector-toggles" class="sector-toggle-row"></div>
             <div id="map-stack" class="map-stack">
                 <canvas id="map-canvas" width="720" height="520"></canvas>
                 <canvas id="map-traffic-canvas" width="720" height="520"></canvas>
                 <div id="aircraft-info-box" class="aircraft-info-box hidden"></div>
+                <div id="hotspot-info-boxes" class="hotspot-info-boxes"></div>
                 <div id="display-mode-box" class="display-mode-box">
                     <label for="display-mode-select">Display Mode</label>
                     <select id="display-mode-select">
@@ -122,17 +119,38 @@
                 </div>
                 <div id="event-sector-message" class="event-sector-message hidden"></div>
             </div>
-            <div id="horizon-scrubber" class="scrubber">
-                <span class="scrubber-label">Horizon</span>
-                <div id="horizon-buttons" class="horizon-buttons" role="group" aria-label="Prediction horizon"></div>
-                <span class="scrubber-label speed-label">Sim speed</span>
-                <div id="speed-buttons" class="horizon-buttons" role="group" aria-label="Simulation speed"></div>
-                <button type="button" id="pause-resume-btn" class="horizon-btn pause-resume-btn">Pause</button>
+            <div id="time-slider-bar" class="time-slider-bar">
+                <div class="time-slider-row">
+                    <div id="time-box" class="time-box">
+                        <span class="time-box-label">Now</span>
+                        <span id="time-box-value" class="time-box-value">&ndash;&ndash;:&ndash;&ndash;</span>
+                    </div>
+                    <div id="time-slider-track-wrap" class="time-slider-track-wrap">
+                        <div class="time-slider-track"></div>
+                        <div id="time-slider-alert-segment" class="time-slider-alert-segment hidden"></div>
+                        <input
+                            type="range"
+                            id="time-slider"
+                            class="time-slider"
+                            min="0"
+                            max="60"
+                            step="1"
+                            value="0"
+                            aria-label="Prediction time, minutes from now"
+                        >
+                    </div>
+                </div>
+                <div class="time-slider-labels">
+                    <span id="time-slider-spacer" class="time-slider-spacer"></span>
+                    <div class="time-slider-labels-track">
+                        <span id="time-slider-start-label" class="time-slider-edge-label">&ndash;&ndash;:&ndash;&ndash;</span>
+                        <span id="time-slider-end-label" class="time-slider-edge-label">&ndash;&ndash;:&ndash;&ndash;</span>
+                    </div>
+                </div>
             </div>
         </section>
 
         <section id="panel-aircraft" class="panel panel-aircraft">
-            <h2>Aircraft</h2>
             <form id="manual-clearance-form" class="manual-clearance-form">
                 <select id="clearance-callsign" required>
                     <option value="" disabled selected>Aircraft&hellip;</option>
