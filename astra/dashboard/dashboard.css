@@ -203,16 +203,20 @@ body {
     overflow: hidden;
 }
 
-/* Dissipation Workspace: alerts + event + aircraft stacked in the left
-   column, the traffic projection map filling the entire right column
-   (spanning all three rows). */
+/* Dissipation Workspace: alerts + event stacked in the left column, the
+   traffic projection map filling the entire right column (spanning
+   both rows). The Aircraft Box that used to occupy a third row here
+   was a duplicate of the Event Box's own aircraft table and manual
+   clearance form -- removed; #panel-event's row now takes that
+   freed-up space (1fr) so the merged Event Box can grow to fit its
+   table + action details cleanly instead of being squeezed into a
+   fixed height. */
 #tab-dissipation {
-    grid-template-columns: minmax(420px, 1.15fr) minmax(0, 1.55fr);
+    grid-template-columns: minmax(480px, 1.45fr) minmax(0, 1fr);
     grid-template-areas:
         "alerts   map"
-        "event    map"
-        "aircraft map";
-    grid-template-rows: auto auto 1fr;
+        "event    map";
+    grid-template-rows: auto 1fr;
     gap: 14px;
     height: 100%;
 }
@@ -220,17 +224,27 @@ body {
 #panel-alerts { grid-area: alerts; }
 #panel-event {
     grid-area: event;
-    /* Fixed footprint regardless of alert state (see .panel-event min-/max-height
-       below) -- content taller than this scrolls internally rather than
-       growing the panel and shifting the map/aircraft panels beside it.
-       #panel-aircraft is the grid's 1fr row, so raising this value directly
-       reduces the Aircraft Box's height (no separate edit needed there) --
-       both must still fit within the tab-page's fixed viewport height. */
-    height: 420px;
+    /* No fixed height anymore -- fills the 1fr row instead (see grid
+       comment above). overflow-y stays as a safety net for very short
+       viewports; the aircraft table itself has its own internal
+       scroll region sized to ~6-7 rows (.event-aircraft-table-scroll
+       below) regardless of how tall this outer box grows. */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     overflow-y: auto;
 }
 #panel-map { grid-area: map; }
-#panel-aircraft { grid-area: aircraft; min-height: 0; }
+
+/* Slightly tighter top than the base .panel padding -- the alerts
+   table above grew (5 rows instead of 3, plus larger font/padding) so
+   the Event Box has less vertical room below it; trimming the empty
+   space above the stepper keeps the table/candidate list/aircraft
+   table/action-details stack from being pushed off the bottom of the
+   fixed-height tab page. */
+#panel-event {
+    padding-top: 10px;
+}
 
 #tab-forecast {
     grid-template-columns: 1fr;
@@ -259,6 +273,13 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-dim);
+}
+
+#event-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .panel-hint {
@@ -710,18 +731,24 @@ th, td {
 
 /* #tracks-table only: taller rows than the base th/td rule (readability),
    with an explicit line-height so every row's height is a known, fixed
-   quantity -- deterministic 29px/row -- rather than depending on the
+   quantity -- deterministic 32px/row -- rather than depending on the
    browser/font's default line-height, which is what made the old
    .table-scroll height (guessed from an approximate row-height) end up
    showing a sliver of a phantom next row instead of cleanly cutting off
-   after exactly 3. */
+   after exactly 5 (see #panel-alerts .table-scroll's height: 6 rows'
+   worth -- 1 header + 5 data -- of this 32px). */
 #tracks-table {
     border-collapse: collapse;
 }
 
 #tracks-table th, #tracks-table td {
-    padding: 6px 6px;
-    line-height: 16px;
+    padding: 7px 6px;
+    line-height: 17px;
+    font-size: 15px;
+}
+
+#tracks-table th {
+    font-size: 11.5px;
 }
 
 th {
@@ -734,16 +761,24 @@ th {
    tracks; the Flights column (many callsigns) wraps instead of
    pushing the row width past the panel, everything else stays
    single-line with an ellipsis if it's ever too long to fit. */
-/* Alerts table: fixed height shows exactly MIN_ALERT_ROWS (3) data rows
-   -- a real 4th+ track scrolls; fewer than 3 real tracks are padded with
+/* Alerts table: fixed height shows exactly MIN_ALERT_ROWS (5) data rows
+   -- a real 6th+ track scrolls; fewer than 5 real tracks are padded with
    dash placeholder rows (see placeholderRowHtml()) so the panel is a
-   constant size either way, never a near-empty sliver. */
+   constant size either way, never a near-empty sliver. This height is
+   scoped to #panel-alerts specifically (not the bare .table-scroll
+   class) since .event-aircraft-table-scroll also uses .table-scroll
+   for its shared border/scrollbar styling but needs its own, much
+   taller, max-height instead -- a plain `.table-scroll { height }`
+   here would win over that max-height and silently cap it too. */
 .table-scroll {
-    height: 116px;
     overflow-y: auto;
     overflow-x: hidden;
     border-radius: 6px;
     border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+#panel-alerts .table-scroll {
+    height: 192px;
 }
 
 .table-scroll thead th {
@@ -824,124 +859,15 @@ th {
 }
 
 /* ---------------------------------------------------------------- */
-/* Aircraft panel                                                     */
+/* Event aircraft table row interaction (click to pan map)           */
 /* ---------------------------------------------------------------- */
 
-.manual-clearance-form {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--panel-border);
-}
-
-.manual-clearance-form select,
-.manual-clearance-form input {
-    font: inherit;
-    font-size: 12px;
-    color: var(--text);
-    background: var(--panel-bg-raised);
-    border: 1px solid var(--panel-border);
-    border-radius: 4px;
-    padding: 5px 7px;
-}
-
-.manual-clearance-form select:focus,
-.manual-clearance-form input:focus {
-    outline: none;
-    border-color: var(--aircraft-pink);
-}
-
-#clearance-callsign {
-    min-width: 100px;
-}
-
-#clearance-value {
-    width: 78px;
-}
-
-.manual-clearance-form button {
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--bg);
-    background: var(--aircraft-pink);
-    border: none;
-    border-radius: 4px;
-    padding: 6px 14px;
+.event-aircraft-table tr.event-ac-row {
     cursor: pointer;
 }
 
-.manual-clearance-form button:hover {
-    filter: brightness(1.1);
-}
-
-.manual-clearance-form button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.clearance-status {
-    font-size: 11px;
-    color: var(--text-dim);
-}
-
-.clearance-status.ok {
-    color: var(--aircraft-pink);
-}
-
-.clearance-status.error {
-    color: var(--red);
-}
-
-.aircraft-list {
-    height: 192px;
-    overflow-y: auto;
-}
-
-.aircraft-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 7px 10px;
-    border-bottom: 1px solid var(--grid-line);
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.aircraft-row-primary {
-    background: rgba(255, 61, 154, 0.14);
-    border-left: 3px solid var(--aircraft-pink);
-    padding-left: 7px;
-}
-
-.aircraft-row-secondary {
-    background: rgba(255, 159, 199, 0.07);
-    border-left: 3px solid var(--aircraft-light-pink);
-    padding-left: 7px;
-}
-
-.aircraft-row:hover {
-    background: rgba(255, 255, 255, 0.03);
-}
-
-.aircraft-row .ac-badge {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.aircraft-row .ac-callsign {
-    font-weight: bold;
-    min-width: 64px;
-}
-
-.aircraft-row .ac-field {
-    color: var(--text-dim);
-    min-width: 52px;
+.event-aircraft-table tr.event-ac-row:hover td {
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .status-CANDIDATE   { background: #2a3340; color: var(--text-dim); }
@@ -990,8 +916,8 @@ th {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 14px;
-    padding-bottom: 12px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -1084,10 +1010,145 @@ th {
     margin-bottom: 12px;
 }
 
-.event-bottom {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1.2fr;
-    gap: 14px;
+/* Nested aircraft table box, directly under the solution proposal
+   selector, inside the single merged Event Box (#panel-event / #event-body
+   is now a flex column that grows to fill the page -- see #panel-event
+   above -- so this box has real room to breathe instead of being
+   squeezed into a fixed-height panel). */
+.event-aircraft-table-container {
+    margin-top: 10px;
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Sized for ~6-7 rows visible by default (header ~40px + 7 rows @
+   ~38px each); more than that scrolls inside this box rather than
+   growing the table container or the outer Event Box. */
+.event-aircraft-table-scroll {
+    max-height: 306px;
+    overflow-y: auto;
+}
+
+.event-aircraft-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.event-aircraft-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--panel-bg-raised);
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--panel-border);
+    z-index: 1;
+    line-height: 1.3;
+}
+
+/* Splits each multi-word header onto its own second line (e.g. "FL"
+   over "(Predicted-Target)") so columns stay narrow/vertical instead
+   of forcing the table wide -- see .th-sub usage in index.html. */
+.event-aircraft-table thead th .th-sub {
+    display: block;
+    font-size: 9px;
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: 0.75;
+    margin-top: 2px;
+}
+
+.event-aircraft-table tbody td {
+    padding: 9px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Two-tier highlight, reusing the app's existing two pink shades
+   (the same AIRCRAFT_COLOR the map markers use, plus its CSS-side
+   counterpart --aircraft-light-pink): every row in this table is a member of the selected
+   track, i.e. already "affected" by the hotspot, so it always gets at
+   least the light-pink tier -- rows with an active clearance/leg this
+   round ("action aircraft") get the brighter tier on top and sort to
+   the top of the list. */
+.event-aircraft-table tr.event-ac-row.affected td {
+    background: rgba(255, 159, 199, 0.08);
+    border-left: 2px solid var(--aircraft-light-pink);
+}
+
+.event-aircraft-table tr.event-ac-row.action td {
+    background: rgba(255, 61, 154, 0.14);
+    border-left: 2px solid var(--aircraft-pink);
+}
+
+.event-ac-callsign {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: bold;
+}
+
+.event-ac-callsign.action {
+    color: var(--aircraft-pink);
+    border: 1px solid var(--aircraft-pink);
+    border-radius: 4px;
+    padding: 2px 6px;
+}
+
+.event-ac-badge {
+    background: var(--aircraft-pink);
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    border-radius: 3px;
+    padding: 0 4px;
+}
+
+/* Action details -- the third section of the merged Event Box, below
+   the aircraft table: one line per aircraft currently being acted on
+   (a single candidate's target, or every leg of a joint candidate). */
+.event-action-details {
+    margin-top: 10px;
+    background: var(--panel-bg-raised);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.event-action-detail-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 0;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.event-action-detail-row:last-child {
+    border-bottom: none;
+}
+
+.event-action-detail-icon {
+    color: var(--text-dim);
+}
+
+.event-action-detail-callsign {
+    color: var(--aircraft-pink);
+    font-weight: bold;
+}
+
+.event-action-detail-text {
+    color: var(--text-dim);
 }
 
 .complexity-reduction {
@@ -1285,49 +1346,6 @@ th {
 .candidate-current .cand-score-positive { color: var(--accent); }
 .candidate-current .cand-score-negative { color: var(--red); }
 
-.whatif-block svg, .component-block {
-    background: var(--panel-bg-raised);
-    border: 1px solid var(--panel-border);
-    border-radius: 4px;
-    width: 100%;
-    height: 140px;
-}
-
-.component-block {
-    height: auto;
-    min-height: 140px;
-    padding: 8px;
-}
-
-.component-row {
-    margin-bottom: 6px;
-}
-
-.component-row .component-name {
-    font-size: 11px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-}
-
-.component-bar-track {
-    position: relative;
-    height: 8px;
-    background: #0c1319;
-    border-radius: 2px;
-    margin-top: 2px;
-    overflow: hidden;
-}
-
-.component-bar-fill {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-}
-
-.component-bar-fill.before { background: var(--blue); opacity: 0.55; }
-.component-bar-fill.after { background: var(--accent); }
-
 /* ---------------------------------------------------------------- */
 /* Sector complexity page                                             */
 /* ---------------------------------------------------------------- */
@@ -1380,11 +1398,13 @@ th {
         grid-template-areas:
             "map"
             "alerts"
-            "event"
-            "aircraft";
+            "event";
         height: auto;
     }
-    .event-bottom {
-        grid-template-columns: 1fr;
+    #panel-event {
+        overflow-y: visible;
+    }
+    .event-aircraft-table-scroll {
+        max-height: none;
     }
 }

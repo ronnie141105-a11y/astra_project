@@ -9,13 +9,9 @@
     <!--
         Two-page HMI shell (Complexity Forecast / Dissipation Workspace),
         modeled on the reference ASTRA HMI (EUROCONTROL D2.10 Section 2).
-        Mostly a read-only view onto /state; the one exception is the
-        Aircraft panel's manual clearance form (--mock only), which lets
-        the person issue a heading/level/speed change directly, bypassing
-        ResolutionEngine entirely -- see astra/dashboard/scenario_routes.py
-        POST /scenario/clearance. ResolutionEngine's own candidates remain
-        advisory-only regardless: nothing here ever auto-applies one of
-        its ranked candidates on its own.
+        Read-only: ResolutionEngine's ranked candidates are advisory-only
+        regardless -- nothing here ever auto-applies one of its ranked
+        candidates on its own.
     -->
     <header id="hmi-header">
         <div id="hmi-brand">
@@ -86,18 +82,37 @@
                     <div id="complexity-reduction" class="complexity-reduction"></div>
                 </div>
                 <div id="candidate-list" class="candidate-list"></div>
-                <div class="event-bottom">
-                    <div class="whatif-block">
-                        <h3>Vertical profile (altitude)</h3>
-                        <svg id="whatif-vertical" viewBox="0 0 420 140"></svg>
+                <div id="event-aircraft-table-container" class="event-aircraft-table-container">
+                    <div class="table-scroll event-aircraft-table-scroll">
+                        <table id="event-aircraft-table" class="event-aircraft-table">
+                            <colgroup>
+                                <col style="width:18%">
+                                <col style="width:17%">
+                                <col style="width:15%">
+                                <col style="width:15%">
+                                <col style="width:18%">
+                                <col style="width:17%">
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th>Callsign</th>
+                                    <th>FL<span class="th-sub">(Predicted-Target)</span></th>
+                                    <th>Groundspeed<span class="th-sub">(kts)</span></th>
+                                    <th>Vertical Rate<span class="th-sub">(ft/min)</span></th>
+                                    <th>Act by</th>
+                                    <th>Action<span class="th-sub">sector</span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="event-aircraft-tbody">
+                                <tr><td colspan="6" class="empty-row">No aircraft in this event.</td></tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="whatif-block">
-                        <h3>Horizontal profile</h3>
-                        <svg id="whatif-horizontal" viewBox="0 0 420 140"></svg>
-                    </div>
-                    <div class="component-block">
-                        <h3>Complexity components (before / after)</h3>
-                        <div id="component-bars"></div>
+                </div>
+                <div id="event-action-details" class="event-action-details">
+                    <h3>Action details</h3>
+                    <div id="event-action-details-body" class="event-action-details-body">
+                        <p class="panel-hint">No solution selected.</p>
                     </div>
                 </div>
             </div>
@@ -150,24 +165,6 @@
             </div>
         </section>
 
-        <section id="panel-aircraft" class="panel panel-aircraft">
-            <form id="manual-clearance-form" class="manual-clearance-form">
-                <select id="clearance-callsign" required>
-                    <option value="" disabled selected>Aircraft&hellip;</option>
-                </select>
-                <select id="clearance-type">
-                    <option value="HEADING">Heading (deg)</option>
-                    <option value="FLIGHT_LEVEL">Flight level (ft)</option>
-                    <option value="SPEED">Speed (kt)</option>
-                </select>
-                <input id="clearance-value" type="number" step="1" placeholder="value" required>
-                <button type="submit">Send</button>
-                <span id="clearance-status" class="clearance-status"></span>
-            </form>
-            <div id="aircraft-list" class="aircraft-list">
-                <p class="empty-row">No aircraft in view.</p>
-            </div>
-        </section>
     </main>
 
     <script>

@@ -21,6 +21,7 @@ from typing import Dict, List, Optional
 
 from astra.complexity.models import ComplexityRegion
 from astra.complexity.sector import SectorComplexitySample
+from astra.dashboard import scenario_geo
 from astra.dashboard.models import DashboardSnapshot
 from astra.hotspot.models import Cluster
 from astra.interface.traffic_state import AircraftState, TrafficSnapshot
@@ -156,6 +157,11 @@ def serialize_track(track: FourDArhac) -> Dict:
     """
     latest_region = track.track[-1] if track.track else None
     latest_provisional = track.provisional_track[-1] if track.provisional_track else None
+    centroid_for_label = (
+        latest_region.cluster
+        if latest_region is not None
+        else (latest_provisional.cluster if latest_provisional is not None else None)
+    )
     return {
         "arhac_id": track.arhac_id,
         "status": track.status,
@@ -172,6 +178,17 @@ def serialize_track(track: FourDArhac) -> Dict:
         "last_updated_cycle_s": track.last_updated_cycle_s,
         "current_complexity_score": (
             latest_region.complexity_score if latest_region is not None else None
+        ),
+        #: Canonical "HCM-S<number>" sector label (see
+        #: scenario_geo.hcm_sector_label's docstring for why this must
+        #: not be built from a sector polygon's raw per-vertical-layer
+        #: id/name) -- `None` when no sector geo data is loaded or the
+        #: track has no centroid yet (a still-provisional track with an
+        #: empty provisional_track too).
+        "sector_label": (
+            scenario_geo.hcm_sector_label(centroid_for_label.centroid_lat, centroid_for_label.centroid_lon)
+            if centroid_for_label is not None
+            else None
         ),
         "centroid": (
             {

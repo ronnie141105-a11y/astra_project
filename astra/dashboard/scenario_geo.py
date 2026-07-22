@@ -296,6 +296,51 @@ def sector_containing(lat: float, lon: float, candidates: Optional[List[Sector]]
     return None
 
 
+def hcm_sector_label(lat: float, lon: float) -> Optional[str]:
+    """Canonical "HCM-S<number>" label for a point, or `None` if no sector data is loaded.
+
+    `geo/sectors.json` has multiple polygon *slabs* per sector number --
+    one per vertical layer (e.g. `sector_2a`/`sector_2b` for Sector 2's
+    GND-FL460 and GND-FL305 layers) -- which is exactly right for
+    `sector_containing()`'s "which slab, if any, contains this point"
+    use, but wrong for a *display label*: naively surfacing the winning
+    slab's raw `id` (or a label built from it) leaks that internal
+    vertical-layer letter (e.g. "HCM-S2A", "HCM-S2B") into the HMI,
+    where the sector is a single number regardless of which of its
+    layers matched. This collapses that back to one label per number --
+    ignoring vertical layering entirely, same as `sector_containing()`
+    already does for its own purpose -- and formats it the same way
+    the whole HMI expects: `HCM-S<number>`, no trailing letter.
+
+    Falls back to the nearest sector's centroid (still one candidate
+    per number, not per slab) when the point sits outside every loaded
+    polygon, so an aircraft/track just outside a sector boundary still
+    gets a sensible label instead of `None`.
+    """
+    sectors = _load_sectors()
+    if not sectors:
+        return None
+    hit = sector_containing(lat, lon, sectors)
+    if hit is not None:
+        return f"HCM-S{hit.number}"
+    # One representative slab per number for the nearest-centroid fallback --
+    # multiple slabs of the same number would otherwise just be redundant
+    # (near-identical) candidates in the distance comparison below.
+    by_number: Dict[str, Sector] = {}
+    for sector in sectors:
+        by_number.setdefault(sector.number, sector)
+    best_number = None
+    best_dist = float("inf")
+    for number, sector in by_number.items():
+        clat = sum(p[0] for p in sector.polygon) / len(sector.polygon)
+        clon = sum(p[1] for p in sector.polygon) / len(sector.polygon)
+        dist = haversine_distance_nm(lat, lon, clat, clon)
+        if dist < best_dist:
+            best_dist = dist
+            best_number = number
+    return f"HCM-S{best_number}" if best_number is not None else None
+
+
 def polyline_length_nm(coords: List[LatLon]) -> float:
     """Total great-circle length of an ordered `(lat, lon)` polyline."""
     total = 0.0

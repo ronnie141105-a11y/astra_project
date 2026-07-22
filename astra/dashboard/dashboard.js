@@ -22,7 +22,6 @@
     // mirror :root's --aircraft-pink / --solution-magenta / --amber in
     // dashboard.css. Keep the two in sync if either changes.
     const AIRCRAFT_COLOR = "#ff3d9a";
-    const AIRCRAFT_SECONDARY_PINK = "#ff9fc7";
     const SOLUTION_COLOR = "#ff2fd6";
     const PREDICTED_PATH_COLOR = "#ffbf69";
 
@@ -278,6 +277,15 @@
         const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
         const s = String(total % 60).padStart(2, "0");
         return `${h}:${m}:${s}`;
+    }
+
+    /** Format a sim-clock second count as HH:MM (no seconds) -- used by
+     * the event aircraft table's "Act by" column, which shows a
+     * window (e.g. "14:28 - 14:43") rather than clockFmt()'s full
+     * HH:MM:SS. */
+    function clockFmtHM(seconds) {
+        const full = clockFmt(seconds);
+        return full === "-" ? full : full.slice(0, 5);
     }
 
     /** Format a horizon (minutes) label for the scrubber/table. */
@@ -1273,23 +1281,32 @@
         return best;
     }
 
-    /** Draws one aircraft's full trajectory (observed position through
-     * every predicted horizon, or its hypothetical path if it's also the
-     * target of the previewed resolution candidate) as a white dashed
-     * line -- the shared drawing routine behind both "click a single
-     * aircraft" (`drawSelectedAircraftPath`) and "click a hotspot alert"
+    /** Draws one aircraft's full ORIGINAL/observed trajectory (observed
+     * position through every predicted horizon) as a white dashed line --
+     * the shared drawing routine behind both "click a single aircraft"
+     * (`drawSelectedAircraftPath`) and "click a hotspot alert"
      * (`drawHotspotMemberTrajectories`), so both contexts render the
-     * exact same style. */
+     * exact same style.
+     *
+     * Deliberately always uses `cycle.prediction.paths[callsign]` --
+     * this used to also special-case the active resolution candidate's
+     * target aircraft and substitute `candidate.hypothetical_path`
+     * here, which is the *proposed* path, not the current one. That
+     * made the white line silently become an exact copy of the pink
+     * `drawResolutionSolutionPath` line for that aircraft (same points,
+     * same direction) instead of showing what the pink line is meant to
+     * be compared against. The hypothetical path still drives the
+     * aircraft *marker's* position while scrubbing time
+     * (`getRenderedAircraftPosition`, a separate concern -- "where would
+     * it be" vs "what does its own line show"), and it's still drawn on
+     * its own by `drawResolutionSolutionPath` in pink -- this function
+     * no longer reads `candidate`/`hypothetical_path` at all. */
     function drawAircraftDashedTrajectory(ctx, project, cycle, callsign) {
         const observed = cycle.snapshot.aircraft.find((ac) => ac.callsign === callsign);
         if (!observed) {
             return;
         }
-        const candidate = getActiveResolutionCandidate(cycle);
-        const useHypothetical = candidate && candidate.target_callsign === callsign && candidate.hypothetical_path;
-        const points = useHypothetical
-            ? [...candidate.hypothetical_path].sort((a, b) => a.horizon_min - b.horizon_min)
-            : (cycle.prediction.paths[callsign] || []).slice().sort((a, b) => a.horizon_min - b.horizon_min);
+        const points = (cycle.prediction.paths[callsign] || []).slice().sort((a, b) => a.horizon_min - b.horizon_min);
 
         ctx.setLineDash([2, 3]);
         ctx.lineWidth = 1.5;
@@ -1855,8 +1872,17 @@
         drawComplexityRegions(ctx, project, bounds, width, regionsAtHorizon, cycle);
         if (ui.showPredictedPaths) {
             drawPredictedPaths(ctx, project, cycle);
-            drawResolutionSolutionPath(ctx, project, cycle);
         }
+        // Deliberately independent of the "Predicted paths" toggle (see
+        // drawSelectedAircraftPath below, same reasoning): the pink
+        // solution/heading line is the answer to "what does this
+        // resolution actually do", not clutter to be hidden alongside
+        // the general amber dead-reckoning paths. It must stay visible
+        // whenever a candidate/leg is active, with or without the
+        // toggle, so the white current trajectory (drawn next) and the
+        // pink proposed one can be compared side by side even with
+        // predicted paths switched off.
+        drawResolutionSolutionPath(ctx, project, cycle);
         drawSelectedAircraftPath(ctx, project, cycle);
         drawHotspotMemberTrajectories(ctx, project, cycle);
         renderAircraftInfoBox(cycle);
@@ -1890,7 +1916,22 @@
         return bucket === "none" ? "" : `onset-${bucket}`;
     }
 
+    /** Sector label for a track's row (Alerts Table) / aircraft table
+     * "Action sector" column.
+     *
+     * Prefers `track.sector_label` -- the backend's canonical
+     * "HCM-S<number>" label (scenario_geo.hcm_sector_label), which
+     * already collapses a sector's multiple per-vertical-layer polygon
+     * slabs down to one label per sector number, with no trailing
+     * A/B/C letter. Falls back to matching the track's centroid against
+     * `cycle.sector_regions` (the SectorComplexityEngine-scored
+     * sectors, keyed by whatever name `ASTRAConfig.sectors` gives them)
+     * only when `sector_label` isn't present -- e.g. a cycle predating
+     * this field, or a track with no centroid at all yet. */
     function nearestSectorName(track, cycle) {
+        if (track && track.sector_label) {
+            return track.sector_label;
+        }
         const sectorRegions = cycle.sector_regions || {};
         const names = Object.keys(sectorRegions);
         const centroid = track.centroid || track.provisional_centroid;
@@ -1921,7 +1962,8 @@
     //: Minimum rows always shown in the alerts table (padded with dash
     //: placeholder rows when there are fewer real tracks than this, so
     //: the panel reads as "table with room for more", not "nearly empty").
-    const MIN_ALERT_ROWS = 3;
+    //: Matches #panel-alerts .table-scroll's height (5 data rows + header).
+    const MIN_ALERT_ROWS = 5;
 
     function placeholderRowHtml() {
         return `<tr class="placeholder-row">${"<td>\u2013</td>".repeat(7)}</tr>`;
@@ -1990,72 +2032,6 @@
         savePersistedView(ui.view);
         if (window.__astraLastCycle) {
             renderMap(window.__astraLastCycle);
-        }
-    }
-
-    /** One-time wiring for the Aircraft panel's manual clearance form
-     * (--mock only). The dropdown's options are refreshed on every
-     * `renderAircraftPanel()` call, not here -- this only attaches the
-     * submit handler. */
-    function setupManualClearanceForm() {
-        const form = document.getElementById("manual-clearance-form");
-        const status = document.getElementById("clearance-status");
-        const button = form.querySelector("button");
-        form.addEventListener("submit", async (evt) => {
-            evt.preventDefault();
-            const callsign = document.getElementById("clearance-callsign").value;
-            const clearanceType = document.getElementById("clearance-type").value;
-            const rawValue = document.getElementById("clearance-value").value;
-            if (!callsign || rawValue === "") {
-                status.textContent = "Pick an aircraft and a value.";
-                status.className = "clearance-status error";
-                return;
-            }
-            button.disabled = true;
-            status.textContent = "Sending\u2026";
-            status.className = "clearance-status";
-            try {
-                const resp = await fetch("/scenario/clearance", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ callsign, clearance_type: clearanceType, value: Number(rawValue) }),
-                });
-                const body = await resp.json().catch(() => ({}));
-                if (!resp.ok) {
-                    throw new Error(body.error || `HTTP ${resp.status}`);
-                }
-                status.textContent = `${callsign}: ${clearanceType} \u2192 ${rawValue} sent.`;
-                status.className = "clearance-status ok";
-                document.getElementById("clearance-value").value = "";
-            } catch (err) {
-                status.textContent = `Failed: ${err.message}`;
-                status.className = "clearance-status error";
-            } finally {
-                button.disabled = false;
-            }
-        });
-    }
-
-    /** Keep the manual-clearance callsign dropdown in sync with current
-     * traffic, preserving whatever the user has selected across polls
-     * (rebuilding options every cycle would otherwise reset it). */
-    function syncClearanceCallsignOptions(aircraft) {
-        const select = document.getElementById("clearance-callsign");
-        if (!select) {
-            return;
-        }
-        const previousValue = select.value;
-        const callsigns = aircraft.map((ac) => ac.callsign).sort();
-        const optionsKey = callsigns.join(",");
-        if (select.dataset.optionsKey === optionsKey) {
-            return;
-        }
-        select.dataset.optionsKey = optionsKey;
-        select.innerHTML =
-            '<option value="" disabled>Aircraft&hellip;</option>' +
-            callsigns.map((cs) => `<option value="${cs}">${cs}</option>`).join("");
-        if (callsigns.includes(previousValue)) {
-            select.value = previousValue;
         }
     }
 
@@ -2164,7 +2140,6 @@
             ui.lastAutoFitKey = null; // force the auto-zoom to re-arm on the very next render
             if (window.__astraLastCycle) {
                 renderMap(window.__astraLastCycle);
-                renderAircraftPanel(window.__astraLastCycle);
             }
         });
     }
@@ -2177,105 +2152,6 @@
         if (select && select.value !== ui.displayMode) {
             select.value = ui.displayMode;
         }
-    }
-
-    /** All currently-observed aircraft, sorted callsign-wise, each with an
-     * urgency badge colour (shared with the map highlight/hotspot rings)
-     * when the aircraft belongs to an open track. Click a row to pan the
-     * map to that aircraft. */
-    /** Classifies every aircraft for the Aircraft Box while a non-"overall"
-     * display mode is active (an alert selected -> Event Sector, or a
-     * manually-picked named sector): "primary" (the alert's own conflict
-     * aircraft, i.e. `track.member_aircraft`), "secondary" (other traffic
-     * physically inside the resolved sector -- affected/in-sector but not
-     * a direct party to the conflict), or omitted entirely (hidden).
-     * Returns `null` for Overall FIR, meaning "no filtering, show
-     * everyone" -- the one signal the caller needs to fully restore
-     * normal behavior when switching back to Overall FIR. */
-    function buildAircraftInvolvementMap(cycle) {
-        if (ui.displayMode === "overall") {
-            return null;
-        }
-        const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
-        const primary = new Set(track ? track.member_aircraft : []);
-        const targetSectorName = getTargetSectorName(cycle);
-        const map = {};
-        cycle.snapshot.aircraft.forEach((ac) => {
-            if (primary.has(ac.callsign)) {
-                map[ac.callsign] = "primary";
-            } else if (targetSectorName && findSectorNameForPoint(ac.lat, ac.lon) === targetSectorName) {
-                map[ac.callsign] = "secondary";
-            }
-            // Neither: left out of the map entirely -- the caller hides it.
-        });
-        return map;
-    }
-
-    function renderAircraftPanel(cycle) {
-        const container = document.getElementById("aircraft-list");
-        if (!container) {
-            return;
-        }
-        // null (Overall FIR) => no filtering, no special colors, every
-        // aircraft shown -- the explicit "back to normal" escape hatch.
-        const involvement = buildAircraftInvolvementMap(cycle);
-        let aircraft = [...cycle.snapshot.aircraft];
-        if (involvement) {
-            aircraft = aircraft.filter((ac) => Object.prototype.hasOwnProperty.call(involvement, ac.callsign));
-        }
-        // Primary conflict aircraft always sort strictly to the top,
-        // then secondary/in-sector traffic, then (Overall FIR only)
-        // plain callsign order -- computed fresh from `involvement` every
-        // render rather than relying on stale highlight-map membership,
-        // which is what let uninvolved aircraft slip above the 2 primary
-        // ones with larger traffic counts.
-        const rank = (ac) => {
-            if (!involvement) {
-                return 0;
-            }
-            return involvement[ac.callsign] === "primary" ? 0 : 1;
-        };
-        aircraft.sort((a, b) => {
-            const ra = rank(a);
-            const rb = rank(b);
-            if (ra !== rb) {
-                return ra - rb;
-            }
-            return a.callsign.localeCompare(b.callsign);
-        });
-        syncClearanceCallsignOptions(aircraft);
-        if (aircraft.length === 0) {
-            container.innerHTML = involvement
-                ? '<p class="empty-row">No aircraft involved in this alert.</p>'
-                : '<p class="empty-row">No aircraft in view.</p>';
-            return;
-        }
-        container.innerHTML = aircraft
-            .map((ac) => {
-                const level = involvement ? involvement[ac.callsign] : null;
-                const badgeColor = level === "primary" ? AIRCRAFT_COLOR : level === "secondary" ? AIRCRAFT_SECONDARY_PINK : "#4a5866";
-                const rowClass = level === "primary" ? "aircraft-row-primary" : level === "secondary" ? "aircraft-row-secondary" : "";
-                const fl = `FL${Math.round(ac.altitude_ft / 100)}`;
-                const hdg = ac.heading_deg !== null && ac.heading_deg !== undefined ? `${Math.round(ac.heading_deg)}\u00b0` : "-";
-                const gs = ac.ground_speed_kt !== null && ac.ground_speed_kt !== undefined ? `${Math.round(ac.ground_speed_kt)}kt` : "-";
-                return `
-            <div class="aircraft-row ${rowClass}" data-callsign="${ac.callsign}">
-                <span class="ac-badge" style="background:${badgeColor}"></span>
-                <span class="ac-callsign">${ac.callsign}</span>
-                <span class="ac-field">${fl}</span>
-                <span class="ac-field">${gs}</span>
-                <span class="ac-field">${hdg}</span>
-            </div>`;
-            })
-            .join("");
-        container.querySelectorAll(".aircraft-row").forEach((row) => {
-            row.addEventListener("click", () => {
-                const ac = aircraft.find((a) => a.callsign === row.dataset.callsign);
-                if (ac) {
-                    panMapTo(ac.lat, ac.lon);
-                }
-            });
-        });
     }
 
     // ------------------------------------------------------------------
@@ -2477,141 +2353,152 @@
         });
     }
 
-    //: Only these complexity components are shown in the "before/after"
-    //: breakdown -- LTCA_COUNT, MTCA_COUNT, and TYPE_MIX_COUNT are
-    //: dropped per the Event Analysis box clean-up, keeping just Alt,
-    //: Heading, and Density. Order here is display order.
-    const COMPONENT_KEYS_SHOWN = {
-        ALT_DIV_FT: "Alt",
-        HEADING_DIV_DEG: "Heading",
-        DENSITY_AC_PER_NM2: "Density",
-    };
+    /** Human label for the "selected solution detail" row shown under an
+     * involved aircraft in the event aircraft table -- keyed off the
+     * same clearance_type every candidate/leg already carries. */
+    function eventActionDetailLabel(clearanceType) {
+        if (clearanceType === "HEADING") {
+            return "Horizontal trajectory change";
+        }
+        if (clearanceType === "FLIGHT_LEVEL") {
+            return "Vertical trajectory change";
+        }
+        if (clearanceType === "SPEED") {
+            return "Speed change";
+        }
+        return "Trajectory change";
+    }
 
-    function renderComponentBars(candidate) {
-        const container = document.getElementById("component-bars");
-        if (!candidate || !candidate.complexity_before_components) {
-            container.innerHTML = '<p class="panel-hint">No component breakdown for this candidate.</p>';
+    /** Renders the Event panel's aircraft table -- one row per aircraft
+     * in the selected track (`track.member_aircraft`), styled as a
+     * nested box directly under the solution proposal selector, the
+     * second of the merged Event Box's three sections (selector /
+     * table / action details).
+     *
+     * Every row is at least "affected" (light pink) -- it's a member of
+     * this track, i.e. already part of the hotspot -- and "action"
+     * (bright pink, sorted to the top) when it's also the target of
+     * whichever candidate/leg is currently active (`sel`, from
+     * `resolveActiveSelection`); those two tiers reuse the app's
+     * existing AIRCRAFT_COLOR/--aircraft-light-pink pair rather than
+     * introducing new colors. Action rows additionally get an "Act
+     * by"/"Action sector" value; the *description* of what's being done
+     * to them (e.g. "Horizontal trajectory change") lives in the
+     * separate Action details section below the table, not inline here
+     * -- see `renderEventActionDetails`. Uninvolved rows show '-' for
+     * Act by/Action sector. FL/groundspeed/vertical rate come straight
+     * from the aircraft's current observed state
+     * (`cycle.snapshot.aircraft`); FL's "target" half additionally
+     * reflects the candidate's delta_value when it's a FLIGHT_LEVEL
+     * clearance, since that's the only column this data model can
+     * compute a genuine before/after for. Clicking a row pans the map
+     * to that aircraft (the one piece of the old, now-removed Aircraft
+     * Box worth keeping here). */
+    function renderEventAircraftTable(cycle, track, rs, sel) {
+        const tbody = document.getElementById("event-aircraft-tbody");
+        if (!tbody) {
             return;
         }
-        const before = candidate.complexity_before_components;
-        const after = candidate.complexity_after_components || {};
-        const keys = Object.keys(COMPONENT_KEYS_SHOWN).filter((key) => before[key] !== undefined);
-        container.innerHTML = keys
-            .map((key) => {
-                const b = before[key];
-                const a = after[key] !== undefined ? after[key] : b;
-                const max = Math.max(b, a, 0.0001) * 1.15;
-                const bPct = (b / max) * 100;
-                const aPct = (a / max) * 100;
+        if (!track || !track.member_aircraft || track.member_aircraft.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No aircraft in this event.</td></tr>';
+            return;
+        }
+
+        // callsign -> the leg-shaped object (candidate or joint leg)
+        // acting on it, if any.
+        const legByCallsign = {};
+        if (sel && sel.isJoint && sel.candidate && sel.candidate.legs) {
+            sel.candidate.legs.forEach((leg) => {
+                legByCallsign[leg.target_callsign] = leg;
+            });
+        } else if (sel && sel.candidate && sel.candidate.target_callsign) {
+            legByCallsign[sel.candidate.target_callsign] = sel.candidate;
+        }
+
+        const actByLabel =
+            track.predicted_onset_s !== null && track.predicted_dissipation_s !== null
+                ? `${clockFmtHM(track.predicted_onset_s)} - ${clockFmtHM(track.predicted_dissipation_s)}`
+                : clockFmtHM(track.predicted_onset_s);
+        const actionSectorLabel = nearestSectorName(track, cycle);
+
+        // Action aircraft (has an active leg) pinned to the top, then
+        // affected-only aircraft, alphabetical within each tier.
+        const callsigns = [...track.member_aircraft].sort((a, b) => {
+            const rankA = legByCallsign[a] ? 0 : 1;
+            const rankB = legByCallsign[b] ? 0 : 1;
+            if (rankA !== rankB) {
+                return rankA - rankB;
+            }
+            return a.localeCompare(b);
+        });
+
+        tbody.innerHTML = callsigns
+            .map((callsign) => {
+                const ac = cycle.snapshot.aircraft.find((a) => a.callsign === callsign);
+                const leg = legByCallsign[callsign];
+                const flPredicted = ac ? Math.round(ac.altitude_ft / 100) : null;
+                const flTarget =
+                    leg && leg.clearance_type === "FLIGHT_LEVEL" && ac
+                        ? Math.round((ac.altitude_ft + leg.delta_value) / 100)
+                        : flPredicted;
+                const gs = ac ? Math.round(ac.ground_speed_kt) : null;
+                const vs = ac ? Math.round(ac.vertical_speed_fpm) : null;
+                const tier = leg ? "action" : "affected";
+                const callsignCell = leg
+                    ? `<span class="event-ac-callsign action">${callsign} <span class="event-ac-badge">H</span></span>`
+                    : `<span class="event-ac-callsign">${callsign}</span>`;
                 return `
-                <div class="component-row">
-                    <div class="component-name">${COMPONENT_KEYS_SHOWN[key]}: ${fmt(b, 2)} &rarr; ${fmt(a, 2)}</div>
-                    <div class="component-bar-track">
-                        <div class="component-bar-fill before" style="width:${bPct}%"></div>
-                    </div>
-                    <div class="component-bar-track">
-                        <div class="component-bar-fill after" style="width:${aPct}%"></div>
-                    </div>
-                </div>`;
+                <tr class="event-ac-row ${tier}" data-callsign="${callsign}">
+                    <td>${callsignCell}</td>
+                    <td>${flPredicted === null ? "-" : flPredicted} - ${flTarget === null ? "-" : flTarget}</td>
+                    <td>${gs === null ? "-" : gs}</td>
+                    <td>${vs === null ? "-" : vs}</td>
+                    <td>${leg ? actByLabel : "-"}</td>
+                    <td>${leg ? actionSectorLabel : "-"}</td>
+                </tr>`;
             })
             .join("");
+        tbody.querySelectorAll(".event-ac-row").forEach((row) => {
+            row.addEventListener("click", () => {
+                const ac = cycle.snapshot.aircraft.find((a) => a.callsign === row.dataset.callsign);
+                if (ac) {
+                    panMapTo(ac.lat, ac.lon);
+                }
+            });
+        });
     }
 
-    /** Build {horizon_min -> {lat, lon, altitude_ft}} for one aircraft, horizon 0 = observed. */
-    function pathByHorizon(cycle, callsign) {
-        const byHorizon = {};
-        const observed = cycle.snapshot.aircraft.find((ac) => ac.callsign === callsign);
-        if (observed) {
-            byHorizon[0] = { lat: observed.lat, lon: observed.lon, altitude_ft: observed.altitude_ft };
-        }
-        (cycle.prediction.paths[callsign] || []).forEach((p) => {
-            byHorizon[p.horizon_min] = { lat: p.lat, lon: p.lon, altitude_ft: p.altitude_ft };
-        });
-        return byHorizon;
-    }
-
-    function renderWhatIfVertical(cycle, candidate) {
-        const svg = document.getElementById("whatif-vertical");
-        if (!candidate) {
-            svg.innerHTML = "";
+    /** Renders the Event panel's third and final section, below the
+     * aircraft table: one line per aircraft currently being acted on --
+     * the single active candidate's target, or every leg of a joint
+     * candidate -- naming what's being done to it (e.g. "Horizontal
+     * trajectory change"). Shows a hint instead when nothing is
+     * selected yet. */
+    function renderEventActionDetails(sel) {
+        const container = document.getElementById("event-action-details-body");
+        if (!container) {
             return;
         }
-        const originalByHorizon = pathByHorizon(cycle, candidate.target_callsign);
-        const hypoByHorizon = { 0: originalByHorizon[0] };
-        candidate.hypothetical_path.forEach((p) => {
-            hypoByHorizon[p.horizon_min] = p;
-        });
-        const horizons = Array.from(
-            new Set([...Object.keys(originalByHorizon), ...Object.keys(hypoByHorizon)].map(Number))
-        ).sort((a, b) => a - b);
-        if (horizons.length < 2) {
-            svg.innerHTML = '<text x="10" y="70" fill="#7c8a97" font-size="11">Not enough points to plot.</text>';
+        const legs =
+            sel && sel.isJoint && sel.candidate && sel.candidate.legs
+                ? sel.candidate.legs
+                : sel && sel.candidate && sel.candidate.target_callsign
+                ? [sel.candidate]
+                : [];
+        if (legs.length === 0) {
+            container.innerHTML = '<p class="panel-hint">No solution selected.</p>';
             return;
         }
-        const width = 420;
-        const height = 140;
-        const maxH = Math.max(...horizons, 1);
-        const allAlts = horizons
-            .flatMap((h) => [originalByHorizon[h] && originalByHorizon[h].altitude_ft, hypoByHorizon[h] && hypoByHorizon[h].altitude_ft])
-            .filter((v) => v !== undefined);
-        const minAlt = Math.min(...allAlts);
-        const maxAlt = Math.max(...allAlts, minAlt + 100);
-        const x = (h) => 10 + (h / maxH) * (width - 20);
-        const y = (alt) => height - 12 - ((alt - minAlt) / (maxAlt - minAlt)) * (height - 24);
-        const line = (byHorizon, color) => {
-            const pts = horizons
-                .filter((h) => byHorizon[h])
-                .map((h) => `${x(h)},${y(byHorizon[h].altitude_ft)}`)
-                .join(" ");
-            return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" />`;
-        };
-        svg.innerHTML = `
-            ${line(originalByHorizon, "#4a90a4")}
-            ${line(hypoByHorizon, "#35c3a3")}
-            <text x="10" y="14" fill="#4a90a4" font-size="10">original</text>
-            <text x="70" y="14" fill="#35c3a3" font-size="10">with clearance</text>`;
-    }
-
-    function renderWhatIfHorizontal(cycle, candidate) {
-        const svg = document.getElementById("whatif-horizontal");
-        if (!candidate) {
-            svg.innerHTML = "";
-            return;
-        }
-        const originalByHorizon = pathByHorizon(cycle, candidate.target_callsign);
-        const hypoByHorizon = { 0: originalByHorizon[0] };
-        candidate.hypothetical_path.forEach((p) => {
-            hypoByHorizon[p.horizon_min] = p;
-        });
-        const points = [...Object.values(originalByHorizon), ...Object.values(hypoByHorizon)];
-        if (points.length < 2) {
-            svg.innerHTML = '<text x="10" y="70" fill="#7c8a97" font-size="11">Not enough points to plot.</text>';
-            return;
-        }
-        const width = 420;
-        const height = 140;
-        const lats = points.map((p) => p.lat);
-        const lons = points.map((p) => p.lon);
-        const bounds = {
-            minLat: Math.min(...lats),
-            maxLat: Math.max(...lats, Math.min(...lats) + 0.01),
-            minLon: Math.min(...lons),
-            maxLon: Math.max(...lons, Math.min(...lons) + 0.01),
-        };
-        const project = makeProjector(bounds, width - 20, height - 20);
-        const line = (byHorizon, color) => {
-            const horizons = Object.keys(byHorizon).map(Number).sort((a, b) => a - b);
-            const pts = horizons
-                .map((h) => {
-                    const [px, py] = project(byHorizon[h].lat, byHorizon[h].lon);
-                    return `${px + 10},${py + 10}`;
-                })
-                .join(" ");
-            return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" />`;
-        };
-        svg.innerHTML = `
-            ${line(originalByHorizon, "#4a90a4")}
-            ${line(hypoByHorizon, "#35c3a3")}`;
+        container.innerHTML = legs
+            .map(
+                (leg) => `
+            <div class="event-action-detail-row">
+                <span class="event-action-detail-icon">&#9432;</span>
+                <span class="event-action-detail-callsign">${leg.target_callsign}</span>
+                <span class="event-action-detail-text">${eventActionDetailLabel(leg.clearance_type)}</span>
+            </div>`
+            )
+            .join("");
     }
 
     function renderEventPanel(cycle) {
@@ -2629,14 +2516,8 @@
         const rs = cycle.resolution_sets.find((r) => r.arhac_id === track.arhac_id);
         const sel = resolveActiveSelection(rs);
         const candidate = sel.candidate;
-        // Complexity rings and the before/after component bars read only
-        // complexity_before/after(_components), which joint_candidate has
-        // in the same shape -- safe either way. The what-if path charts
-        // need a single target_callsign + hypothetical_path, which a
-        // joint candidate doesn't have (2-3 simultaneous legs instead),
-        // so they explicitly get null for a joint selection rather than
-        // being handed an object missing the fields they expect.
-        const candidateForCharts = sel.isJoint ? null : candidate;
+        // Complexity rings read only complexity_before/after, which
+        // joint_candidate has in the same shape -- safe either way.
 
         renderEventStepper(rs, () => renderEventPanel(cycle));
         renderComplexityReduction(track, candidate);
@@ -2657,9 +2538,8 @@
                 }
             }
         );
-        renderComponentBars(candidate);
-        renderWhatIfVertical(cycle, candidateForCharts);
-        renderWhatIfHorizontal(cycle, candidateForCharts);
+        renderEventAircraftTable(cycle, track, rs, sel);
+        renderEventActionDetails(sel);
     }
 
     // ------------------------------------------------------------------
@@ -2797,7 +2677,6 @@
             renderTracksTable(window.__astraLastCycle, selectTrack);
             renderEventPanel(window.__astraLastCycle);
             renderMap(window.__astraLastCycle);
-            renderAircraftPanel(window.__astraLastCycle);
         }
     }
 
@@ -2832,7 +2711,6 @@
         syncTimeSlider(cycle);
         renderMap(cycle);
         renderTracksTable(cycle, selectTrack);
-        renderAircraftPanel(cycle);
         renderEventPanel(cycle);
         renderTimeline(cycle.tracks);
         renderSectorsTab(cycle);
@@ -3068,7 +2946,6 @@
         startLiveUtcClock();
         setupOptionsDropdown();
         setupPauseResumeButton();
-        setupManualClearanceForm();
         setupMapInteraction();
         loadPersistedUiPrefs();
         geoLayers.init().then(() => {
