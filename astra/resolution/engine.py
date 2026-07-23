@@ -36,16 +36,37 @@ Three extensions beyond the original Milestone 7 design:
     (``resolution_vector_duration_s``) followed by a predicted turn back
     onto the aircraft's own route, via ``astra.resolution.vector_rejoin``.
     See ``_apply_vector_rejoin_override``.
-3.  **Joint (multi-aircraft) candidates.** For a cluster of 3+ members,
-    ``resolve()`` also builds one ``JointResolutionCandidate`` that
-    adjusts the primary aircraft (the same one/candidate the
-    single-aircraft search already found) plus up to
-    ``resolution_joint_max_targets - 1`` further members simultaneously,
-    scored as one combined before/after comparison rather than each
-    aircraft's own candidate scored in isolation. See
-    ``_build_joint_candidate``. Purely additive -- ``ResolutionSet.
-    candidates`` is unchanged; the joint candidate is a new, optional
-    ``ResolutionSet.joint_candidate`` field.
+3.  **Joint (multi-aircraft) candidates.** For a cluster of 2+ members,
+    ``resolve()`` also builds one or more ``JointResolutionCandidate``s
+    that adjust the primary aircraft (the same one/candidate the
+    single-aircraft search already found) plus a secondary member
+    simultaneously, scored as one combined before/after comparison
+    rather than each aircraft's own candidate scored in isolation. Each
+    secondary aircraft is tried against every lever set in
+    ``resolution_joint_secondary_levers`` (default: speed-only,
+    heading-only, flight-level-only), so diverse pairings -- e.g. both
+    aircraft change heading, or the primary changes heading while a
+    secondary changes speed -- are generated as distinct, independently
+    scored candidates, not collapsed into one fixed combination. See
+    ``_build_joint_candidates``. Purely additive -- ``ResolutionSet.
+    candidates`` is unchanged; the joint candidates are exposed via
+    ``ResolutionSet.joint_candidates``.
+
+Two further extensions on top of the above (Issues 1 & 2 follow-up):
+
+4.  **Proactive whole-lookahead evaluation.** ``resolve()`` no longer
+    evaluates only the single horizon closest to a track's predicted
+    onset -- see ``_lookahead_horizons`` and ``ResolutionSet.
+    candidates_by_horizon``. As soon as a track has a predicted onset
+    at all, every configured horizon up to that onset is evaluated,
+    so resolutions are proposed across the full strategic window from
+    the moment a hotspot is discovered, not moments before it happens.
+5.  **Impact-based ranking alongside the weighted score.**
+    ``ResolutionSet.ranked_by_impact()`` sorts every single- and
+    multi-aircraft candidate by ``complexity_delta_norm`` (pure
+    complexity reduction) rather than the weighted ``resolution_score``
+    -- both fields stay on every candidate so callers can choose either
+    view without recomputing anything.
 """
 
 import math
@@ -163,6 +184,15 @@ class ResolutionEngine:
     ) -> ResolutionSet:
         """Generate and rank candidate clearances for one track.
 
+        Proactive, whole-lookahead evaluation (Issue 2 fix): rather than
+        scoring candidates at only the single horizon closest to
+        ``track.predicted_onset_s`` (the old behaviour -- see
+        ``_closest_horizon``, still used as a fallback), this evaluates
+        every configured horizon up to and including the predicted
+        onset (``_lookahead_horizons``) as soon as the track is
+        eligible at all, so a strategic resolution is available well
+        before the hotspot is imminent, not just moments before it.
+
         Args:
             track: An open track, already forecast this cycle by
                 ``ForecastEngine``. Not mutated.
@@ -173,41 +203,68 @@ class ResolutionEngine:
                 ``TrackerEngine.update()`` / ``ForecastEngine``.
 
         Returns:
-            A ``ResolutionSet`` ranked best first (0 or more
-            single-aircraft candidates, count depends on
-            ``resolution_step_multipliers``/conflict-driven heading
-            eligibility), plus ``joint_candidate`` when the matched
-            cluster has 3+ resolvable members. Still returned (never
-            ``None``) if the track is not eligible, or has no aircraft
-            resolvable in ``snapshot`` -- just with empty/``None``
-            fields.
+            A ``ResolutionSet`` whose ``candidates``/``joint_candidates``
+            are ranked best first at ``evaluated_horizon_min`` (the
+            earliest horizon with a genuinely effective option), plus
+            ``candidates_by_horizon`` covering every horizon actually
+            evaluated. Still returned (never ``None``) if the track is
+            not eligible, or has no aircraft resolvable in ``snapshot``
+            -- just with empty fields.
         """
-        horizon_min = self._closest_horizon(track)
+        horizons = self._lookahead_horizons(track)
         if not self._eligible(track):
-            return ResolutionSet(track=track, candidates=[], evaluated_horizon_min=horizon_min)
+            return ResolutionSet(track=track, candidates=[], evaluated_horizon_min=horizons[0])
 
-        before_region = self._matched_region(track, regions_by_horizon, horizon_min)
-        if before_region is None:
-            return ResolutionSet(track=track, candidates=[], evaluated_horizon_min=horizon_min)
+        candidates_by_horizon: Dict[int, List[ResolutionCandidate]] = {}
+        joint_candidates_by_horizon: Dict[int, List["JointResolutionCandidate"]] = {}
 
-        specs = generate_candidates(
-            before_region, snapshot, self._config, route_provider=self._route_provider
-        )
-        candidates = [
-            self._evaluate(spec, before_region, horizon_min, regions_by_horizon)
-            for spec in specs
-        ]
-        candidates.sort(key=lambda c: c.resolution_score, reverse=True)
+        for h in horizons:
+            before_region = self._matched_region(track, regions_by_horizon, h)
+            if before_region is None:
+                continue
 
-        joint_candidate = self._build_joint_candidate(
-            before_region, snapshot, horizon_min, regions_by_horizon, candidates
+            specs = generate_candidates(
+                before_region, snapshot, self._config, route_provider=self._route_provider
+            )
+            scored = [
+                self._evaluate(spec, before_region, h, regions_by_horizon) for spec in specs
+            ]
+            scored.sort(key=lambda c: c.resolution_score, reverse=True)
+            candidates_by_horizon[h] = scored
+
+            joint_candidates_by_horizon[h] = self._build_joint_candidates(
+                before_region, snapshot, h, regions_by_horizon, scored
+            )
+
+        if not candidates_by_horizon:
+            return ResolutionSet(track=track, candidates=[], evaluated_horizon_min=horizons[0])
+
+        # Recommended horizon: earliest one (within the lookahead window,
+        # already time-ordered by `_lookahead_horizons`) offering a
+        # genuinely effective single- or joint-aircraft option, so the
+        # controller gets the earliest actionable intervention rather
+        # than the whole lookahead dumped with no primary suggestion.
+        # Falls back to the first evaluated horizon if nothing in the
+        # window clears the bar (still exposed via `candidates_by_horizon`
+        # for visibility).
+        def _has_effective_option(h: int) -> bool:
+            singles = candidates_by_horizon.get(h) or []
+            joints = joint_candidates_by_horizon.get(h) or []
+            return (singles and singles[0].complexity_delta_norm > 0) or (
+                joints and joints[0].complexity_delta_norm > 0
+            )
+
+        recommended_h = next(
+            (h for h in horizons if h in candidates_by_horizon and _has_effective_option(h)),
+            horizons[0] if horizons[0] in candidates_by_horizon else next(iter(candidates_by_horizon)),
         )
 
         return ResolutionSet(
             track=track,
-            candidates=candidates,
-            evaluated_horizon_min=horizon_min,
-            joint_candidate=joint_candidate,
+            candidates=candidates_by_horizon.get(recommended_h, []),
+            evaluated_horizon_min=recommended_h,
+            joint_candidates=joint_candidates_by_horizon.get(recommended_h, []),
+            candidates_by_horizon=candidates_by_horizon,
         )
 
     def resolve_many(
@@ -251,8 +308,13 @@ class ResolutionEngine:
     def _closest_horizon(self, track: FourDArhac) -> int:
         """Prediction horizon (min) closest to `track.predicted_onset_s`.
 
-        Bounds cost (OQ-5): every candidate is evaluated at this single
-        horizon, not all five configured horizons.
+        Superseded by `_lookahead_horizons` as `resolve()`'s primary
+        horizon-selection path (Issue 2 fix) -- kept as the single-value
+        fallback `_lookahead_horizons` itself uses when a track has no
+        onset estimate yet (e.g. `predicted_onset_s is None`, so there
+        is no "up to onset" window to build), and for any other caller
+        that still wants a single representative horizon rather than
+        the full lookahead sweep.
         """
         horizons = self._config.prediction_horizons_min
         if track.predicted_onset_s is None or not track.track:
@@ -260,6 +322,40 @@ class ResolutionEngine:
         anchor_time_s = track.track[-1].computed_at_s
         target_lead_s = max(0.0, track.predicted_onset_s - anchor_time_s)
         return min(horizons, key=lambda h: abs(h * 60 - target_lead_s))
+
+    def _lookahead_horizons(self, track: FourDArhac) -> List[int]:
+        """Every configured horizon (ascending) up to and including the
+        predicted onset -- the full proactive strategic window (Issue 2),
+        not just the single point closest to the event.
+
+        As soon as a hotspot is discovered and forecast (i.e. as soon as
+        `track.predicted_onset_s` is set at all), this returns every
+        horizon in `ASTRAConfig.prediction_horizons_min` that lands at or
+        before the predicted onset lead time -- so `resolve()` proposes
+        resolutions across the *entire* remaining lookahead immediately,
+        rather than waiting until a single horizon (e.g. 5 min) prior to
+        the event. Evaluating past the predicted onset is not useful --
+        the hotspot is expected to have already begun by then -- so the
+        window is capped there, not extended to every configured horizon
+        unconditionally (that would also multiply per-cycle cost for no
+        benefit on far-out onsets).
+
+        Returns:
+            Ascending list of horizon minutes, always non-empty. Falls
+            back to `[_closest_horizon(track)]` when there is no onset
+            estimate yet, or when every configured horizon is already
+            past the predicted onset (a near-immediate hotspot) -- in
+            both cases there is no multi-point window to sweep, only a
+            single meaningful horizon.
+        """
+        horizons = sorted(self._config.prediction_horizons_min)
+        if track.predicted_onset_s is None or not track.track:
+            return horizons
+
+        anchor_time_s = track.track[-1].computed_at_s
+        target_lead_s = max(0.0, track.predicted_onset_s - anchor_time_s)
+        in_window = [h for h in horizons if h * 60 <= target_lead_s]
+        return in_window or [self._closest_horizon(track)]
 
     def _matched_region(
         self,
@@ -427,46 +523,53 @@ class ResolutionEngine:
             snapshots=new_snapshots,
         )
 
-    def _build_joint_candidate(
+    def _build_joint_candidates(
         self,
         before_region: ComplexityRegion,
         snapshot: TrafficSnapshot,
         horizon_min: int,
         regions_by_horizon: Dict[int, List[ComplexityRegion]],
         primary_candidates: List[ResolutionCandidate],
-    ) -> Optional[JointResolutionCandidate]:
-        """Build one multi-aircraft candidate for clusters of 3+ members.
+    ) -> List[JointResolutionCandidate]:
+        """Build diverse multi-aircraft candidates for clusters of 2+ members.
 
         Reuses the already-ranked single-aircraft search rather than
-        re-deriving it: the primary leg is exactly
+        re-deriving it: every joint candidate's primary leg is exactly
         ``primary_candidates[0]`` (the same aircraft/lever the
-        single-aircraft search already found best), so a joint
-        candidate is only ever offered as an *addition* on top of that
-        result, never a different, unrelated primary choice. Each
-        secondary aircraft (up to ``resolution_joint_max_targets - 1``
-        of them, ranked the same way as the primary -- see
-        ``select_target_aircraft_ranked``) gets its own best SPEED-only
-        candidate, evaluated the ordinary single-aircraft way (against
-        the same ``before_region``, in isolation) purely to *choose*
-        the direction/magnitude -- SPEED is deliberately the only lever
-        tried for secondaries (not the full HEADING/FLIGHT_LEVEL search)
-        to keep this bounded: 2-3 aircraft x every lever combination
-        would be a genuine combinatorial blow-up the exhaustive,
-        no-optimisation-library approach this project uses elsewhere is
-        not designed for, whereas one clean secondary-speed lever per
-        aircraft is deterministic, cheap, and operationally realistic
-        (nudge trailing aircraft's speed to help a primary manoeuvre
-        actually de-densify a larger cluster -- exactly this project's
-        own ``arrival_sequencing`` scenario's chosen lever, see
-        ``scenarios/arrival_sequencing_demo.py``).
+        single-aircraft search already found best), so joint candidates
+        are only ever offered as *additions* on top of that result,
+        never a different, unrelated primary choice.
 
-        All chosen legs are then applied *simultaneously* to one
+        Unlike the original single-combination design, this now:
+
+        * Allows clusters of exactly 2 resolvable members (previously
+          required 3+) -- the most common real conflict, and the case
+          Issue 1 explicitly asked for ("2 or more aircraft").
+        * Tries every lever set in
+          ``ASTRAConfig.resolution_joint_secondary_levers`` (default
+          ``[["SPEED"], ["HEADING"], ["FLIGHT_LEVEL"]]``) for each
+          secondary aircraft, rather than always defaulting to
+          speed-only -- e.g. "primary HEADING + secondary HEADING"
+          (both change heading) and "primary HEADING + secondary
+          SPEED" both become distinct, independently-scored
+          candidates, giving genuine maneuver-pairing diversity.
+
+        One lever set per secondary aircraft per combination stays the
+        rule (not a cross-product of levers *within* one leg): 2-3
+        aircraft x every lever x every combination would be a genuine
+        combinatorial blow-up the exhaustive, no-optimisation-library
+        approach this project uses elsewhere is not designed for,
+        whereas one clean lever per secondary aircraft per combination
+        stays deterministic and cheap -- the same bounded-search
+        reasoning as before, just no longer collapsed down to a single
+        result.
+
+        Each combination's legs are applied *simultaneously* to one
         hypothetical snapshot and scored as a single combined
-        before/after comparison -- not the sum of each leg's own
-        separately-computed score -- so this candidate reflects what
-        actually happens to the cluster when every aircraft moves at
-        once, including cases where two aircraft's individually-good
-        moves partially cancel each other out (or compound).
+        before/after comparison (via ``_score_joint_legs``) -- not the
+        sum of each leg's own separately-computed score -- so every
+        returned candidate reflects what actually happens to the
+        cluster when every aircraft in it moves at once.
 
         Args:
             before_region: Same "before" region every single-aircraft
@@ -482,85 +585,132 @@ class ResolutionEngine:
                 `_domino_cost`).
             primary_candidates: This track's already-ranked
                 single-aircraft candidates (``resolve()`` computes
-                these first) -- ``primary_candidates[0]`` becomes the
+                these first) -- ``primary_candidates[0]`` becomes every
                 joint candidate's primary leg.
 
         Returns:
-            ``None`` if there are fewer than 3 resolvable cluster
-            members, no single-aircraft candidates to build a primary
-            leg from, or no secondary aircraft yields any SPEED
-            candidate at all (nothing to add beyond the single-aircraft
-            search already returned). Otherwise one
-            ``JointResolutionCandidate`` with 2-3 legs.
+            Zero or more ``JointResolutionCandidate``s (one per
+            secondary aircraft x lever-set combination that produced a
+            usable secondary candidate), sorted descending by
+            ``complexity_delta_norm`` (impact -- matches
+            ``ResolutionSet.ranked_by_impact``). Empty if there are
+            fewer than 2 resolvable cluster members, no single-aircraft
+            candidates to build a primary leg from, or no combination
+            yields a usable secondary candidate.
         """
         if not primary_candidates:
-            return None
+            return []
 
         ranked = select_target_aircraft_ranked(before_region.cluster, snapshot, self._config)
-        if len(ranked) < 3:
-            # A 2-aircraft cluster has only the primary to move -- the
-            # single-aircraft search above already covers it fully.
-            return None
+        if len(ranked) < 2:
+            # Nothing left to pair the primary with.
+            return []
 
-        # N-1 aircraft get a leg (one member is deliberately left as a
-        # fixed reference point rather than moving everyone at once --
-        # e.g. a 3-aircraft cluster gets a 2-leg joint candidate, a
-        # 4-aircraft cluster gets 3 legs), further capped by
-        # `resolution_joint_max_targets` for larger clusters still.
-        max_targets = min(len(ranked) - 1, self._config.resolution_joint_max_targets)
-        secondary_targets = ranked[1:max_targets]
+        # For a 2-aircraft cluster, both aircraft must move -- "leave one
+        # as a fixed reference point" only makes sense for 3+ members
+        # (moving only 1 of 2 aircraft is just the single-aircraft
+        # candidate the primary search already returned, not a genuine
+        # joint option). For 3+ members, preserve the original design:
+        # one member is deliberately left as a fixed reference point
+        # rather than moving everyone at once (e.g. a 3-aircraft cluster
+        # gets a 2-leg joint candidate, a 4-aircraft cluster gets 3
+        # legs), further capped by `resolution_joint_max_targets` for
+        # larger clusters still.
+        if len(ranked) == 2:
+            secondary_targets = ranked[1:2]
+        else:
+            max_targets = min(len(ranked) - 1, self._config.resolution_joint_max_targets)
+            secondary_targets = ranked[1:max_targets]
         if not secondary_targets:
-            return None
+            return []
 
         primary_best = primary_candidates[0]
-        legs: List[ResolutionLeg] = [
-            ResolutionLeg(
-                target_callsign=primary_best.target_callsign,
-                clearance_type=primary_best.clearance_type,
-                delta_value=primary_best.delta_value,
-                maneuver_kind=primary_best.maneuver_kind,
-                vector_duration_s=primary_best.vector_duration_s,
-            )
-        ]
-        leg_tuples: List[Tuple[str, str, float]] = [
-            (primary_best.target_callsign, primary_best.clearance_type, primary_best.delta_value)
-        ]
-        total_deviation = primary_best.deviation_cost_norm
-        total_fuel = primary_best.fuel_cost_proxy_norm
+        primary_leg = ResolutionLeg(
+            target_callsign=primary_best.target_callsign,
+            clearance_type=primary_best.clearance_type,
+            delta_value=primary_best.delta_value,
+            maneuver_kind=primary_best.maneuver_kind,
+            vector_duration_s=primary_best.vector_duration_s,
+        )
+        primary_leg_tuple: Tuple[str, str, float] = (
+            primary_best.target_callsign, primary_best.clearance_type, primary_best.delta_value,
+        )
 
-        for secondary in secondary_targets:
-            specs = generate_candidates(
-                before_region,
-                snapshot,
-                self._config,
-                route_provider=self._route_provider,
-                target=secondary,
-                levers=["SPEED"],
-            )
-            if not specs:
-                continue
-            scored = [
-                self._evaluate(spec, before_region, horizon_min, regions_by_horizon)
-                for spec in specs
-            ]
-            best_secondary = max(scored, key=lambda c: c.resolution_score)
-            legs.append(
-                ResolutionLeg(
-                    target_callsign=best_secondary.target_callsign,
-                    clearance_type="SPEED",
-                    delta_value=best_secondary.delta_value,
+        results: List[JointResolutionCandidate] = []
+        seen_leg_signatures = set()
+
+        for lever_set in self._config.resolution_joint_secondary_levers:
+            for secondary in secondary_targets:
+                if secondary.callsign == primary_best.target_callsign:
+                    continue  # same aircraft as the primary leg -- nothing to add
+
+                specs = generate_candidates(
+                    before_region,
+                    snapshot,
+                    self._config,
+                    route_provider=self._route_provider,
+                    target=secondary,
+                    levers=lever_set,
                 )
-            )
-            leg_tuples.append(
-                (best_secondary.target_callsign, "SPEED", best_secondary.delta_value)
-            )
-            total_deviation += best_secondary.deviation_cost_norm
-            total_fuel += best_secondary.fuel_cost_proxy_norm
+                if not specs:
+                    continue
+                scored = [
+                    self._evaluate(spec, before_region, horizon_min, regions_by_horizon)
+                    for spec in specs
+                ]
+                best_secondary = max(scored, key=lambda c: c.resolution_score)
 
-        if len(legs) < 2:
-            # No secondary aircraft contributed a usable candidate.
-            return None
+                secondary_leg = ResolutionLeg(
+                    target_callsign=best_secondary.target_callsign,
+                    clearance_type=best_secondary.clearance_type,
+                    delta_value=best_secondary.delta_value,
+                    maneuver_kind=best_secondary.maneuver_kind,
+                    vector_duration_s=best_secondary.vector_duration_s,
+                )
+                signature = (
+                    primary_leg.target_callsign, primary_leg.clearance_type,
+                    secondary_leg.target_callsign, secondary_leg.clearance_type,
+                )
+                if signature in seen_leg_signatures:
+                    continue  # same (aircraft, lever) pairing already scored
+                seen_leg_signatures.add(signature)
 
+                legs = [primary_leg, secondary_leg]
+                leg_tuples = [
+                    primary_leg_tuple,
+                    (best_secondary.target_callsign, best_secondary.clearance_type, best_secondary.delta_value),
+                ]
+                total_deviation = primary_best.deviation_cost_norm + best_secondary.deviation_cost_norm
+                total_fuel = primary_best.fuel_cost_proxy_norm + best_secondary.fuel_cost_proxy_norm
+
+                candidate = self._score_joint_legs(
+                    legs, leg_tuples, total_deviation, total_fuel,
+                    primary_best, before_region, snapshot, horizon_min, regions_by_horizon,
+                )
+                if candidate is not None:
+                    results.append(candidate)
+
+        results.sort(key=lambda c: c.complexity_delta_norm, reverse=True)
+        return results
+
+    def _score_joint_legs(
+        self,
+        legs: List[ResolutionLeg],
+        leg_tuples: List[Tuple[str, str, float]],
+        total_deviation: float,
+        total_fuel: float,
+        primary_best: ResolutionCandidate,
+        before_region: ComplexityRegion,
+        snapshot: TrafficSnapshot,
+        horizon_min: int,
+        regions_by_horizon: Dict[int, List[ComplexityRegion]],
+    ) -> Optional[JointResolutionCandidate]:
+        """Apply a set of legs simultaneously and score the combined effect.
+
+        Factored out of the old single-combination `_build_joint_candidate`
+        so `_build_joint_candidates` can call it once per lever/secondary
+        combination without duplicating the apply-predict-rescore tail.
+        """
         joint_snapshot = apply_clearances(snapshot, leg_tuples)
         prediction = self._trajectory_engine.predict(joint_snapshot)
         if primary_best.maneuver_kind == "VECTOR_AND_REJOIN" and self._route_provider is not None:

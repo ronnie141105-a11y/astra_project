@@ -273,10 +273,29 @@ class ASTRAConfig:
     #: Cap on how many aircraft a single *joint* (multi-aircraft)
     #: resolution candidate adjusts simultaneously, even for larger
     #: clusters -- keeps the joint-candidate search bounded (one primary
-    #: lever search plus a small per-secondary speed search, not a full
-    #: cross-product over every lever for every aircraft). See
-    #: `ResolutionEngine._build_joint_candidate`.
+    #: lever search plus a small per-secondary lever search per
+    #: combination below, not a full cross-product over every lever for
+    #: every aircraft). See `ResolutionEngine._build_joint_candidates`.
     resolution_joint_max_targets: int = 3
+
+    #: Which single-lever searches to try for *secondary* aircraft in a
+    #: joint (multi-aircraft) candidate. Each entry is passed straight
+    #: through to `generate_candidates(..., levers=entry)`, so
+    #: `["SPEED"]` tries only speed for the secondary leg, `["HEADING"]`
+    #: only heading, etc. One `JointResolutionCandidate` is built per
+    #: (lever-set, secondary aircraft) combination, giving diverse
+    #: pairings against the primary leg (e.g. primary HEADING + secondary
+    #: SPEED, primary HEADING + secondary HEADING) rather than always
+    #: defaulting to speed-only secondaries. Deliberately single-lever
+    #: per entry, not a cross-product of levers within one leg -- the
+    #: same bounded-search reasoning as `resolution_joint_max_targets`
+    #: (2-3 aircraft x every lever x every combination would be a real
+    #: combinatorial blow-up; one clean lever per secondary aircraft per
+    #: combination stays deterministic and cheap). See
+    #: `ResolutionEngine._build_joint_candidates`.
+    resolution_joint_secondary_levers: List[List[str]] = field(
+        default_factory=lambda: [["SPEED"], ["HEADING"], ["FLIGHT_LEVEL"]]
+    )
 
     #: Weight on complexity-delta in `resolution_score`. Sums to 1.0 with
     #: `resolution_weight_domino` / `resolution_weight_deviation` /
@@ -446,6 +465,15 @@ class ASTRAConfig:
             raise ValueError("resolution_vector_duration_s must be > 0")
         if self.resolution_joint_max_targets < 2:
             raise ValueError("resolution_joint_max_targets must be >= 2")
+        if not self.resolution_joint_secondary_levers:
+            raise ValueError("resolution_joint_secondary_levers must be non-empty")
+        _valid_levers = {"SPEED", "FLIGHT_LEVEL", "HEADING"}
+        for lever_set in self.resolution_joint_secondary_levers:
+            if not lever_set or any(l not in _valid_levers for l in lever_set):
+                raise ValueError(
+                    "resolution_joint_secondary_levers entries must be "
+                    f"non-empty subsets of {sorted(_valid_levers)}, got {lever_set!r}"
+                )
         resolution_weights = (
             self.resolution_weight_complexity,
             self.resolution_weight_domino,

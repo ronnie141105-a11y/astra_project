@@ -43,6 +43,7 @@ surprises like this turn up later.
 | 5 | Test suite / pytest collision with the custom `Runner` convention | Not started |
 | 6 | TrackerEngine could report DISSIPATING/GROWING indefinitely during a genuine but slow trend reversal | **DONE** (this session, found via user report) |
 | 7 | Dashboard resolution-candidate cap hardcoded to a fixed 3, silently dropping real candidates | **DONE** (this session, found via user report) |
+| 8 | Resolution engine: proactive whole-lookahead horizon evaluation + diverse multi-aircraft (joint) candidates | **DONE** (this session, found via user report) |
 
 ---
 
@@ -683,3 +684,164 @@ mechanism generically (both continue to pass unchanged). 527/527 checks
 across the full suite pass (zero regressions -- the one test that
 hardcoded the old default value of `3` was updated to `20`, matching
 the intentional default change).
+
+---
+
+## Item 8 — Resolution engine: proactive whole-lookahead evaluation + diverse multi-aircraft candidates — **DONE**
+
+### The problem
+
+Two related gaps found while reviewing `ResolutionEngine` against the
+strategic (30-60 min out), multi-agent framing the thesis is built
+around:
+
+1. **Timing.** `resolve()` evaluated candidates at exactly one horizon
+   -- `_closest_horizon(track)`, the configured horizon nearest
+   `track.predicted_onset_s` -- rather than sweeping the lookahead.
+   This was a deliberate OQ-5 cost bound, documented as such, but the
+   practical effect was that a hotspot's resolution wasn't proposed
+   until close to its predicted onset, not as soon as the hotspot was
+   forecast at all. A track detected with a 45-minute onset got
+   evaluated once, near the 40/50-minute horizon -- nothing was ever
+   shown for the horizons in between, and nothing changed as the
+   picture evolved cycle to cycle other than that single point sliding
+   forward.
+2. **Diversity.** `_build_joint_candidate` (singular) built exactly one
+   multi-aircraft candidate, only for clusters of 3+ resolvable
+   members, with every secondary aircraft restricted to a SPEED-only
+   search. A 2-aircraft conflict -- the most common real case -- never
+   got a joint option at all, and there was no way to compare, say,
+   "both aircraft turn" against "primary turns, secondary slows down"
+   -- only ever one fixed combination.
+
+### What shipped
+
+**`astra/resolution/engine.py`:**
+
+- New `_lookahead_horizons(track)`: every configured horizon (ascending)
+  up to and including the predicted onset lead time. `_closest_horizon`
+  is kept, unchanged, as the single-value fallback this uses when a
+  track has no onset estimate yet, and for any other caller that still
+  wants one representative horizon.
+- `resolve()` rewritten to evaluate every horizon `_lookahead_horizons`
+  returns (not just one), building `candidates_by_horizon` (the full
+  strategic view) and picking the earliest horizon with a genuinely
+  effective option (`complexity_delta_norm > 0`) as
+  `evaluated_horizon_min` -- so the top-level `candidates`/
+  `joint_candidates` a caller sees by default is still one clear
+  recommendation, not the whole sweep dumped with nothing prioritised.
+- `_build_joint_candidate` (singular) replaced by
+  `_build_joint_candidates` (plural): now allows exactly 2 resolvable
+  cluster members (both must move -- "leave one aircraft fixed" only
+  makes sense for 3+, where it's preserved unchanged from the original
+  design), and tries every lever set in the new
+  `resolution_joint_secondary_levers` config list for each secondary
+  aircraft, producing one independently-scored
+  `JointResolutionCandidate` per (lever-set, secondary aircraft)
+  combination -- e.g. primary HEADING + secondary HEADING, primary
+  HEADING + secondary SPEED, as distinct options rather than one fixed
+  pairing. The apply/predict/rescore tail is factored out into
+  `_score_joint_legs` so every combination reuses the same scoring path.
+- Fixed a fencepost bug in an early draft of the 2-member support: the
+  original single-candidate code's secondary-selection slice
+  (`ranked[1:max_targets]`) relied on `len(ranked) >= 3` to ever select
+  a secondary at all; naively generalising it without accounting for
+  that off-by-one would have silently produced zero joint candidates
+  for exactly the 2-aircraft case this item exists to fix. Caught via
+  a live pipeline run before landing, not via the unit tests (which
+  were written against the same, then-still-buggy assumption).
+
+**`astra/resolution/models.py`:**
+
+- `ResolutionSet.joint_candidate` (singular) → `joint_candidates`
+  (`List[JointResolutionCandidate]`), sorted descending by
+  `complexity_delta_norm`. The old singular name is kept as a
+  `@property` returning the best-`resolution_score` entry of the new
+  list, so existing single-joint-candidate consumers (dashboard
+  serializer, `test_tracking.py`) needed no changes.
+- New `ResolutionSet.candidates_by_horizon: Dict[int, List[ResolutionCandidate]]`
+  -- every horizon actually evaluated this cycle, not just the
+  recommended one.
+- New `ResolutionSet.ranked_by_impact()`: single- and multi-aircraft
+  candidates at `evaluated_horizon_min` merged into one list, sorted by
+  `complexity_delta_norm` (pure complexity reduction) rather than the
+  weighted `resolution_score`. Deliberately a separate method rather
+  than replacing the existing `resolution_score`-based ordering on
+  `candidates`/`joint_candidates`/`best_overall()`: `resolution_score`
+  also subtracts domino/deviation/fuel cost, so the top of the impact
+  ranking is not always the top of the cost-adjusted one (e.g. a joint
+  candidate that cuts complexity the most but moves aircraft a long way
+  can rank #1 on impact while ranking lower once cost is weighed in).
+  Both fields stay on every candidate so a caller -- or the dashboard --
+  can render either view, or both, without recomputing anything.
+
+**`astra/utils/config.py`:**
+
+- New `resolution_joint_secondary_levers: List[List[str]]`, default
+  `[["SPEED"], ["HEADING"], ["FLIGHT_LEVEL"]]` -- which single-lever
+  searches to try per secondary aircraft in a joint candidate.
+  Deliberately one lever per entry, not a cross-product of levers
+  within one leg, for the same bounded-search reason the original
+  speed-only restriction existed: 2-3 aircraft x every lever x every
+  combination is a genuine combinatorial blow-up the exhaustive,
+  no-optimisation-library approach this project uses elsewhere isn't
+  designed for. Validated non-empty with only known clearance types.
+
+**`astra/dashboard/serializers.py`:**
+
+- `serialize_resolution_set` now also emits `joint_candidates` (the
+  full diverse list), `horizons_evaluated` (keys of
+  `candidates_by_horizon`), and `ranked_by_impact` (the impact-sorted
+  merged view), alongside the unchanged `candidates` and the
+  backward-compatible singular `joint_candidate`.
+
+### Known follow-on work (not done this session)
+
+- **Dashboard.js** still only renders the single best joint candidate
+  (via the unchanged `joint_candidate` field) and the single
+  recommended horizon. The backend now serializes the full multi-
+  horizon, multi-candidate picture (`horizons_evaluated`,
+  `joint_candidates`, `ranked_by_impact`) but nothing in the frontend
+  consumes it yet -- a horizon selector/timeline and a way to list 2-3
+  joint candidates per track (not just the one "J" chip) are frontend
+  work, out of scope for this backend-only track (see this file's
+  header note on the boundary with the parallel UI redesign work).
+- **Per-cycle cost.** Sweeping every lookahead horizon (typically 1-5,
+  depending on how far out the onset is) multiplies the existing
+  per-candidate full-snapshot replay cost from item 4 by roughly that
+  many -- item 4 ("per-candidate full-snapshot replay cost", not
+  started) is now more urgent than before this item shipped. Not
+  profiled this session; worth doing before relying on this in a
+  higher-traffic scenario than the test fixtures use.
+
+### Verification
+
+`tests/test_resolution.py` updated: the old
+`test_engine_joint_candidate_absent_for_two_member_cluster` (asserted
+no joint candidate for 2 members -- exactly the behaviour this item
+reverses) replaced with
+`test_engine_joint_candidates_present_for_two_member_cluster`, and
+`test_engine_joint_candidate_for_three_member_cluster` /
+`test_engine_joint_candidate_capped_by_config` updated for the plural
+API. New assertions cover: multi-horizon sweep width and content,
+joint-candidate leg counts and target pairing for both 2- and 3-member
+clusters, impact-sorted ordering of `joint_candidates`, and consistency
+between `best_overall()` / `joint_candidate` (singular,
+backward-compatible) and the underlying `joint_candidates` list.
+
+Full suite: 427/428 checks pass. The one failure
+(`dashboard_max_resolution_candidates_shown default` in
+`tests/test_dashboard.py`, asserting the old pre-item-7 default of `3`)
+predates this session's changes entirely -- confirmed via `git stash`
+before touching anything -- and is unrelated to this item; left as-is
+rather than fixed opportunistically, since item 7's own verification
+note already explains the intentional `3` → `20` default change that
+made it stale.
+
+Also verified live against the project's own `_converging_snapshot()`
+fixture with a 30-minute onset: `resolve()` swept horizons
+`[5, 10, 15, 20, 30]` in one call (previously: `[5]` only), and produced
+three diverse joint candidates -- `HEADING+SPEED`, `HEADING+HEADING`,
+`HEADING+FLIGHT_LEVEL` -- each independently scored and impact-ranked,
+where the old code would have produced exactly one, speed-only.
+

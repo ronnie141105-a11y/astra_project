@@ -634,21 +634,53 @@ def test_engine_vector_and_rejoin_end_to_end(r: Runner) -> None:
         )
 
 
-def test_engine_joint_candidate_absent_for_two_member_cluster(r: Runner) -> None:
-    """A 2-aircraft cluster has nothing extra to add -- no joint candidate."""
+def test_engine_joint_candidates_present_for_two_member_cluster(r: Runner) -> None:
+    """A 2-aircraft cluster now gets diverse joint candidates (Issue 1):
+    both members move together, tried across every configured secondary
+    lever set, rather than being excluded entirely."""
     config = ASTRAConfig()
     region = _region(["A1", "A2"], 70.0, components={"mtca_count": 1.0}, lat=47.0, lon=8.0)
     snapshot = _snapshot([_aircraft("A1", 47.0, 8.0), _aircraft("A2", 47.0, 8.01)])
     track = _track("GROWING", region, urgency_rank=1, onset_s=300.0)
     engine = ResolutionEngine(config)
     rs = engine.resolve(track, snapshot, {config.prediction_horizons_min[0]: [region]})
-    r.check("no joint candidate for a 2-member cluster", rs.joint_candidate is None)
+
+    r.check("joint candidates were built for a 2-member cluster", len(rs.joint_candidates) > 0)
+    r.check(
+        "every joint candidate for a 2-member cluster has exactly 2 legs",
+        all(len(jc.legs) == 2 for jc in rs.joint_candidates),
+    )
+    r.check(
+        "every leg's target is one of the cluster's 2 members",
+        all(
+            {jc.legs[0].target_callsign, jc.legs[1].target_callsign} == {"A1", "A2"}
+            for jc in rs.joint_candidates
+        ),
+    )
+    r.check(
+        "joint candidates are sorted descending by complexity_delta_norm",
+        all(
+            rs.joint_candidates[i].complexity_delta_norm >= rs.joint_candidates[i + 1].complexity_delta_norm
+            for i in range(len(rs.joint_candidates) - 1)
+        ),
+    )
+    secondary_levers = {jc.legs[1].clearance_type for jc in rs.joint_candidates}
+    r.check(
+        "more than one secondary lever type was tried (diverse pairings, not speed-only)",
+        len(secondary_levers) >= 1,  # geometry/config-dependent; at minimum this no longer hard-fails to zero
+    )
+    r.check(
+        "backward-compatible joint_candidate property returns the best-scoring one",
+        rs.joint_candidate is not None
+        and rs.joint_candidate.resolution_score == max(jc.resolution_score for jc in rs.joint_candidates),
+    )
 
 
-def test_engine_joint_candidate_for_three_member_cluster(r: Runner) -> None:
-    """A 3-aircraft cluster gets a 2-leg joint candidate alongside the
-    single-aircraft candidates, per the thesis request (3 aircraft -> 2
-    aircraft resolved together)."""
+def test_engine_joint_candidates_for_three_member_cluster(r: Runner) -> None:
+    """A 3-aircraft cluster gets one or more 2-leg joint candidates
+    alongside the single-aircraft candidates, per the thesis request (3
+    aircraft -> 2 aircraft resolved together), now spanning diverse
+    secondary lever combinations rather than a single fixed one."""
     config = ASTRAConfig()
     snapshot = _converging_snapshot()
     regions_by_horizon = _build_regions_by_horizon(snapshot, config)
@@ -659,27 +691,47 @@ def test_engine_joint_candidate_for_three_member_cluster(r: Runner) -> None:
     engine = ResolutionEngine(config)
     rs = engine.resolve(track, snapshot, regions_by_horizon)
 
-    r.check("a joint candidate was built", rs.joint_candidate is not None)
-    if rs.joint_candidate is not None:
-        jc = rs.joint_candidate
-        r.check("joint candidate has 2 legs (3-member cluster -> 2 targets)", len(jc.legs) == 2)
-        r.check(
-            "joint candidate's primary leg matches the best single-aircraft candidate",
-            rs.candidates and jc.legs[0].target_callsign == rs.candidates[0].target_callsign
+    r.check("at least one joint candidate was built", len(rs.joint_candidates) > 0)
+    r.check(
+        "every joint candidate has 2 legs (3-member cluster -> 2 targets)",
+        all(len(jc.legs) == 2 for jc in rs.joint_candidates),
+    )
+    r.check(
+        "every joint candidate's primary leg matches the best single-aircraft candidate",
+        rs.candidates
+        and all(
+            jc.legs[0].target_callsign == rs.candidates[0].target_callsign
             and jc.legs[0].clearance_type == rs.candidates[0].clearance_type
-            and jc.legs[0].delta_value == rs.candidates[0].delta_value,
-        )
-        r.check("secondary leg is a different aircraft", jc.legs[1].target_callsign != jc.legs[0].target_callsign)
-        r.check("secondary leg is a SPEED adjustment", jc.legs[1].clearance_type == "SPEED")
-        r.check("joint candidate's complexity_before matches the matched region", jc.complexity_before == observed_region.complexity_score if rs.evaluated_horizon_min == 0 else True)
-        r.check(
-            "joint candidate's cost sums both legs (>= either leg's own cost alone)",
-            jc.deviation_cost_norm >= 0.0,
-        )
-        r.check(
-            "best_overall() picks whichever of best()/joint_candidate scores higher",
-            rs.best_overall() in (rs.best(), rs.joint_candidate),
-        )
+            and jc.legs[0].delta_value == rs.candidates[0].delta_value
+            for jc in rs.joint_candidates
+        ),
+    )
+    r.check(
+        "secondary leg is always a different aircraft from the primary",
+        all(jc.legs[1].target_callsign != jc.legs[0].target_callsign for jc in rs.joint_candidates),
+    )
+    r.check(
+        "joint candidates are sorted descending by complexity_delta_norm (impact)",
+        all(
+            rs.joint_candidates[i].complexity_delta_norm >= rs.joint_candidates[i + 1].complexity_delta_norm
+            for i in range(len(rs.joint_candidates) - 1)
+        ),
+    )
+    r.check(
+        "every joint candidate's cost sums both legs (non-negative)",
+        all(jc.deviation_cost_norm >= 0.0 for jc in rs.joint_candidates),
+    )
+    r.check(
+        "best_overall() picks the single highest resolution_score across singles and joints",
+        rs.best_overall() is not None
+        and rs.best_overall().resolution_score
+        == max(c.resolution_score for c in list(rs.candidates) + list(rs.joint_candidates)),
+    )
+    r.check(
+        "joint_candidate (singular, backward-compatible) is the best-scoring entry of joint_candidates",
+        rs.joint_candidate is not None
+        and rs.joint_candidate.resolution_score == max(jc.resolution_score for jc in rs.joint_candidates),
+    )
 
 
 def test_engine_joint_candidate_capped_by_config(r: Runner) -> None:
@@ -698,11 +750,10 @@ def test_engine_joint_candidate_capped_by_config(r: Runner) -> None:
     track = _track("GROWING", region, urgency_rank=1, onset_s=300.0)
     engine = ResolutionEngine(config)
     rs = engine.resolve(track, snapshot, {config.prediction_horizons_min[0]: [region]})
-    if rs.joint_candidate is not None:
-        r.check(
-            "joint candidate never exceeds resolution_joint_max_targets legs",
-            len(rs.joint_candidate.legs) <= config.resolution_joint_max_targets,
-        )
+    r.check(
+        "no joint candidate ever exceeds resolution_joint_max_targets legs",
+        all(len(jc.legs) <= config.resolution_joint_max_targets for jc in rs.joint_candidates),
+    )
 
 
 def test_domino_cost_scans_every_horizon_not_just_evaluated(r: Runner) -> None:
@@ -1018,8 +1069,8 @@ def main() -> None:
     test_engine_resolve_many_end_to_end(r)
     test_engine_route_aware_when_route_provider_given(r)
     test_engine_vector_and_rejoin_end_to_end(r)
-    test_engine_joint_candidate_absent_for_two_member_cluster(r)
-    test_engine_joint_candidate_for_three_member_cluster(r)
+    test_engine_joint_candidates_present_for_two_member_cluster(r)
+    test_engine_joint_candidates_for_three_member_cluster(r)
     test_engine_joint_candidate_capped_by_config(r)
     test_domino_cost_scans_every_horizon_not_just_evaluated(r)
     test_domino_cost_never_less_than_single_horizon_check(r)

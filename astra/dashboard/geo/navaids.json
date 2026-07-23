@@ -210,6 +210,384 @@
         "layer_kind": "navaid",
         "source": "VV-ENR-4_1-en.pdf ENR 4.1, Radio Navigation Aids - En-Route"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.861389,
+          20.988889
+        ]
+      },
+      "properties": {
+        "ident": "AM",
+        "name": "GIA LAM",
+        "type": "NDB",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.038056,
+          21.215
+        ]
+      },
+      "properties": {
+        "ident": "BQ",
+        "name": "NA SAN",
+        "type": "NDB",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.518611,
+          19.865
+        ]
+      },
+      "properties": {
+        "ident": "CB",
+        "name": "THO XUAN",
+        "type": "NDB",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.724444,
+          20.815556
+        ]
+      },
+      "properties": {
+        "ident": "CBI",
+        "name": "CAT BI",
+        "type": "DVOR/DME",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.704444,
+          15.412222
+        ]
+      },
+      "properties": {
+        "ident": "CQ",
+        "name": "CHU LAI",
+        "type": "NDB",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.22,
+          11.994444
+        ]
+      },
+      "properties": {
+        "ident": "CRA",
+        "name": "CAM RANH",
+        "type": "DVOR/DME",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.198333,
+          16.052778
+        ]
+      },
+      "properties": {
+        "ident": "DAN",
+        "name": "DA NANG",
+        "type": "DVOR/DME",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.007778,
+          21.373611
+        ]
+      },
+      "properties": {
+        "ident": "DBN",
+        "name": "DIEN BIEN",
+        "type": "DVOR/DME",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.701667,
+          16.402222
+        ]
+      },
+      "properties": {
+        "ident": "HUE",
+        "name": "PHU BAI",
+        "type": "DVOR/DME",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.700278,
+          20.828056
+        ]
+      },
+      "properties": {
+        "ident": "MC",
+        "name": "MOC CHAU",
+        "type": "NDB",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.117778,
+          20.387222
+        ]
+      },
+      "properties": {
+        "ident": "NAH",
+        "name": "NAM HA",
+        "type": "DVOR/DME",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.835,
+          21.213056
+        ]
+      },
+      "properties": {
+        "ident": "NOB",
+        "name": "NOI BAI",
+        "type": "DVOR/DME",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.042778,
+          13.957222
+        ]
+      },
+      "properties": {
+        "ident": "PCA",
+        "name": "PHU CAT",
+        "type": "DVOR/DME",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.038889,
+          10.165278
+        ]
+      },
+      "properties": {
+        "ident": "PQU",
+        "name": "PHU QUOC",
+        "type": "DVOR/DME",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.133056,
+          9.959444
+        ]
+      },
+      "properties": {
+        "ident": "RG",
+        "name": "RACH GIA",
+        "type": "NDB",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.39,
+          21.073333
+        ]
+      },
+      "properties": {
+        "ident": "VDO",
+        "name": "VAN DON",
+        "type": "DVOR/DME",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.668333,
+          18.734167
+        ]
+      },
+      "properties": {
+        "ident": "VIN",
+        "name": "VINH",
+        "type": "DVOR/DME",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.601111,
+          21.276111
+        ]
+      },
+      "properties": {
+        "ident": "VPH",
+        "name": "VINH PHUC",
+        "type": "DVOR/DME",
+        "frequency": null,
+        "channel": null,
+        "hours_of_operation": null,
+        "elevation_m": null,
+        "layer_kind": "navaid",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 / VV-ENR-3_3-en.pdf ENR 3.3 (frequency/channel/hours/elevation not given in these sections -- see ENR 4.1 if added later)"
+      }
     }
   ]
 }

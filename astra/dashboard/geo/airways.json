@@ -514,6 +514,2322 @@
         "note": "Ho Chi Minh ACC Sector 3",
         "source": "VV-ENR-3_1-en.pdf ENR 3.1"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            107.183333,
+            15.766667
+          ],
+          [
+            107.658889,
+            15.903333
+          ],
+          [
+            107.885,
+            15.965
+          ],
+          [
+            108.198333,
+            16.052778
+          ],
+          [
+            108.664722,
+            16.354167
+          ],
+          [
+            108.973056,
+            16.559722
+          ],
+          [
+            109.395,
+            16.833333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "A1",
+        "waypoints": [
+          "PAPRA",
+          "TANNA",
+          "PATNO",
+          "DAN",
+          "KANGU",
+          "BINKU",
+          "BUNTA"
+        ],
+        "levels": "FL460/FL260",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.083333,
+            17.366667
+          ],
+          [
+            106.595278,
+            17.681389
+          ],
+          [
+            106.928889,
+            17.884444
+          ],
+          [
+            107.233056,
+            18.07
+          ],
+          [
+            107.681389,
+            18.341111
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "A202",
+        "waypoints": [
+          "VILAO",
+          "DONGI",
+          "NIVEN",
+          "XONUS",
+          "ASSAD"
+        ],
+        "levels": "FL460/FL265",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            103.926389,
+            19.324167
+          ],
+          [
+            105.668333,
+            18.734167
+          ],
+          [
+            106.097778,
+            18.652222
+          ],
+          [
+            106.589167,
+            18.556389
+          ],
+          [
+            107.048889,
+            18.466944
+          ],
+          [
+            107.681389,
+            18.341111
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "A206",
+        "waypoints": [
+          "NALAO",
+          "VIN",
+          "KADIM",
+          "BUVAN",
+          "HATIN",
+          "ASSAD"
+        ],
+        "levels": "FL460/FL265",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            108.024444,
+            14.006111
+          ],
+          [
+            107.4,
+            14.333333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "B202",
+        "waypoints": [
+          "PLK",
+          "BOMPA"
+        ],
+        "levels": "FL460/FL125",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            104.038056,
+            21.215
+          ],
+          [
+            102.966944,
+            21.103611
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "B214",
+        "waypoints": [
+          "BQ",
+          "LADON"
+        ],
+        "levels": "FL460/FL270",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            104.475,
+            20.75
+          ],
+          [
+            104.700278,
+            20.828056
+          ],
+          [
+            105.835,
+            21.213056
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "B465",
+        "waypoints": [
+          "LAPON",
+          "MC",
+          "NOB"
+        ],
+        "levels": "FL460/FL100",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            103.007778,
+            21.373611
+          ],
+          [
+            102.966944,
+            21.103611
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "B468",
+        "waypoints": [
+          "DBN",
+          "LADON"
+        ],
+        "levels": "FL460/FL200",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            109.042778,
+            13.957222
+          ],
+          [
+            109.244167,
+            15.607222
+          ],
+          [
+            109.395,
+            16.833333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "G221",
+        "waypoints": [
+          "PCA",
+          "ASUKU",
+          "BUNTA"
+        ],
+        "levels": "FL460/FL290",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            107.416667,
+            13.983333
+          ],
+          [
+            107.843611,
+            13.999444
+          ],
+          [
+            108.024444,
+            14.006111
+          ],
+          [
+            108.153611,
+            14.0
+          ],
+          [
+            109.042778,
+            13.957222
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "G474",
+        "waypoints": [
+          "ANINA",
+          "DADEN",
+          "PLK",
+          "MUMGA",
+          "PCA"
+        ],
+        "levels": "FL460/FL180-FL265 (varies by segment)",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            110.218333,
+            8.215
+          ],
+          [
+            111.181389,
+            9.546944
+          ],
+          [
+            112.205,
+            10.948333
+          ],
+          [
+            112.588333,
+            11.471667
+          ],
+          [
+            113.25,
+            12.366667
+          ],
+          [
+            114.45,
+            13.973333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "L625",
+        "waypoints": [
+          "AKMON",
+          "UDOSI",
+          "ALDAS",
+          "AGSAM",
+          "ANOKI",
+          "ARESI"
+        ],
+        "levels": "FL460/FL135",
+        "note": "RNAV route (RNP) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            109.042778,
+            13.957222
+          ],
+          [
+            109.521389,
+            13.9625
+          ],
+          [
+            110.0,
+            13.966667
+          ],
+          [
+            111.51,
+            13.978333
+          ],
+          [
+            113.045,
+            13.98
+          ],
+          [
+            114.45,
+            13.973333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "L628",
+        "waypoints": [
+          "PCA",
+          "VIMUT",
+          "VEPAM",
+          "DAMEL",
+          "MESOX",
+          "ARESI"
+        ],
+        "levels": "FL460/FL135",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            112.283333,
+            17.0
+          ],
+          [
+            111.05,
+            15.358333
+          ],
+          [
+            110.0,
+            13.966667
+          ],
+          [
+            109.156667,
+            12.648889
+          ],
+          [
+            108.640833,
+            11.833889
+          ],
+          [
+            108.071944,
+            10.928056
+          ],
+          [
+            107.7575,
+            10.454167
+          ],
+          [
+            107.548333,
+            10.136667
+          ],
+          [
+            106.626389,
+            8.732778
+          ],
+          [
+            105.555,
+            7.0
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "L642",
+        "waypoints": [
+          "EGEMU",
+          "EXOTO",
+          "VEPAM",
+          "KARAN",
+          "SOSPA",
+          "PTH",
+          "RUTIT",
+          "ELSAS",
+          "CN",
+          "ESPOB"
+        ],
+        "levels": "FL460/FL135",
+        "note": "RNAV route (RNP) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.650556,
+            10.818333
+          ],
+          [
+            106.6425,
+            10.140278
+          ],
+          [
+            106.633889,
+            9.393333
+          ],
+          [
+            106.626389,
+            8.732778
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "L643",
+        "waypoints": [
+          "TSH",
+          "XOBAV",
+          "NIXIV",
+          "CN"
+        ],
+        "levels": "FL460/FL200",
+        "note": "RNAV route (RNAV) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            108.122778,
+            12.666389
+          ],
+          [
+            107.574722,
+            12.548056
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "M505",
+        "waypoints": [
+          "BMT",
+          "MULAD"
+        ],
+        "levels": "FL460/FL100",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.705556,
+            10.083333
+          ],
+          [
+            105.616667,
+            10.234722
+          ],
+          [
+            105.517222,
+            10.404722
+          ],
+          [
+            105.228056,
+            10.895556
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "M510",
+        "waypoints": [
+          "TRN",
+          "POTIX",
+          "ATGAS",
+          "DADEM"
+        ],
+        "levels": "FL460/FL100",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            104.131667,
+            7.0
+          ],
+          [
+            104.118333,
+            7.256667
+          ],
+          [
+            104.083333,
+            8.5
+          ],
+          [
+            104.038889,
+            10.165278
+          ],
+          [
+            104.263611,
+            10.551944
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "M753",
+        "waypoints": [
+          "IPRIX",
+          "BITOD",
+          "ADBOP",
+          "PQU",
+          "OSOTA"
+        ],
+        "levels": "FL460/FL60-FL135 (varies by segment)",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            104.675,
+            10.538889
+          ],
+          [
+            104.589444,
+            10.062222
+          ],
+          [
+            104.118333,
+            7.256667
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "M755",
+        "waypoints": [
+          "KISAN",
+          "TUNPO",
+          "BITOD"
+        ],
+        "levels": "FL460/FL250",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            114.0,
+            11.635
+          ],
+          [
+            112.205,
+            10.948333
+          ],
+          [
+            110.335,
+            10.218333
+          ],
+          [
+            109.2525,
+            9.788333
+          ],
+          [
+            108.441667,
+            9.463333
+          ],
+          [
+            106.626389,
+            8.732778
+          ],
+          [
+            105.369444,
+            7.995556
+          ],
+          [
+            104.118333,
+            7.256667
+          ],
+          [
+            103.585,
+            6.936667
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "M765",
+        "waypoints": [
+          "PANDI",
+          "ALDAS",
+          "MAPNO",
+          "SAMAP",
+          "DAGAG",
+          "CN",
+          "VIGEN",
+          "BITOD",
+          "IGARI"
+        ],
+        "levels": "FL460/FL135",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            110.218333,
+            8.215
+          ],
+          [
+            109.355,
+            8.825
+          ],
+          [
+            108.441667,
+            9.463333
+          ],
+          [
+            107.548333,
+            10.136667
+          ],
+          [
+            107.29,
+            10.331667
+          ],
+          [
+            107.075556,
+            10.493333
+          ],
+          [
+            106.650556,
+            10.818333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "M768",
+        "waypoints": [
+          "AKMON",
+          "MOXON",
+          "DAGAG",
+          "ELSAS",
+          "ASEBO",
+          "LOSON",
+          "TSH"
+        ],
+        "levels": "FL460/FL135",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.81,
+            7.0
+          ],
+          [
+            108.441667,
+            9.463333
+          ],
+          [
+            108.795556,
+            9.992778
+          ],
+          [
+            109.545,
+            11.108333
+          ],
+          [
+            110.378333,
+            12.366667
+          ],
+          [
+            110.640278,
+            12.741944
+          ],
+          [
+            111.51,
+            13.978333
+          ],
+          [
+            112.021667,
+            14.703333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "M771",
+        "waypoints": [
+          "DUDIS",
+          "DAGAG",
+          "SUDUN",
+          "DAMVO",
+          "DOXAR",
+          "NITOM",
+          "DAMEL",
+          "DONDA"
+        ],
+        "levels": "FL460/FL135",
+        "note": "RNAV route (RNP) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.650556,
+            10.818333
+          ],
+          [
+            107.030833,
+            10.847222
+          ],
+          [
+            107.646667,
+            10.895556
+          ],
+          [
+            108.071944,
+            10.928056
+          ],
+          [
+            108.831111,
+            11.021944
+          ],
+          [
+            109.545,
+            11.108333
+          ],
+          [
+            111.103333,
+            11.305
+          ],
+          [
+            112.588333,
+            11.471667
+          ],
+          [
+            114.0,
+            11.635
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "N500",
+        "waypoints": [
+          "TSH",
+          "BUKMA",
+          "MATGI",
+          "PTH",
+          "AGSIS",
+          "DAMVO",
+          "MIMUX",
+          "AGSAM",
+          "PANDI"
+        ],
+        "levels": "FL460/FL135",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.117778,
+            20.387222
+          ],
+          [
+            106.107778,
+            19.509444
+          ],
+          [
+            106.101389,
+            18.948611
+          ],
+          [
+            106.097778,
+            18.652222
+          ],
+          [
+            106.093333,
+            18.253611
+          ],
+          [
+            106.083333,
+            17.366667
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "N639",
+        "waypoints": [
+          "NAH",
+          "BIVIM",
+          "BESKI",
+          "KADIM",
+          "KAMSU",
+          "VILAO"
+        ],
+        "levels": "FL460/FL270",
+        "note": "RNAV route (RNAV) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            102.838333,
+            9.245
+          ],
+          [
+            103.24,
+            8.001667
+          ],
+          [
+            103.585,
+            6.936667
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "N891",
+        "waypoints": [
+          "XONAN",
+          "SAMOG",
+          "IGARI"
+        ],
+        "levels": "FL460/FL135",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            114.0,
+            15.273333
+          ],
+          [
+            113.045,
+            13.98
+          ],
+          [
+            111.871667,
+            12.366667
+          ],
+          [
+            111.103333,
+            11.305
+          ],
+          [
+            110.335,
+            10.218333
+          ],
+          [
+            109.843889,
+            9.522222
+          ],
+          [
+            109.355,
+            8.825
+          ],
+          [
+            108.153333,
+            7.088333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "N892",
+        "waypoints": [
+          "MIGUG",
+          "MESOX",
+          "MUGAN",
+          "MIMUX",
+          "MAPNO",
+          "OSIXA",
+          "MOXON",
+          "MELAS"
+        ],
+        "levels": "FL460/FL135",
+        "note": "RNAV route (RNP) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            108.198333,
+            16.052778
+          ],
+          [
+            109.601667,
+            16.666667
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "P901",
+        "waypoints": [
+          "DAN",
+          "ITBAM"
+        ],
+        "levels": "FL460/FL80",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.835,
+            21.213056
+          ],
+          [
+            105.996667,
+            20.742778
+          ],
+          [
+            106.117778,
+            20.387222
+          ],
+          [
+            106.693611,
+            19.228056
+          ],
+          [
+            106.871667,
+            18.847778
+          ],
+          [
+            107.048889,
+            18.466944
+          ],
+          [
+            107.233056,
+            18.07
+          ],
+          [
+            107.677778,
+            17.129722
+          ],
+          [
+            107.888611,
+            16.694722
+          ],
+          [
+            107.965278,
+            16.536389
+          ],
+          [
+            108.198333,
+            16.052778
+          ],
+          [
+            108.177222,
+            15.08
+          ],
+          [
+            108.159722,
+            14.286111
+          ],
+          [
+            108.153611,
+            14.0
+          ],
+          [
+            108.139167,
+            13.340556
+          ],
+          [
+            108.122778,
+            12.666389
+          ],
+          [
+            108.108056,
+            11.916944
+          ],
+          [
+            107.188333,
+            10.939167
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q1",
+        "waypoints": [
+          "NOB",
+          "LOVBI",
+          "NAH",
+          "MAREL",
+          "VIDAD",
+          "HATIN",
+          "XONUS",
+          "HAMIN",
+          "PHULU",
+          "CAHEO",
+          "DAN",
+          "SADIN",
+          "BANSU",
+          "MUMGA",
+          "ENGIM",
+          "BMT",
+          "DOVIN",
+          "AC"
+        ],
+        "levels": "FL460/FL40-FL120 (varies by segment)",
+        "note": "RNAV route (RNAV 5) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            107.39,
+            21.073333
+          ],
+          [
+            106.953611,
+            20.656667
+          ],
+          [
+            106.871667,
+            18.847778
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q10",
+        "waypoints": [
+          "VDO",
+          "LOCHA",
+          "VIDAD"
+        ],
+        "levels": "FL460/FL50-FL60 (varies by segment)",
+        "note": "RNAV route (RNAV 2 CDR) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.724444,
+            20.815556
+          ],
+          [
+            107.39,
+            21.073333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q11",
+        "waypoints": [
+          "CBI",
+          "VDO"
+        ],
+        "levels": "FL460/FL60",
+        "note": "RNAV route (RNAV 2) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.835,
+            21.213056
+          ],
+          [
+            107.39,
+            21.073333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q12",
+        "waypoints": [
+          "NOB",
+          "VDO"
+        ],
+        "levels": "FL460/FL60",
+        "note": "RNAV route (RNAV 2 CDR) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.493333,
+            21.966667
+          ],
+          [
+            107.39,
+            21.073333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q14",
+        "waypoints": [
+          "NAKHA",
+          "VDO"
+        ],
+        "levels": "FL460/FL60",
+        "note": "RNAV route (RNAV 2 CDR) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            109.22,
+            11.994444
+          ],
+          [
+            109.496111,
+            12.140556
+          ],
+          [
+            110.640278,
+            12.741944
+          ],
+          [
+            113.045,
+            13.98
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q15",
+        "waypoints": [
+          "CRA",
+          "ATVIT",
+          "NITOM",
+          "MESOX"
+        ],
+        "levels": "FL460/FL135",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.650556,
+            10.818333
+          ],
+          [
+            107.059444,
+            11.357222
+          ],
+          [
+            107.81,
+            12.336389
+          ],
+          [
+            107.829444,
+            13.32
+          ],
+          [
+            107.843611,
+            13.999444
+          ],
+          [
+            107.843611,
+            14.879444
+          ],
+          [
+            107.885,
+            15.965
+          ],
+          [
+            107.627222,
+            16.488611
+          ],
+          [
+            107.426944,
+            16.895833
+          ],
+          [
+            107.365556,
+            17.020556
+          ],
+          [
+            106.928889,
+            17.884444
+          ],
+          [
+            106.589167,
+            18.556389
+          ],
+          [
+            106.411944,
+            18.907222
+          ],
+          [
+            106.107778,
+            19.509444
+          ],
+          [
+            105.641667,
+            20.433333
+          ],
+          [
+            105.568611,
+            20.576111
+          ],
+          [
+            105.391944,
+            20.925556
+          ],
+          [
+            105.601111,
+            21.276111
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q2",
+        "waypoints": [
+          "TSH",
+          "KADUM",
+          "PATMA",
+          "SADAS",
+          "DADEN",
+          "LATOM",
+          "PATNO",
+          "BIGBO",
+          "TRABE",
+          "VIDEN",
+          "NIVEN",
+          "BUVAN",
+          "MIBAM",
+          "BIVIM",
+          "BISON",
+          "XIVIN",
+          "UPVAN",
+          "VPH"
+        ],
+        "levels": "FL460/FL230-FL290 (varies by segment)",
+        "note": "RNAV route (RNAV 5) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.493333,
+            21.966667
+          ],
+          [
+            106.223056,
+            20.834167
+          ],
+          [
+            106.117778,
+            20.387222
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q3",
+        "waypoints": [
+          "NAKHA",
+          "DADIN",
+          "NAH"
+        ],
+        "levels": "FL460/FL290",
+        "note": "RNAV route (RNAV 5) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.589167,
+            18.556389
+          ],
+          [
+            106.639167,
+            18.878333
+          ],
+          [
+            106.693611,
+            19.228056
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q4",
+        "waypoints": [
+          "BUVAN",
+          "SATNO",
+          "MAREL"
+        ],
+        "levels": "FL460/FL230",
+        "note": "RNAV route (RNAV 5) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            107.677778,
+            17.129722
+          ],
+          [
+            106.928889,
+            17.884444
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q5",
+        "waypoints": [
+          "HAMIN",
+          "NIVEN"
+        ],
+        "levels": "FL460/FL230",
+        "note": "RNAV route (RNAV 5) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            108.153611,
+            14.0
+          ],
+          [
+            108.019722,
+            14.980556
+          ],
+          [
+            107.885,
+            15.965
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q6",
+        "waypoints": [
+          "MUMGA",
+          "TATIM",
+          "PATNO"
+        ],
+        "levels": "FL460/FL290",
+        "note": "RNAV route (RNAV 5) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            107.829444,
+            13.32
+          ],
+          [
+            108.153611,
+            14.0
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "Q7",
+        "waypoints": [
+          "SADAS",
+          "MUMGA"
+        ],
+        "levels": "FL290/FL110",
+        "note": "RNAV route (RNAV 5) -- sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_3-en.pdf ENR 3.3 (Area Navigation (RNAV) Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            107.701667,
+            16.402222
+          ],
+          [
+            106.675556,
+            16.463611
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "R328",
+        "waypoints": [
+          "HUE",
+          "TORED"
+        ],
+        "levels": "FL460/FL120",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            104.038889,
+            10.165278
+          ],
+          [
+            103.776389,
+            10.445278
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "R334",
+        "waypoints": [
+          "PQU",
+          "NUMDI"
+        ],
+        "levels": "FL460/FL60",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.668333,
+            18.734167
+          ],
+          [
+            105.139444,
+            18.693333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "R335",
+        "waypoints": [
+          "VIN",
+          "IDOTA"
+        ],
+        "levels": "FL460/FL110",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.183333,
+            11.02
+          ],
+          [
+            106.462778,
+            10.899444
+          ],
+          [
+            106.650556,
+            10.818333
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "R468",
+        "waypoints": [
+          "SAPEN",
+          "MOXEB",
+          "TSH"
+        ],
+        "levels": "FL460/FL50-FL80 (varies by segment)",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.493333,
+            21.966667
+          ],
+          [
+            106.414444,
+            22.041667
+          ],
+          [
+            105.31,
+            23.115
+          ],
+          [
+            105.291667,
+            23.36
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "R471",
+        "waypoints": [
+          "NAKHA",
+          "DENMO",
+          "MEOVA",
+          "KATBO"
+        ],
+        "levels": "FL460/FL110",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            104.397222,
+            20.434722
+          ],
+          [
+            104.700278,
+            20.828056
+          ],
+          [
+            105.835,
+            21.213056
+          ],
+          [
+            106.493333,
+            21.966667
+          ],
+          [
+            106.675,
+            22.175
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "R474",
+        "waypoints": [
+          "LAVOS",
+          "MC",
+          "NOB",
+          "NAKHA",
+          "TEBAK"
+        ],
+        "levels": "FL460/FL70-FL100 (varies by segment)",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            107.5,
+            13.666667
+          ],
+          [
+            108.024444,
+            14.006111
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "R588",
+        "waypoints": [
+          "GONLY",
+          "PLK"
+        ],
+        "levels": "FL460/FL265",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            107.701667,
+            16.402222
+          ],
+          [
+            107.677778,
+            17.129722
+          ],
+          [
+            107.681389,
+            18.341111
+          ],
+          [
+            107.708611,
+            20.129722
+          ],
+          [
+            106.724444,
+            20.815556
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W10",
+        "waypoints": [
+          "HUE",
+          "HAMIN",
+          "ASSAD",
+          "BALOV",
+          "CBI"
+        ],
+        "levels": "FL460/FL40-FL70 (varies by segment)",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            108.024444,
+            14.006111
+          ],
+          [
+            108.159722,
+            14.286111
+          ],
+          [
+            108.704444,
+            15.412222
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W11",
+        "waypoints": [
+          "PLK",
+          "BANSU",
+          "CQ"
+        ],
+        "levels": "FL460/FL100",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.117778,
+            20.387222
+          ],
+          [
+            105.545556,
+            20.566944
+          ],
+          [
+            104.700278,
+            20.828056
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W14",
+        "waypoints": [
+          "NAH",
+          "NOTHA",
+          "MC"
+        ],
+        "levels": "FL460/FL200",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.650556,
+            10.818333
+          ],
+          [
+            105.517222,
+            10.404722
+          ],
+          [
+            104.589444,
+            10.062222
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W17",
+        "waypoints": [
+          "TSH",
+          "ATGAS",
+          "TUNPO"
+        ],
+        "levels": "FL460/FL40",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.705556,
+            10.083333
+          ],
+          [
+            105.176667,
+            9.176111
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W18",
+        "waypoints": [
+          "TRN",
+          "QL"
+        ],
+        "levels": "not captured in source extract",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.693611,
+            19.228056
+          ],
+          [
+            106.721667,
+            20.549722
+          ],
+          [
+            106.724444,
+            20.815556
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W20",
+        "waypoints": [
+          "MAREL",
+          "VANUC",
+          "CBI"
+        ],
+        "levels": "FL460/FL40",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.835,
+            21.213056
+          ],
+          [
+            105.111389,
+            21.208333
+          ],
+          [
+            104.038056,
+            21.215
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W21",
+        "waypoints": [
+          "NOB",
+          "HUVAN",
+          "BQ"
+        ],
+        "levels": "FL460/FL100",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.31,
+            23.115
+          ],
+          [
+            105.470278,
+            22.109722
+          ],
+          [
+            105.601111,
+            21.276111
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W22",
+        "waypoints": [
+          "MEOVA",
+          "DILEN",
+          "VPH"
+        ],
+        "levels": "FL460/FL290",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.705556,
+            10.083333
+          ],
+          [
+            105.908333,
+            9.787222
+          ],
+          [
+            106.373611,
+            9.105833
+          ],
+          [
+            106.474722,
+            8.957222
+          ],
+          [
+            106.626389,
+            8.732778
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W23",
+        "waypoints": [
+          "TRN",
+          "ANHOA",
+          "VEPKI",
+          "CONDA",
+          "CN"
+        ],
+        "levels": "FL160/FL100",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.668333,
+            18.734167
+          ],
+          [
+            105.518611,
+            19.865
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W24",
+        "waypoints": [
+          "VIN",
+          "CB"
+        ],
+        "levels": "FL260/FL60",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.518611,
+            19.865
+          ],
+          [
+            106.117778,
+            20.387222
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W25",
+        "waypoints": [
+          "CB",
+          "NAH"
+        ],
+        "levels": "FL260/FL60",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.835,
+            21.213056
+          ],
+          [
+            106.460556,
+            20.929722
+          ],
+          [
+            106.724444,
+            20.815556
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W3",
+        "waypoints": [
+          "NOB",
+          "PHUTA",
+          "CBI"
+        ],
+        "levels": "FL460/FL60-FL130 (varies by segment)",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.117778,
+            20.387222
+          ],
+          [
+            106.724444,
+            20.815556
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W5",
+        "waypoints": [
+          "NAH",
+          "CBI"
+        ],
+        "levels": "FL460/FL40",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.835,
+            21.213056
+          ],
+          [
+            103.965278,
+            22.486667
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W6",
+        "waypoints": [
+          "NOB",
+          "LAOCAI"
+        ],
+        "levels": "FL460/FL140",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.650556,
+            10.818333
+          ],
+          [
+            105.616667,
+            10.234722
+          ],
+          [
+            105.133056,
+            9.959444
+          ],
+          [
+            104.589444,
+            10.062222
+          ],
+          [
+            104.038889,
+            10.165278
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W8",
+        "waypoints": [
+          "TSH",
+          "POTIX",
+          "RG",
+          "TUNPO",
+          "PQU"
+        ],
+        "levels": "FL460/FL40-FL50 (varies by segment)",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.650556,
+            10.818333
+          ],
+          [
+            107.188333,
+            10.939167
+          ],
+          [
+            107.146944,
+            10.775833
+          ],
+          [
+            107.075556,
+            10.493333
+          ],
+          [
+            106.858056,
+            9.639444
+          ],
+          [
+            106.626389,
+            8.732778
+          ],
+          [
+            106.81,
+            7.0
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "L644",
+        "waypoints": [
+          "TSH",
+          "AC",
+          "LEDUP",
+          "LOSON",
+          "BODOD",
+          "CN",
+          "DUDIS"
+        ],
+        "levels": "FL460/FL135",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.724444,
+            20.815556
+          ],
+          [
+            105.861389,
+            20.988889
+          ],
+          [
+            105.391944,
+            20.925556
+          ],
+          [
+            104.700278,
+            20.828056
+          ],
+          [
+            104.038056,
+            21.215
+          ],
+          [
+            103.007778,
+            21.373611
+          ]
+        ]
+      },
+      "properties": {
+        "designator": "W4",
+        "waypoints": [
+          "CBI",
+          "AM",
+          "UPVAN",
+          "MC",
+          "BQ",
+          "DBN"
+        ],
+        "levels": "FL460/FL60-FL130 (varies by segment)",
+        "note": "Sector/ACC/COP/frequency detail not captured in this automated pass; see source for full context.",
+        "source": "VV-ENR-3_1-en.pdf ENR 3.1 (Lower ATS Routes)"
+      }
     }
   ]
 }

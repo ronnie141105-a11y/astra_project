@@ -25,6 +25,12 @@
 
         <a id="scenario-builder-link" href="/scenario" class="tab-btn tab-link">Scenario Builder &#8599;</a>
         <button type="button" id="pause-resume-btn" class="header-btn pause-resume-btn">Pause</button>
+        <div id="speed-dropdown" class="options-dropdown">
+            <button type="button" id="speed-btn" class="header-btn">Speed</button>
+            <div id="speed-panel" class="options-panel hidden">
+                <div id="speed-buttons" class="horizon-btn-row"></div>
+            </div>
+        </div>
         <div id="options-dropdown" class="options-dropdown">
             <button type="button" id="options-btn" class="header-btn">Options</button>
             <div id="options-panel" class="options-panel hidden">
@@ -75,8 +81,7 @@
         </section>
 
         <section id="panel-event" class="panel panel-event">
-            <div id="event-empty" class="panel-hint">Select an alert above to inspect its dissipation options.</div>
-            <div id="event-body" class="hidden">
+            <div id="event-body">
                 <div id="event-stepper" class="event-stepper"></div>
                 <div class="event-top">
                     <div id="complexity-reduction" class="complexity-reduction"></div>
@@ -86,12 +91,11 @@
                     <div class="table-scroll event-aircraft-table-scroll">
                         <table id="event-aircraft-table" class="event-aircraft-table">
                             <colgroup>
+                                <col style="width:22%">
+                                <col style="width:20%">
                                 <col style="width:18%">
-                                <col style="width:17%">
-                                <col style="width:15%">
-                                <col style="width:15%">
                                 <col style="width:18%">
-                                <col style="width:17%">
+                                <col style="width:22%">
                             </colgroup>
                             <thead>
                                 <tr>
@@ -100,19 +104,12 @@
                                     <th>Groundspeed<span class="th-sub">(kts)</span></th>
                                     <th>Vertical Rate<span class="th-sub">(ft/min)</span></th>
                                     <th>Act by</th>
-                                    <th>Action<span class="th-sub">sector</span></th>
                                 </tr>
                             </thead>
                             <tbody id="event-aircraft-tbody">
-                                <tr><td colspan="6" class="empty-row">No aircraft in this event.</td></tr>
+                                <tr><td colspan="5" class="empty-row">No aircraft in this event.</td></tr>
                             </tbody>
                         </table>
-                    </div>
-                </div>
-                <div id="event-action-details" class="event-action-details">
-                    <h3>Action details</h3>
-                    <div id="event-action-details-body" class="event-action-details-body">
-                        <p class="panel-hint">No solution selected.</p>
                     </div>
                 </div>
             </div>
@@ -131,6 +128,7 @@
                         <option value="overall">Overall FIR</option>
                         <option value="event">Event Sector</option>
                     </select>
+                    <button type="button" id="reset-view-btn" class="reset-view-btn">Return to Overall FIR</button>
                 </div>
                 <div id="event-sector-message" class="event-sector-message hidden"></div>
             </div>

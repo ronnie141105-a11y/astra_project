@@ -429,7 +429,7 @@
       "properties": {
         "name": "OSIXA",
         "category": "sector_boundary_point",
-        "note": "HCM ACC Sector 5 boundary vertex",
+        "note": "HCM ACC Sector 5 boundary vertex; also a named significant point, Route N892",
         "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
       }
     },
@@ -1087,6 +1087,1926 @@
         "category": "significant_point",
         "note": "Route M765/N891, continues to AIP Singapore",
         "source": "VV-ENR-2_1-en.pdf / VV-ENR-3_1-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.083333,
+          8.5
+        ]
+      },
+      "properties": {
+        "name": "ADBOP",
+        "category": "significant_point",
+        "note": "Route M753",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.588333,
+          11.471667
+        ]
+      },
+      "properties": {
+        "name": "AGSAM",
+        "category": "significant_point",
+        "note": "Route L625, N500",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.831111,
+          11.021944
+        ]
+      },
+      "properties": {
+        "name": "AGSIS",
+        "category": "significant_point",
+        "note": "Route N500",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.218333,
+          8.215
+        ]
+      },
+      "properties": {
+        "name": "AKMON",
+        "category": "significant_point",
+        "note": "Route L625, M768",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.908333,
+          9.787222
+        ]
+      },
+      "properties": {
+        "name": "ANHOA",
+        "category": "significant_point",
+        "note": "Route L637, W23",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.25,
+          12.366667
+        ]
+      },
+      "properties": {
+        "name": "ANOKI",
+        "category": "significant_point",
+        "note": "Route L625",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.29,
+          10.331667
+        ]
+      },
+      "properties": {
+        "name": "ASEBO",
+        "category": "significant_point",
+        "note": "Route M768",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.681389,
+          18.341111
+        ]
+      },
+      "properties": {
+        "name": "ASSAD",
+        "category": "significant_point",
+        "note": "Route A202, A206, W10",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.244167,
+          15.607222
+        ]
+      },
+      "properties": {
+        "name": "ASUKU",
+        "category": "significant_point",
+        "note": "Route G221",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.517222,
+          10.404722
+        ]
+      },
+      "properties": {
+        "name": "ATGAS",
+        "category": "significant_point",
+        "note": "Route M510, W17",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.708611,
+          20.129722
+        ]
+      },
+      "properties": {
+        "name": "BALOV",
+        "category": "significant_point",
+        "note": "Route W10",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.101389,
+          18.948611
+        ]
+      },
+      "properties": {
+        "name": "BESKI",
+        "category": "significant_point",
+        "note": "Route N639",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.0,
+          8.5
+        ]
+      },
+      "properties": {
+        "name": "BIBAN",
+        "category": "significant_point",
+        "note": "Route L637",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.627222,
+          16.488611
+        ]
+      },
+      "properties": {
+        "name": "BIGBO",
+        "category": "significant_point",
+        "note": "Route Q2, W2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.973056,
+          16.559722
+        ]
+      },
+      "properties": {
+        "name": "BINKU",
+        "category": "significant_point",
+        "note": "Route A1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.641667,
+          20.433333
+        ]
+      },
+      "properties": {
+        "name": "BISON",
+        "category": "significant_point",
+        "note": "Route Q2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.248333,
+          10.266389
+        ]
+      },
+      "properties": {
+        "name": "BITIS",
+        "category": "significant_point",
+        "note": "Route L637",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.107778,
+          19.509444
+        ]
+      },
+      "properties": {
+        "name": "BIVIM",
+        "category": "significant_point",
+        "note": "Route N639, Q2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.030833,
+          10.847222
+        ]
+      },
+      "properties": {
+        "name": "BUKMA",
+        "category": "significant_point",
+        "note": "Route N500",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.395,
+          16.833333
+        ]
+      },
+      "properties": {
+        "name": "BUNTA",
+        "category": "significant_point",
+        "note": "Route A1, G221",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.589167,
+          18.556389
+        ]
+      },
+      "properties": {
+        "name": "BUVAN",
+        "category": "significant_point",
+        "note": "Route A206, Q2, Q4",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.965278,
+          16.536389
+        ]
+      },
+      "properties": {
+        "name": "CAHEO",
+        "category": "significant_point",
+        "note": "Route Q1, W1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.474722,
+          8.957222
+        ]
+      },
+      "properties": {
+        "name": "CONDA",
+        "category": "significant_point",
+        "note": "Route W23",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.228056,
+          10.895556
+        ]
+      },
+      "properties": {
+        "name": "DADEM",
+        "category": "significant_point",
+        "note": "Route M510",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.223056,
+          20.834167
+        ]
+      },
+      "properties": {
+        "name": "DADIN",
+        "category": "significant_point",
+        "note": "Route Q3",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.545,
+          11.108333
+        ]
+      },
+      "properties": {
+        "name": "DAMVO",
+        "category": "significant_point",
+        "note": "Route M771, N500",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.414444,
+          22.041667
+        ]
+      },
+      "properties": {
+        "name": "DENMO",
+        "category": "significant_point",
+        "note": "Route R471",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.470278,
+          22.109722
+        ]
+      },
+      "properties": {
+        "name": "DILEN",
+        "category": "significant_point",
+        "note": "Route W22",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.021667,
+          14.703333
+        ]
+      },
+      "properties": {
+        "name": "DONDA",
+        "category": "significant_point",
+        "note": "Route M771; also HCM ACC Sector 5a FIR-boundary vertex (D08\u2192crossing pt\u2192DONDA\u2192EXOTO\u2192D05 closing edge)",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.595278,
+          17.681389
+        ]
+      },
+      "properties": {
+        "name": "DONGI",
+        "category": "significant_point",
+        "note": "Route A202, W2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.951667,
+          11.423333
+        ]
+      },
+      "properties": {
+        "name": "DONXO",
+        "category": "significant_point",
+        "note": "Route W12",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.108056,
+          11.916944
+        ]
+      },
+      "properties": {
+        "name": "DOVIN",
+        "category": "significant_point",
+        "note": "Route Q1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.378333,
+          12.366667
+        ]
+      },
+      "properties": {
+        "name": "DOXAR",
+        "category": "significant_point",
+        "note": "Route M771",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.283333,
+          17.0
+        ]
+      },
+      "properties": {
+        "name": "EGEMU",
+        "category": "significant_point",
+        "note": "Route L642",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.548333,
+          10.136667
+        ]
+      },
+      "properties": {
+        "name": "ELSAS",
+        "category": "significant_point",
+        "note": "Route L642, M768",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.139167,
+          13.340556
+        ]
+      },
+      "properties": {
+        "name": "ENGIM",
+        "category": "significant_point",
+        "note": "Route Q1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.111389,
+          10.399722
+        ]
+      },
+      "properties": {
+        "name": "ENPAS",
+        "category": "significant_point",
+        "note": "Route W16",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.323889,
+          11.190833
+        ]
+      },
+      "properties": {
+        "name": "ENRIN",
+        "category": "significant_point",
+        "note": "Route W1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.963889,
+          10.888611
+        ]
+      },
+      "properties": {
+        "name": "ESDOB",
+        "category": "significant_point",
+        "note": "Route W1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.555,
+          7.0
+        ]
+      },
+      "properties": {
+        "name": "ESPOB",
+        "category": "significant_point",
+        "note": "Route L642",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.05,
+          15.358333
+        ]
+      },
+      "properties": {
+        "name": "EXOTO",
+        "category": "significant_point",
+        "note": "Route L642; also HCM ACC Sector 5a FIR-boundary vertex (D08\u2192crossing pt\u2192DONDA\u2192EXOTO\u2192D05 closing edge)",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.677778,
+          17.129722
+        ]
+      },
+      "properties": {
+        "name": "HAMIN",
+        "category": "significant_point",
+        "note": "Route Q1, Q5, W1, W10",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.048889,
+          18.466944
+        ]
+      },
+      "properties": {
+        "name": "HATIN",
+        "category": "significant_point",
+        "note": "Route A206, Q1, W1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.111389,
+          21.208333
+        ]
+      },
+      "properties": {
+        "name": "HUVAN",
+        "category": "significant_point",
+        "note": "Route W21",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.868056,
+          11.668889
+        ]
+      },
+      "properties": {
+        "name": "IBUNU",
+        "category": "significant_point",
+        "note": "Route W2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.139444,
+          18.693333
+        ]
+      },
+      "properties": {
+        "name": "IDOTA",
+        "category": "significant_point",
+        "note": "Route R335",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.131667,
+          7.0
+        ]
+      },
+      "properties": {
+        "name": "IPRIX",
+        "category": "significant_point",
+        "note": "Route M753",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.601667,
+          16.666667
+        ]
+      },
+      "properties": {
+        "name": "ITBAM",
+        "category": "significant_point",
+        "note": "Route P901",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.097778,
+          18.652222
+        ]
+      },
+      "properties": {
+        "name": "KADIM",
+        "category": "significant_point",
+        "note": "Route A206, N639",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.059444,
+          11.357222
+        ]
+      },
+      "properties": {
+        "name": "KADUM",
+        "category": "significant_point",
+        "note": "Route Q2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.101389,
+          13.2875
+        ]
+      },
+      "properties": {
+        "name": "KAMGO",
+        "category": "significant_point",
+        "note": "Route W2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.093333,
+          18.253611
+        ]
+      },
+      "properties": {
+        "name": "KAMSU",
+        "category": "significant_point",
+        "note": "Route N639, W2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.664722,
+          16.354167
+        ]
+      },
+      "properties": {
+        "name": "KANGU",
+        "category": "significant_point",
+        "note": "Route A1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.156667,
+          12.648889
+        ]
+      },
+      "properties": {
+        "name": "KARAN",
+        "category": "significant_point",
+        "note": "Route L642, W2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.291667,
+          23.36
+        ]
+      },
+      "properties": {
+        "name": "KATBO",
+        "category": "significant_point",
+        "note": "Route R471",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.675,
+          10.538889
+        ]
+      },
+      "properties": {
+        "name": "KISAN",
+        "category": "significant_point",
+        "note": "Route M755",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.186944,
+          17.0
+        ]
+      },
+      "properties": {
+        "name": "KONCO",
+        "category": "significant_point",
+        "note": "Route W2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.8075,
+          14.971389
+        ]
+      },
+      "properties": {
+        "name": "KUMUN",
+        "category": "significant_point",
+        "note": "Route W2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.966944,
+          21.103611
+        ]
+      },
+      "properties": {
+        "name": "LADON",
+        "category": "significant_point",
+        "note": "Route B214, B468",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.965278,
+          22.486667
+        ]
+      },
+      "properties": {
+        "name": "LAOCAI",
+        "category": "significant_point",
+        "note": "Route W6",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.475,
+          20.75
+        ]
+      },
+      "properties": {
+        "name": "LAPON",
+        "category": "significant_point",
+        "note": "Route B465",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.843611,
+          14.879444
+        ]
+      },
+      "properties": {
+        "name": "LATOM",
+        "category": "significant_point",
+        "note": "Route Q2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.397222,
+          20.434722
+        ]
+      },
+      "properties": {
+        "name": "LAVOS",
+        "category": "significant_point",
+        "note": "Route R474",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.701667,
+          8.993611
+        ]
+      },
+      "properties": {
+        "name": "LITAM",
+        "category": "significant_point",
+        "note": "Route W19",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.953611,
+          20.656667
+        ]
+      },
+      "properties": {
+        "name": "LOCHA",
+        "category": "significant_point",
+        "note": "Route Q10",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.996667,
+          20.742778
+        ]
+      },
+      "properties": {
+        "name": "LOVBI",
+        "category": "significant_point",
+        "note": "Route Q1, W1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.693611,
+          19.228056
+        ]
+      },
+      "properties": {
+        "name": "MAREL",
+        "category": "significant_point",
+        "note": "Route Q1, Q4, W1, W20",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.646667,
+          10.895556
+        ]
+      },
+      "properties": {
+        "name": "MATGI",
+        "category": "significant_point",
+        "note": "Route N500",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.153333,
+          7.088333
+        ]
+      },
+      "properties": {
+        "name": "MELAS",
+        "category": "significant_point",
+        "note": "Route N892",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.31,
+          23.115
+        ]
+      },
+      "properties": {
+        "name": "MEOVA",
+        "category": "significant_point",
+        "note": "Route R471, W22",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.074167,
+          13.336389
+        ]
+      },
+      "properties": {
+        "name": "MEVON",
+        "category": "significant_point",
+        "note": "Route W1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.411944,
+          18.907222
+        ]
+      },
+      "properties": {
+        "name": "MIBAM",
+        "category": "significant_point",
+        "note": "Route Q2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.0,
+          15.273333
+        ]
+      },
+      "properties": {
+        "name": "MIGUG",
+        "category": "significant_point",
+        "note": "Route N892",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.103333,
+          11.305
+        ]
+      },
+      "properties": {
+        "name": "MIMUX",
+        "category": "significant_point",
+        "note": "Route N500, N892",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.462778,
+          10.899444
+        ]
+      },
+      "properties": {
+        "name": "MOXEB",
+        "category": "significant_point",
+        "note": "Route R468, W12",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.355,
+          8.825
+        ]
+      },
+      "properties": {
+        "name": "MOXON",
+        "category": "significant_point",
+        "note": "Route M768, N892",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.871667,
+          12.366667
+        ]
+      },
+      "properties": {
+        "name": "MUGAN",
+        "category": "significant_point",
+        "note": "Route N892",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.493333,
+          21.966667
+        ]
+      },
+      "properties": {
+        "name": "NAKHA",
+        "category": "significant_point",
+        "note": "Route Q14, Q3, R471, R474",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.926389,
+          19.324167
+        ]
+      },
+      "properties": {
+        "name": "NALAO",
+        "category": "significant_point",
+        "note": "Route A206",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.201111,
+          12.226389
+        ]
+      },
+      "properties": {
+        "name": "NHATA",
+        "category": "significant_point",
+        "note": "Route W2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.928889,
+          17.884444
+        ]
+      },
+      "properties": {
+        "name": "NIVEN",
+        "category": "significant_point",
+        "note": "Route A202, Q2, Q5",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.633889,
+          9.393333
+        ]
+      },
+      "properties": {
+        "name": "NIXIV",
+        "category": "significant_point",
+        "note": "Route L643, W9",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.581944,
+          13.312222
+        ]
+      },
+      "properties": {
+        "name": "NOBID",
+        "category": "significant_point",
+        "note": "Route W12",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.640556,
+          20.622222
+        ]
+      },
+      "properties": {
+        "name": "NOBOK",
+        "category": "significant_point",
+        "note": "Route B468",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.545556,
+          20.566944
+        ]
+      },
+      "properties": {
+        "name": "NOTHA",
+        "category": "significant_point",
+        "note": "Route W14",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.776389,
+          10.445278
+        ]
+      },
+      "properties": {
+        "name": "NUMDI",
+        "category": "significant_point",
+        "note": "Route R334",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.263611,
+          10.551944
+        ]
+      },
+      "properties": {
+        "name": "OSOTA",
+        "category": "significant_point",
+        "note": "Route M753",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.183333,
+          15.766667
+        ]
+      },
+      "properties": {
+        "name": "PAPRA",
+        "category": "significant_point",
+        "note": "Route A1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.81,
+          12.336389
+        ]
+      },
+      "properties": {
+        "name": "PATMA",
+        "category": "significant_point",
+        "note": "Route Q2, W12",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.885,
+          15.965
+        ]
+      },
+      "properties": {
+        "name": "PATNO",
+        "category": "significant_point",
+        "note": "Route A1, Q2, Q6",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.888611,
+          16.694722
+        ]
+      },
+      "properties": {
+        "name": "PHULU",
+        "category": "significant_point",
+        "note": "Route Q1, W1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.460556,
+          20.929722
+        ]
+      },
+      "properties": {
+        "name": "PHUTA",
+        "category": "significant_point",
+        "note": "Route W3",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.616667,
+          10.234722
+        ]
+      },
+      "properties": {
+        "name": "POTIX",
+        "category": "significant_point",
+        "note": "Route M510, W8",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.7575,
+          10.454167
+        ]
+      },
+      "properties": {
+        "name": "RUTIT",
+        "category": "significant_point",
+        "note": "Route L642",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.829444,
+          13.32
+        ]
+      },
+      "properties": {
+        "name": "SADAS",
+        "category": "significant_point",
+        "note": "Route Q2, Q7",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.177222,
+          15.08
+        ]
+      },
+      "properties": {
+        "name": "SADIN",
+        "category": "significant_point",
+        "note": "Route Q1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.24,
+          8.001667
+        ]
+      },
+      "properties": {
+        "name": "SAMOG",
+        "category": "significant_point",
+        "note": "Route N891",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.183333,
+          11.02
+        ]
+      },
+      "properties": {
+        "name": "SAPEN",
+        "category": "significant_point",
+        "note": "Route R468",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.639167,
+          18.878333
+        ]
+      },
+      "properties": {
+        "name": "SATNO",
+        "category": "significant_point",
+        "note": "Route Q4",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.795556,
+          9.992778
+        ]
+      },
+      "properties": {
+        "name": "SUDUN",
+        "category": "significant_point",
+        "note": "Route M771",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.658889,
+          15.903333
+        ]
+      },
+      "properties": {
+        "name": "TANNA",
+        "category": "significant_point",
+        "note": "Route A1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.019722,
+          14.980556
+        ]
+      },
+      "properties": {
+        "name": "TATIM",
+        "category": "significant_point",
+        "note": "Route Q6",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.675,
+          22.175
+        ]
+      },
+      "properties": {
+        "name": "TEBAK",
+        "category": "significant_point",
+        "note": "Route R474",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.675556,
+          16.463611
+        ]
+      },
+      "properties": {
+        "name": "TORED",
+        "category": "significant_point",
+        "note": "Route R328",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.426944,
+          16.895833
+        ]
+      },
+      "properties": {
+        "name": "TRABE",
+        "category": "significant_point",
+        "note": "Route Q2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.589444,
+          10.062222
+        ]
+      },
+      "properties": {
+        "name": "TUNPO",
+        "category": "significant_point",
+        "note": "Route M755, W17, W8",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.181389,
+          9.546944
+        ]
+      },
+      "properties": {
+        "name": "UDOSI",
+        "category": "significant_point",
+        "note": "Route L625",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.391944,
+          20.925556
+        ]
+      },
+      "properties": {
+        "name": "UPVAN",
+        "category": "significant_point",
+        "note": "Route Q2, W4",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.721667,
+          20.549722
+        ]
+      },
+      "properties": {
+        "name": "VANUC",
+        "category": "significant_point",
+        "note": "Route W20",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.373611,
+          9.105833
+        ]
+      },
+      "properties": {
+        "name": "VEPKI",
+        "category": "significant_point",
+        "note": "Route W23",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.671667,
+          10.933333
+        ]
+      },
+      "properties": {
+        "name": "VEPMA",
+        "category": "significant_point",
+        "note": "Route W2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.871667,
+          18.847778
+        ]
+      },
+      "properties": {
+        "name": "VIDAD",
+        "category": "significant_point",
+        "note": "Route Q1, Q10, W1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.365556,
+          17.020556
+        ]
+      },
+      "properties": {
+        "name": "VIDEN",
+        "category": "significant_point",
+        "note": "Route Q2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.083333,
+          17.366667
+        ]
+      },
+      "properties": {
+        "name": "VILAO",
+        "category": "significant_point",
+        "note": "Route A202, N639",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.111667,
+          15.038611
+        ]
+      },
+      "properties": {
+        "name": "VILOT",
+        "category": "significant_point",
+        "note": "Route W1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.101667,
+          14.919444
+        ]
+      },
+      "properties": {
+        "name": "XAQUA",
+        "category": "significant_point",
+        "note": "Route W1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.568611,
+          20.576111
+        ]
+      },
+      "properties": {
+        "name": "XIVIN",
+        "category": "significant_point",
+        "note": "Route Q2",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6425,
+          10.140278
+        ]
+      },
+      "properties": {
+        "name": "XOBAV",
+        "category": "significant_point",
+        "note": "Route L643, W9",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.838333,
+          9.245
+        ]
+      },
+      "properties": {
+        "name": "XONAN",
+        "category": "significant_point",
+        "note": "Route N891",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.233056,
+          18.07
+        ]
+      },
+      "properties": {
+        "name": "XONUS",
+        "category": "significant_point",
+        "note": "Route A202, Q1, W1",
+        "source": "VV-ENR-4_4-en.pdf (AIP Viet Nam)"
       }
     }
   ]

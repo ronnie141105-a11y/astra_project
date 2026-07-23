@@ -310,6 +310,14 @@
               14.703333
             ],
             [
+              112.021667,
+              14.703333
+            ],
+            [
+              111.05,
+              15.358333
+            ],
+            [
               110.698056,
               15.679444
             ]
@@ -321,7 +329,7 @@
         "name": "Sector 5 Ho Chi Minh ACC",
         "acc": "Ho Chi Minh ACC",
         "vertical_layer": "GND-FL460",
-        "confidence": "low",
+        "confidence": "medium",
         "vertex_source": [
           "D05",
           "VIMUT",
@@ -329,10 +337,12 @@
           "D20",
           "D19",
           "OSIXA",
-          "D08"
+          "D08",
+          "DONDA",
+          "EXOTO"
         ],
-        "note": "APPROXIMATED: AIP closes this boundary via 'along HCM/Singapore FIR bdry - along HCM/Manila FIR bdry (114E) - crossing pt lat 14 42'12\"N - along that latitude - DONDA - EXOTO - D05'. DONDA/EXOTO coordinates were not available in the supplied AIP extracts, so this edge is approximated as two straight segments: D08 -> (114E, 14 42'12\"N) -> D05, per explicit user instruction.",
-        "source": "VV-ENR-2_1-en.pdf ENR 2.1, textual lateral limits"
+        "note": "AIP closes this boundary via 'along HCM/Singapore FIR bdry - along HCM/Manila FIR bdry (114E) - crossing pt lat 14 42'12\"N - along that latitude - DONDA - EXOTO - D05'. UPDATED: DONDA (112.021667E, 14.703333N) and EXOTO (111.05E, 15.358333N) coordinates, previously missing, are now available from VV-ENR-4_4-en.pdf and have been inserted verbatim, replacing the earlier D08->crossing pt->D05 two-segment stand-in with D08->crossing pt->DONDA->EXOTO->D05. Confidence raised low->medium accordingly. The remaining approximation is the D08->crossing-point jog itself: the AIP describes this only as 'along HCM/Singapore FIR boundary, then along HCM/Manila FIR boundary', with no vertex list for that FIR-boundary polyline in any supplied extract, so it is still rendered as a single straight segment rather than the real (multi-vertex) boundary line.",
+        "source": "VV-ENR-2_1-en.pdf ENR 2.1, textual lateral limits; VV-ENR-4_4-en.pdf (DONDA/EXOTO coordinates)"
       }
     },
     {

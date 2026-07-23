@@ -8,8 +8,8 @@ docs/milestone_7_resolution_design_review.md OQ-1. Mirrors
 ``ComplexityRegion``'s composition over ``Cluster`` (Milestone 4).
 """
 
-from dataclasses import dataclass
-from typing import Dict, List, Literal, Optional
+from dataclasses import dataclass, field
+from typing import Dict, List, Literal, Optional, Union
 
 from astra.tracking.models import FourDArhac
 from astra.trajectory.models import PredictionResult
@@ -183,6 +183,14 @@ class JointResolutionCandidate:
     complexity_before_components: Optional[Dict[str, float]] = None
 
 
+#: Anything `ranked_by_impact()` / `best_overall()` can hand back --
+#: either a single-aircraft or a multi-aircraft (joint) candidate.
+#: Callers distinguish the two the same way as before:
+#: `isinstance(result, JointResolutionCandidate)` or checking for a
+#: `legs` attribute.
+AnyResolutionCandidate = Union[ResolutionCandidate, JointResolutionCandidate]
+
+
 @dataclass(frozen=True)
 class ResolutionSet:
     """A track together with its ranked candidate clearances.
@@ -194,50 +202,90 @@ class ResolutionSet:
     Attributes:
         track: The ``FourDArhac`` these candidates were generated for.
         candidates: Ranked descending by ``resolution_score`` (best
-            first). May be empty if no candidate could be constructed
-            (e.g. no member aircraft resolvable in the snapshot). Every
-            entry here is single-aircraft, exactly as in the original
-            Milestone 7 design.
+            first), for ``evaluated_horizon_min`` specifically. May be
+            empty if no candidate could be constructed (e.g. no member
+            aircraft resolvable in the snapshot). Every entry here is
+            single-aircraft, exactly as in the original Milestone 7
+            design.
         evaluated_horizon_min: The single prediction horizon (minutes)
-            every candidate was evaluated at -- the one closest to
-            ``track.predicted_onset_s`` (see OQ-5).
-        joint_candidate: A multi-aircraft ``JointResolutionCandidate``,
-            present only when the track's matched cluster has 3+
-            members (see ``ResolutionEngine._build_joint_candidate``).
-            Purely additive: ``candidates`` is unchanged whether or not
-            a joint candidate was built, so existing single-aircraft
-            consumers of this class need no changes.
+            ``candidates``/``joint_candidates`` above were evaluated
+            at -- the earliest horizon (within the proactive lookahead
+            window, see ``candidates_by_horizon``) with a genuinely
+            effective option, or the nearest horizon to
+            ``track.predicted_onset_s`` if none qualifies (see OQ-5 and
+            ``ResolutionEngine._lookahead_horizons``).
+        joint_candidates: Zero or more multi-aircraft
+            ``JointResolutionCandidate``s, each adjusting 2+ cluster
+            members simultaneously via a different lever combination
+            (see ``ResolutionEngine._build_joint_candidates``), sorted
+            descending by ``complexity_delta_norm`` (impact -- see
+            ``ranked_by_impact``). Empty if the matched cluster has
+            fewer than 2 resolvable members, or no combination produced
+            a usable candidate. Purely additive: ``candidates`` is
+            unchanged whether or not any joint candidates were built.
+        candidates_by_horizon: This track's single-aircraft candidates
+            (already ranked by ``resolution_score``) at *every*
+            proactively-evaluated horizon within the lookahead window --
+            not just ``evaluated_horizon_min``. This is the strategic,
+            "propose across the whole lookahead" view (Issue 2): a
+            controller or the dashboard can see what each horizon's
+            best option looks like, not only the single recommended
+            one. Keyed by horizon in minutes.
     """
 
     track: FourDArhac
     candidates: List[ResolutionCandidate]
     evaluated_horizon_min: int
-    joint_candidate: Optional[JointResolutionCandidate] = None
+    joint_candidates: List[JointResolutionCandidate] = field(default_factory=list)
+    candidates_by_horizon: Dict[int, List[ResolutionCandidate]] = field(default_factory=dict)
+
+    @property
+    def joint_candidate(self) -> Optional[JointResolutionCandidate]:
+        """Deprecated single-candidate view, kept for backward compatibility.
+
+        Returns the highest ``resolution_score`` entry of
+        ``joint_candidates`` (matching the old single-joint-candidate
+        behaviour before Issue 1's multi-combination change), or
+        ``None`` if there are none. New code should read
+        ``joint_candidates`` directly.
+        """
+        if not self.joint_candidates:
+            return None
+        return max(self.joint_candidates, key=lambda c: c.resolution_score)
 
     def best(self) -> Optional[ResolutionCandidate]:
         """Return the top-ranked single-aircraft candidate, or ``None`` if there are none."""
         return self.candidates[0] if self.candidates else None
 
-    def best_overall(self):
-        """Return whichever of ``best()`` and ``joint_candidate`` scores higher.
+    def best_overall(self) -> Optional[AnyResolutionCandidate]:
+        """Return whichever of ``best()`` and ``joint_candidates`` scores highest by ``resolution_score``.
 
         Returns:
             A ``ResolutionCandidate``, a ``JointResolutionCandidate``,
-            or ``None`` if neither is available. Callers that need to
-            know which kind they got back can check
-            ``isinstance(result, JointResolutionCandidate)`` or look
-            for a ``legs`` attribute.
+            or ``None`` if neither is available.
         """
-        best_single = self.best()
-        if self.joint_candidate is None:
-            return best_single
-        if best_single is None:
-            return self.joint_candidate
-        return (
-            self.joint_candidate
-            if self.joint_candidate.resolution_score > best_single.resolution_score
-            else best_single
-        )
+        pool: List[AnyResolutionCandidate] = list(self.candidates) + list(self.joint_candidates)
+        if not pool:
+            return None
+        return max(pool, key=lambda c: c.resolution_score)
+
+    def ranked_by_impact(self) -> List[AnyResolutionCandidate]:
+        """All single- and multi-aircraft options at ``evaluated_horizon_min``,
+        sorted by *complexity reduction* (``complexity_delta_norm``), best
+        first -- Issue 1's requested ranking.
+
+        Note this is a different ordering from ``resolution_score``
+        (used by ``candidates``/``joint_candidates``/``best_overall``):
+        ``resolution_score`` also subtracts domino/deviation/fuel cost,
+        so the top of this list is not always the top of that one --
+        e.g. a joint candidate that cuts complexity the most but moves
+        3 aircraft a long way can rank #1 here while ranking lower on
+        ``resolution_score``. Both fields stay visible on every
+        candidate so a caller (or the HMI) can show either view, or
+        both, without recomputing anything.
+        """
+        pool: List[AnyResolutionCandidate] = list(self.candidates) + list(self.joint_candidates)
+        return sorted(pool, key=lambda c: c.complexity_delta_norm, reverse=True)
 
     def __len__(self) -> int:
         """Number of single-aircraft candidates generated for this track."""
