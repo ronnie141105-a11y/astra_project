@@ -414,7 +414,23 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
             return _error(
                 "Scenario name must be 1-64 characters, letters/digits/underscore/hyphen only."
             )
-        aircraft = reader.list_aircraft()
+        aircraft = []
+        for ac in reader.list_aircraft():
+            ac = dict(ac)  # don't mutate whatever list_aircraft() handed back
+            # list_aircraft() already gives us the correct raw `flight_type`
+            # string (rec.flight_type) -- only `route_waypoints` is missing,
+            # since list_aircraft() never included it. get_route() is the
+            # dedicated accessor for that (get_flight_profile() is NOT the
+            # equivalent for flight_type: it returns None for "OVERFLIGHT"
+            # and a {"flight_type": ..., "vertical_rate_fpm": ...} dict for
+            # "LANDING" -- it's a prediction-engine helper, not a round-trip
+            # accessor, so it must not be used to overwrite flight_type here).
+            try:
+                route = reader.get_route(ac["callsign"])
+            except Exception:
+                route = None
+            ac["route_waypoints"] = [(float(lat), float(lon)) for lat, lon in route] if route else None
+            aircraft.append(ac)
         with open(_scenario_path(scenarios_dir, name), "w", encoding="utf-8") as fh:
             json.dump({"name": name, "aircraft": aircraft}, fh, indent=2)
         return _ok({"name": name, "aircraft_count": len(aircraft)})
@@ -434,6 +450,9 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
         reader.reset_simulation()
         for ac in data.get("aircraft", []):
             try:
+                route_waypoints = ac.get("route_waypoints")
+                if route_waypoints is not None:
+                    route_waypoints = [(float(lat), float(lon)) for lat, lon in route_waypoints]
                 reader.create_aircraft(
                     callsign=ac["callsign"],
                     aircraft_type=ac["aircraft_type"],
@@ -442,6 +461,8 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
                     heading_deg=float(ac["heading_deg"]),
                     altitude_ft=float(ac["altitude_ft"]),
                     speed_kt=float(ac["ground_speed_kt"]),
+                    route_waypoints=route_waypoints,
+                    flight_type=ac.get("flight_type"),
                 )
             except (KeyError, TypeError, ValueError):
                 continue
