@@ -85,6 +85,9 @@
 
     function aircraftRow(ac) {
         const fl = Math.round(ac.altitude_ft / 100);
+        const profileLabel = ac.flight_type
+            ? ac.flight_type.charAt(0) + ac.flight_type.slice(1).toLowerCase()
+            : "\u2014";
         return `
             <tr data-callsign="${ac.callsign}">
                 <td>${ac.callsign}</td>
@@ -95,6 +98,7 @@
                 <td><input type="number" step="10" class="sb-field" data-field="altitude_ft" value="${Math.round(ac.altitude_ft)}"></td>
                 <td><input type="number" step="1" class="sb-field" data-field="ground_speed_kt" value="${Math.round(ac.ground_speed_kt)}"></td>
                 <td><input type="number" step="10" class="sb-field" data-field="vertical_speed_fpm" value="${Math.round(ac.vertical_speed_fpm)}"></td>
+                <td class="sb-profile-cell">${profileLabel}</td>
                 <td class="sb-row-actions">
                     <button class="sb-btn sb-btn-small sb-btn-delete" title="Delete">&times;</button>
                 </td>
@@ -104,7 +108,7 @@
     function renderAircraftTable(aircraft) {
         const tbody = document.getElementById("sb-aircraft-tbody");
         if (aircraft.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="empty-row">No aircraft yet &mdash; spawn one or load a preset.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="empty-row">No aircraft yet &mdash; spawn one or load a preset.</td></tr>';
             return;
         }
         tbody.innerHTML = aircraft.map(aircraftRow).join("");
@@ -172,6 +176,21 @@
         const onAirway = Boolean(document.getElementById("sb-f-airway").value);
         document.getElementById("sb-position-fields").classList.toggle("hidden", onAirway);
         document.getElementById("sb-airway-hint").classList.toggle("hidden", !onAirway);
+        // The Landing/Overflight profile is only meaningful relative to
+        // an airway's final waypoint -- hide it (and reset to "None")
+        // for a free-standing spawn rather than silently ignoring
+        // whatever was left selected.
+        document.getElementById("sb-f-flight-type-label").classList.toggle("hidden", !onAirway);
+        if (!onAirway) {
+            document.getElementById("sb-f-flight-type").value = "";
+        }
+        // Same reasoning applies to "Reverse Route Direction" -- it only
+        // means something relative to an airway's filed waypoint order,
+        // so it's hidden (and reset unchecked) for a free-standing spawn.
+        document.getElementById("sb-f-reverse-label").classList.toggle("hidden", !onAirway);
+        if (!onAirway) {
+            document.getElementById("sb-f-reverse").checked = false;
+        }
         ["sb-f-lat", "sb-f-lon", "sb-f-hdg"].forEach((id) => {
             document.getElementById(id).required = !onAirway;
         });
@@ -193,11 +212,14 @@
         document.getElementById("sb-f-hdg").value = prefill ? Math.round(prefill.heading_deg) : 90;
         document.getElementById("sb-f-alt").value = prefill ? prefill.altitude_ft : 30000;
         document.getElementById("sb-f-spd").value = prefill ? prefill.ground_speed_kt : 280;
-        // Airway spawning only applies to new aircraft, not in-place edits.
+        // Airway spawning (and its flight profile) only applies to new
+        // aircraft, not in-place edits.
         const airwaySelect = document.getElementById("sb-f-airway");
         airwaySelect.value = "";
         airwaySelect.disabled = Boolean(editingCallsign);
         document.getElementById("sb-f-airway-label").classList.toggle("hidden", Boolean(editingCallsign));
+        document.getElementById("sb-f-flight-type").value = "";
+        document.getElementById("sb-f-reverse").checked = false;
         syncAirwayFieldVisibility();
         document.getElementById("sb-modal-backdrop").classList.remove("hidden");
     }
@@ -218,6 +240,13 @@
         };
         if (airwayDesignator && !editingCallsign) {
             payload.airway_designator = airwayDesignator;
+            const flightType = document.getElementById("sb-f-flight-type").value;
+            if (flightType) {
+                payload.flight_type = flightType;
+            }
+            if (document.getElementById("sb-f-reverse").checked) {
+                payload.reverse_route = true;
+            }
         } else {
             payload.lat = Number(document.getElementById("sb-f-lat").value);
             payload.lon = Number(document.getElementById("sb-f-lon").value);

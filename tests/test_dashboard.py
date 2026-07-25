@@ -415,6 +415,7 @@ def test_serialize_cycle_result_shape(r: Runner) -> None:
             "resolution_sets",
             "sector_regions",
             "sector_history",
+            "routes",
         },
     )
     r.check("one track serialized", len(out["tracks"]) == 1)

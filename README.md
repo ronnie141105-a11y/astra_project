@@ -1,6 +1,6 @@
 # ASTRA thesis test scenarios & results
 
-This package gives you three BlueSky `.scn` scenarios that exercise the
+This package gives you a BlueSky `.scn` scenario that exercises the
 full ASTRA pipeline (Trajectory → Cluster → Complexity → Tracking →
 Forecast → Resolution, including this session's domino-effect scoring
 and expanded candidate search), a script to run any `.scn` file offline
@@ -16,9 +16,16 @@ real BlueSky instance unchanged):
 
 | File | What it tests |
 |---|---|
-| `thesis_baseline.scn` | 6 well-separated aircraft, no convergence. **Control condition**: confirms 0 false-positive hotspots. |
-| `thesis_converging_hotspot.scn` | 4-aircraft symmetric converging cross. **Primary demo**: clustering, all 5 complexity components, tracking lifecycle, forecasted onset, ranked resolution candidates. |
 | `thesis_multi_hotspot.scn` | Two independent 4-aircraft crosses ~55 NM apart, simultaneously active. **Multi-track stress test**: concurrent tracking/forecasting/ranking, `resolution_max_tracks_per_cycle`. |
+
+`thesis_baseline.scn` (control condition, 6 well-separated aircraft)
+and `thesis_converging_hotspot.scn` (4-aircraft symmetric converging
+cross, the primary single-hotspot demo) have since been retired — they
+predated this project's route-aware `flight_type` ("LANDING"/
+"OVERFLIGHT") spawn profiles and just flew a fixed heading forever with
+no destination-aware behaviour. Their results from this run are still
+kept below and in `Data/` for reference (`baseline_cycles.csv` /
+`baseline_detail.json`, `converging_cycles.csv` / `converging_detail.json`).
 
 **Scripts:**
 
@@ -28,8 +35,8 @@ real BlueSky instance unchanged):
   full JSON detail per cycle. This is how the `*_cycles.csv` /
   `*_detail.json` files below were produced. Usage:
   ```
-  python3 run_scn_offline.py thesis_converging_hotspot.scn \
-      --duration-min 20 --sim-step-s 15 --out-prefix converging
+  python3 run_scn_offline.py thesis_multi_hotspot.scn \
+      --duration-min 20 --sim-step-s 15 --out-prefix multi_hotspot
   ```
 - `domino_effect_demo.py` — standalone, no BlueSky/MockConnector at
   all; calls `ResolutionEngine.resolve()` directly against a
@@ -90,19 +97,20 @@ above the one that flies into another aircraft's flight path.
 
 ## Reproducing live in BlueSky
 
-Any of the three `.scn` files loads unchanged in a real BlueSky
-instance (`python -m bluesky`, then load the scenario, or place it in
-BlueSky's `scenario/` folder and `IC` it) — they deliberately avoid
-route/waypoint commands `MockConnector` doesn't implement, so the
-offline run above and a live run see identical initial traffic. Point
-`main.py` (live mode) at the running BlueSky node as usual; the
-dashboard will show the same clustering/tracking/forecast/resolution
-behaviour reflected in the CSV/JSON here.
+`thesis_multi_hotspot.scn` loads unchanged in a real BlueSky instance
+(`python -m bluesky`, then load the scenario, or place it in BlueSky's
+`scenario/` folder and `IC` it) — it deliberately avoids route/waypoint
+commands `MockConnector` doesn't implement, so the offline run above
+and a live run see identical initial traffic. Point `main.py` (live
+mode) at the running BlueSky node as usual; the dashboard will show
+the same clustering/tracking/forecast/resolution behaviour reflected
+in the CSV/JSON here.
 
 ## Notes for your thesis
 
-- All three `.scn` scenarios are anchored on the HCM FIR
-  (10.80N, 106.70E), matching the rest of the project's demo data.
+- `thesis_multi_hotspot.scn` is anchored on the HCM FIR (10.80N,
+  106.70E), matching the rest of the project's demo data; the two
+  retired scenarios' archived results below used the same anchor.
 - Aircraft speeds in the hotspot scenarios (110–130 kt) are
   terminal-area/early-approach speeds, not cruise — deliberately
   chosen so each scenario starts *below* `forecast_onset_threshold`
@@ -112,7 +120,7 @@ behaviour reflected in the CSV/JSON here.
 - The known limitation that `TrackerEngine` only reads
   observed (horizon-0) regions — so a cluster must already exist in
   the *current* snapshot to ever become a track, even if a future
-  horizon predicts one — applies to all three scenarios; it's why
+  horizon predicts one — applies to all of these scenarios; it's why
   every scenario's aircraft start within the 15 NM/1000 ft DBSCAN
   neighbourhood of each other rather than converging from further out.
   This is documented as open/deferred work in `docs/PROJECT_STATUS.md`.

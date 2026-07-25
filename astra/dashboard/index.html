@@ -173,6 +173,12 @@
         // (`/dashboard/...`, not the Flask default `/static/...`), so
         // geo_layers.js must be told the real URL rather than assume one.
         window.ASTRA_POLL_INTERVAL_S = {{ poll_interval_s }};
+        // The DBSCAN horizontal separation threshold (NM) that decides
+        // hotspot membership -- the hotspot polygon is drawn at exactly
+        // this radius around each member aircraft, so it visually *is*
+        // the "still triggers / no longer triggers" boundary, not a
+        // cosmetic buffer. See drawComplexityRegions() in dashboard.js.
+        window.ASTRA_SEPARATION_NM = {{ separation_horizontal_nm }};
         window.ASTRA_GEO_MANIFEST_URL = "{{ url_for('static', filename='geo/manifest.json') }}";
     </script>
     <script src="{{ url_for('static', filename='geo_layers.js') }}"></script>

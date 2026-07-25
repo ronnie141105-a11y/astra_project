@@ -3,11 +3,19 @@ ASTRA prototype entry point.
 
 Connects to BlueSky (or a mock), polls traffic state, and runs the full
 Milestone 2-7 pipeline (trajectory -> cluster -> complexity -> tracking ->
-forecast -> resolution) every cycle via `astra.pipeline.Pipeline`. Since
-Milestone 8, this is also the dashboard's live-loop owner (design review
-OQ-2(A)): each cycle's `CycleResult` is pushed into a `CycleStore` that
-the dashboard's Flask server (running in a background thread of this
-same process) reads from -- see `astra.dashboard`.
+forecast -> resolution). Since Milestone 8, this is also usually the
+dashboard's live-loop owner -- but which loop that is now depends on mode:
+
+* `--mock` (with a dashboard): the dashboard itself
+  (`astra.dashboard.server.run_realtime_dashboard`) owns the simulation
+  loop, streaming real-time telemetry over WebSockets -- see that
+  module's docstring. `main()` just builds the seeded `StateReader` and
+  hands off to it (blocking).
+* Live BlueSky mode, or `--mock --no-dashboard`: unchanged from before
+  -- `main()` itself runs a synchronous poll loop in this process,
+  pushing each cycle into a `CycleStore` that the legacy Flask
+  dashboard (`astra.dashboard.legacy_flask_app`, running in a
+  background thread) reads from, if a dashboard is requested at all.
 
 Usage
 -----
@@ -16,20 +24,23 @@ Live mode (requires a running BlueSky headless server):
     python -m bluesky --headless          # Terminal 1
     python main.py                        # Terminal 2
 
-Offline mock mode (no BlueSky needed, for offline development/testing):
+Offline mock mode (no BlueSky needed, for offline development/testing).
+This is the primary real-time streaming path -- opens the dashboard at
+http://127.0.0.1:8050/ with a live WebSocket feed at
+ws://127.0.0.1:8050/ws/telemetry:
 
     python main.py --mock
 
-Either mode opens the dashboard at http://127.0.0.1:8050/ by default
-(see `ASTRAConfig.dashboard_host`/`dashboard_port`). Add `--no-dashboard`
-to run the console-only loop without starting the Flask server.
+Add `--no-dashboard` to run the console-only loop (works in either
+mode) without starting a dashboard server at all.
 """
 
 import argparse
 import dataclasses
 import time
 
-from astra.dashboard.server import run_dashboard_in_background
+from astra.dashboard.legacy_flask_app import run_dashboard_in_background
+from astra.dashboard.server import run_realtime_dashboard
 from astra.dashboard.store import CycleStore
 from astra.interface.state_reader import StateReader
 from astra.pipeline import CycleResult, Pipeline
@@ -73,9 +84,9 @@ def _setup_mock_traffic(reader: StateReader) -> None:
     reduced to specks, thousands of NM apart). Matches the same area
     `astra/dashboard/scenario_presets.py`'s presets already use.
 
-    Geometry: four aircraft on a symmetric 10 NM converging cross
-    (matches `scenarios/thesis_converging_hotspot.scn`, validated during
-    thesis data collection). Deliberately uses terminal-area speeds
+    Geometry: four aircraft on a symmetric 10 NM converging cross (the
+    same traffic historically used for thesis data collection).
+    Deliberately uses terminal-area speeds
     (~115-130 kt), not cruise speeds -- at cruise speed the group closes,
     crosses, and disperses again *within* a single 5-minute prediction
     horizon, so no future horizon ever catches it above
@@ -148,6 +159,18 @@ def main() -> None:
         reader = StateReader.for_mock(config, sim_step_s=config.poll_interval_s)
         reader.connect()
         _setup_mock_traffic(reader)
+
+        if not args.no_dashboard:
+            # Real-time path: the dashboard itself now owns the
+            # simulation loop (streaming over WebSockets), so hand off
+            # entirely instead of also running the old synchronous loop
+            # below against the same reader -- see
+            # astra.dashboard.server's module docstring for why cycle
+            # ownership moved there. This call blocks until Ctrl+C.
+            run_realtime_dashboard(config, reader=reader)
+            return
+        # --mock --no-dashboard falls through to the console-only
+        # synchronous loop below, same as it always has.
     else:
         _LOG.info("Starting ASTRA in LIVE mode. Connecting to BlueSky...")
         reader = StateReader.for_bluesky(config)
@@ -161,15 +184,15 @@ def main() -> None:
             time.sleep(0.5)
         _LOG.info("BlueSky node active. Polling every %.1fs.", config.poll_interval_s)
 
-    pipeline = Pipeline(config, route_provider=reader.get_route)
+    pipeline = Pipeline(config, route_provider=reader.get_route, profile_provider=reader.get_flight_profile)
     store = CycleStore()
     if not args.no_dashboard:
-        # Pass the same `reader` the poll loop below uses, so the
-        # Scenario Builder page's routes (create/edit/delete aircraft,
-        # pause/resume/step/reset) act on the actual running simulation
-        # rather than a separate copy of it. In --mock mode this also
-        # means a scenario can be built entirely from the browser --
-        # `_setup_mock_traffic()` above just seeds a default scene.
+        # Live-BlueSky path only, now (the --mock + dashboard path
+        # returned above): the legacy Flask dashboard, running in a
+        # background thread, reading from the same `store` this
+        # process's poll loop below publishes into. Scenario Builder
+        # is registered too (`reader=reader`), though it is most useful
+        # in --mock mode.
         run_dashboard_in_background(store, config, reader=reader)
 
     _LOG.info("Running. Press Ctrl+C to stop.")

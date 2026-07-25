@@ -17,7 +17,7 @@ the smaller per-type functions are exposed individually because
 objects, following the Milestone 3-7 test pattern.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from astra.complexity.models import ComplexityRegion
 from astra.complexity.sector import SectorComplexitySample
@@ -107,18 +107,35 @@ def serialize_cluster(cluster: Cluster) -> Dict:
     }
 
 
-def serialize_region(region: ComplexityRegion) -> Dict:
+def serialize_region(
+    region: ComplexityRegion,
+    snapshot_at_horizon=None,
+) -> Dict:
     """One `ComplexityRegion` -> its `Cluster` plus score/components, for the heatmap."""
+    member_positions = []
+    if snapshot_at_horizon is not None:
+        for cs in sorted(region.cluster.member_callsigns):
+            ac = snapshot_at_horizon.get(cs)
+            if ac is not None:
+                member_positions.append({
+                    "callsign": cs,
+                    "lat": ac.lat,
+                    "lon": ac.lon,
+                    "altitude_ft": ac.altitude_ft,
+                })
     return {
         "cluster": serialize_cluster(region.cluster),
         "complexity_score": region.complexity_score,
         "components": dict(region.components),
         "computed_at_s": region.computed_at_s,
+        "member_positions": member_positions,
     }
 
 
 def serialize_regions_by_horizon(
-    regions_by_horizon: Dict[int, List[ComplexityRegion]]
+    regions_by_horizon: Dict[int, List[ComplexityRegion]],
+    snapshot: Optional[TrafficSnapshot] = None,
+    prediction: Optional[PredictionResult] = None,
 ) -> Dict[int, List[Dict]]:
     """`{horizon_min: [ComplexityRegion, ...]}` -> the same shape, JSON-safe.
 
@@ -127,10 +144,18 @@ def serialize_regions_by_horizon(
     they cost nothing extra to serialize and let the frontend offer a
     "predicted hotspot" horizon selector later without any backend change.
     """
-    return {
-        horizon_min: [serialize_region(region) for region in regions]
-        for horizon_min, regions in regions_by_horizon.items()
-    }
+    serialized = {}
+    for horizon_min, regions in regions_by_horizon.items():
+        snap = None
+        if horizon_min == 0:
+            snap = snapshot
+        elif prediction is not None and horizon_min in prediction.snapshots:
+            snap = prediction.at(horizon_min)
+        serialized[horizon_min] = [
+            serialize_region(region, snapshot_at_horizon=snap) for region in regions
+        ]
+    return serialized
+
 
 
 def serialize_track(track: FourDArhac) -> Dict:
@@ -262,14 +287,30 @@ def serialize_resolution_candidate(candidate: ResolutionCandidate) -> Dict:
     }
 
 
-def serialize_resolution_leg(leg: ResolutionLeg) -> Dict:
-    """One `ResolutionLeg` (a joint candidate's per-aircraft clearance) -> a JSON-safe dict."""
+def serialize_resolution_leg(
+    leg: ResolutionLeg, hypothetical_prediction: Optional[PredictionResult] = None
+) -> Dict:
+    """One `ResolutionLeg` (a joint candidate's per-aircraft clearance) -> a JSON-safe dict.
+
+    ``hypothetical_path`` mirrors ``serialize_resolution_candidate``'s field
+    of the same name, sliced out of the *joint* candidate's one combined
+    ``hypothetical_prediction`` (every leg applied at once) for this leg's
+    own ``target_callsign`` -- so the dashboard can draw a pink solution
+    line for each leg of a joint candidate, not just a single-aircraft one.
+    Empty list if no joint prediction was supplied (or this callsign isn't
+    in it, which should not happen in practice).
+    """
     return {
         "target_callsign": leg.target_callsign,
         "clearance_type": leg.clearance_type,
         "delta_value": leg.delta_value,
         "maneuver_kind": leg.maneuver_kind,
         "vector_duration_s": leg.vector_duration_s,
+        "hypothetical_path": (
+            serialize_prediction(hypothetical_prediction).get(leg.target_callsign, [])
+            if hypothetical_prediction is not None
+            else []
+        ),
     }
 
 
@@ -280,10 +321,16 @@ def serialize_joint_resolution_candidate(candidate: JointResolutionCandidate) ->
     `legs` (2-3 simultaneous per-aircraft clearances) replaces the
     single `clearance_type`/`target_callsign`/`delta_value` a
     single-aircraft candidate has -- see
-    `ResolutionEngine._build_joint_candidate`.
+    `ResolutionEngine._build_joint_candidate`. Each leg's own
+    `hypothetical_path` is sliced from `candidate.hypothetical_prediction`,
+    the one combined re-prediction with every leg's clearance applied
+    simultaneously.
     """
     return {
-        "legs": [serialize_resolution_leg(leg) for leg in candidate.legs],
+        "legs": [
+            serialize_resolution_leg(leg, candidate.hypothetical_prediction)
+            for leg in candidate.legs
+        ],
         "complexity_before": candidate.complexity_before,
         "complexity_after": candidate.complexity_after,
         "complexity_delta_norm": candidate.complexity_delta_norm,
@@ -305,20 +352,13 @@ def serialize_joint_resolution_candidate(candidate: JointResolutionCandidate) ->
 
 
 def serialize_resolution_set(resolution_set: ResolutionSet, max_candidates: int) -> Dict:
-    """One `ResolutionSet` -> its track id plus its top-ranked candidates.
+    """One `ResolutionSet` -> its track id plus its top-ranked candidates."""
+    joints = getattr(resolution_set, "joint_candidates", None)
+    if joints is None and resolution_set.joint_candidate is not None:
+        joints = [resolution_set.joint_candidate]
+    elif joints is None:
+        joints = []
 
-    Per design review OQ-3(B), the full ranked list is shown (not just
-    `.best()`), bounded by `max_candidates`
-    (`ASTRAConfig.dashboard_max_resolution_candidates_shown`, a generous
-    safety cap -- see that field's docstring for why this should very
-    rarely trim anything in practice, and why fixed-size pagination for
-    display belongs in the frontend, not here). A track with only 1 or 2
-    real candidates is returned with just that many -- this never pads
-    the list out to a fixed count. `joint_candidate` (present only for
-    3+ member clusters -- see `ResolutionEngine._build_joint_candidate`)
-    is never capped/truncated: it is always exactly one candidate or
-    absent.
-    """
     return {
         "arhac_id": resolution_set.track.arhac_id,
         "evaluated_horizon_min": resolution_set.evaluated_horizon_min,
@@ -331,6 +371,9 @@ def serialize_resolution_set(resolution_set: ResolutionSet, max_candidates: int)
             if resolution_set.joint_candidate is not None
             else None
         ),
+        "joint_candidates": [
+            serialize_joint_resolution_candidate(jc) for jc in joints
+        ],
     }
 
 
@@ -356,6 +399,23 @@ def serialize_sector_history(
     }
 
 
+def serialize_routes(routes: Dict[str, List[Tuple[float, float]]]) -> Dict[str, List[Dict]]:
+    """`{callsign: [(lat, lon), ...]}` -> JSON-safe `{callsign: [{"lat":.., "lon":..}, ...]}`.
+
+    Each list is that aircraft's own real remaining waypoints, in order,
+    ending at its actual final route/flight-plan waypoint -- straight
+    from `route_provider`, independent of `prediction`'s fixed horizon
+    set. Lets the dashboard draw a hotspot member's full remaining
+    route (the white trajectory line) all the way to its real
+    destination, rather than only as far as the nearest configured
+    prediction horizon happens to reach.
+    """
+    return {
+        callsign: [{"lat": lat, "lon": lon} for lat, lon in waypoints]
+        for callsign, waypoints in routes.items()
+    }
+
+
 def serialize_cycle_result(result: CycleResult, config: ASTRAConfig) -> Dict:
     """The full `CycleResult` -> the `/api/state` endpoint's payload body.
 
@@ -371,7 +431,11 @@ def serialize_cycle_result(result: CycleResult, config: ASTRAConfig) -> Dict:
             "horizons_min": list(result.prediction.horizons_min),
             "paths": serialize_prediction(result.prediction),
         },
-        "regions_by_horizon": serialize_regions_by_horizon(result.regions_by_horizon),
+        "regions_by_horizon": serialize_regions_by_horizon(
+            result.regions_by_horizon,
+            snapshot=result.snapshot,
+            prediction=result.prediction,
+        ),
         "tracks": [serialize_track(track) for track in result.tracks],
         "resolution_sets": [
             serialize_resolution_set(
@@ -381,6 +445,7 @@ def serialize_cycle_result(result: CycleResult, config: ASTRAConfig) -> Dict:
         ],
         "sector_regions": serialize_sector_regions(result.sector_regions),
         "sector_history": serialize_sector_history(result.sector_history),
+        "routes": serialize_routes(result.routes),
     }
 
 
@@ -395,6 +460,7 @@ def serialize_dashboard_snapshot(snapshot: DashboardSnapshot, config: ASTRAConfi
         "cycle_count": snapshot.cycle_count,
         "updated_at_s": snapshot.updated_at_s,
         "poll_interval_s": config.poll_interval_s,
+        "separation_horizontal_nm": config.separation_horizontal_nm,
         "has_data": snapshot.cycle_result is not None,
         "cycle": (
             serialize_cycle_result(snapshot.cycle_result, config)

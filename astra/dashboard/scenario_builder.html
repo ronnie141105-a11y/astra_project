@@ -65,11 +65,12 @@
                             <th>FL</th>
                             <th>GS (kt)</th>
                             <th>VS (fpm)</th>
+                            <th>Profile</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody id="sb-aircraft-tbody">
-                        <tr><td colspan="9" class="empty-row">No aircraft yet &mdash; spawn one or load a preset.</td></tr>
+                        <tr><td colspan="10" class="empty-row">No aircraft yet &mdash; spawn one or load a preset.</td></tr>
                     </tbody>
                 </table>
             </section>
@@ -114,6 +115,16 @@
                     <label>Heading (deg) <input type="number" id="sb-f-hdg" step="1" min="0" max="359" required></label>
                 </div>
                 <p id="sb-airway-hint" class="panel-hint hidden">Position and heading are set from the airway's first waypoint.</p>
+                <label id="sb-f-reverse-label" class="sb-checkbox-label hidden">
+                    <input type="checkbox" id="sb-f-reverse"> Reverse Route Direction
+                </label>
+                <label id="sb-f-flight-type-label" class="hidden">Flight profile
+                    <select id="sb-f-flight-type">
+                        <option value="">None (fly the route as-is)</option>
+                        <option value="LANDING">Landing (descend to FL100 at 40 NM out, FL000 at the final waypoint)</option>
+                        <option value="OVERFLIGHT">Overflight (hold cruise level, despawn 5 min after the final waypoint)</option>
+                    </select>
+                </label>
                 <label>Altitude (ft) <input type="number" id="sb-f-alt" step="100" required></label>
                 <label>Ground speed (kt) <input type="number" id="sb-f-spd" step="1" required></label>
                 <div class="sb-modal-actions">

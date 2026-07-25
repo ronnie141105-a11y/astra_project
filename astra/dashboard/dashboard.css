@@ -10,6 +10,7 @@
     --amber: #ffbf69;
     --red: #ff5d73;
     --blue: #3b6bf5;
+    --aircraft-green: #33ff57;
     --aircraft-pink: #ff3d9a;
     --aircraft-light-pink: #ff9fc7;
     --solution-magenta: #ff2fd6;
@@ -186,6 +187,58 @@ body {
     display: none;
 }
 
+/* Sim Speed dropdown's button row (1x/2x/5x/10x/20x/60x -- see
+   setupSpeedButtons). min-width here keeps the dropdown from being
+   comically narrow with just 2 short digits' worth of buttons in it. */
+.horizon-btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 168px;
+}
+
+.horizon-btn {
+    font: inherit;
+    font-size: 12px;
+    color: var(--text-dim);
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+.horizon-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
+}
+
+.horizon-btn.active {
+    color: var(--bg);
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: bold;
+}
+
+/* "Return to Overall FIR" reset button, next to the Display Mode
+   dropdown on the map panel. */
+.reset-view-btn {
+    font: inherit;
+    font-size: 12px;
+    color: var(--text-dim);
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.reset-view-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
+}
+
 /* ---------------------------------------------------------------- */
 /* Tab pages / layout                                                */
 /* ---------------------------------------------------------------- */
@@ -212,7 +265,7 @@ body {
    table + action details cleanly instead of being squeezed into a
    fixed height. */
 #tab-dissipation {
-    grid-template-columns: minmax(480px, 1.45fr) minmax(0, 1fr);
+    grid-template-columns: minmax(400px, 1fr) minmax(0, 1.4fr);
     grid-template-areas:
         "alerts   map"
         "event    map";
@@ -286,15 +339,6 @@ body {
     margin: 6px 0 0 0;
     font-size: 11px;
     color: var(--text-dim);
-}
-
-/* #panel-event no longer has a title above this hint (removed in the
-   panel-title clean-up), so the margin-top .panel-hint normally reserves
-   for "space below the title" is now just a dead gap -- zero it out
-   here specifically, since .panel-hint is still used correctly (below a
-   real title) on the Complexity Forecast tab. */
-#event-empty {
-    margin-top: 0;
 }
 
 .panel-head {
@@ -599,6 +643,11 @@ body {
     border-radius: 4px;
     padding: 5px 6px;
     min-width: 150px;
+}
+
+.display-mode-box .reset-view-btn {
+    margin-top: 2px;
+    width: 100%;
 }
 
 .display-mode-box select:focus {
@@ -1066,29 +1115,18 @@ th {
     margin-top: 2px;
 }
 
+/* Standard row background with clean borders -- no per-tier background
+   tinting on the row itself; the affected/action distinction lives
+   entirely on the callsign (see .event-ac-callsign.affected/.action
+   below), reusing the app's existing two pink shades (the same
+   AIRCRAFT_COLOR the map markers use, plus its CSS-side counterpart
+   --aircraft-light-pink). */
 .event-aircraft-table tbody td {
     padding: 9px 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-/* Two-tier highlight, reusing the app's existing two pink shades
-   (the same AIRCRAFT_COLOR the map markers use, plus its CSS-side
-   counterpart --aircraft-light-pink): every row in this table is a member of the selected
-   track, i.e. already "affected" by the hotspot, so it always gets at
-   least the light-pink tier -- rows with an active clearance/leg this
-   round ("action aircraft") get the brighter tier on top and sort to
-   the top of the list. */
-.event-aircraft-table tr.event-ac-row.affected td {
-    background: rgba(255, 159, 199, 0.08);
-    border-left: 2px solid var(--aircraft-light-pink);
-}
-
-.event-aircraft-table tr.event-ac-row.action td {
-    background: rgba(255, 61, 154, 0.14);
-    border-left: 2px solid var(--aircraft-pink);
 }
 
 .event-ac-callsign {
@@ -1098,9 +1136,20 @@ th {
     font-weight: bold;
 }
 
+/* Bright pink outline: action aircraft (requires a heading/FL change
+   this round). */
 .event-ac-callsign.action {
     color: var(--aircraft-pink);
     border: 1px solid var(--aircraft-pink);
+    border-radius: 4px;
+    padding: 2px 6px;
+}
+
+/* Light pink outline: affected aircraft (in the hotspot/nearby, but no
+   change proposed for it this round). */
+.event-ac-callsign.affected {
+    color: var(--aircraft-light-pink);
+    border: 1px solid var(--aircraft-light-pink);
     border-radius: 4px;
     padding: 2px 6px;
 }
@@ -1114,41 +1163,18 @@ th {
     padding: 0 4px;
 }
 
-/* Action details -- the third section of the merged Event Box, below
-   the aircraft table: one line per aircraft currently being acted on
-   (a single candidate's target, or every leg of a joint candidate). */
-.event-action-details {
-    margin-top: 10px;
-    background: var(--panel-bg-raised);
-    border: 1px solid var(--panel-border);
-    border-radius: 8px;
-    padding: 10px 12px;
-}
-
-.event-action-detail-row {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding: 5px 0;
+/* Action change detail -- back to directly beneath the action
+   aircraft's own row (not a separate section below the whole table):
+   a full-width row immediately following the row it describes. */
+.event-ac-detail-row td {
+    background: rgba(74, 144, 164, 0.14);
+    color: var(--text-dim);
     font-size: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 7px 10px;
 }
 
-.event-action-detail-row:last-child {
-    border-bottom: none;
-}
-
-.event-action-detail-icon {
-    color: var(--text-dim);
-}
-
-.event-action-detail-callsign {
-    color: var(--aircraft-pink);
-    font-weight: bold;
-}
-
-.event-action-detail-text {
-    color: var(--text-dim);
+.event-ac-detail-icon {
+    margin-right: 6px;
 }
 
 .complexity-reduction {
@@ -1160,6 +1186,13 @@ th {
     border-radius: 8px;
     padding: 12px 16px;
     min-width: 260px;
+}
+
+.complexity-reduction-empty {
+    color: var(--text-dim);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 
 /* Before/after complexity rings, joined by an arrow (Fig 31). */
@@ -1287,14 +1320,28 @@ th {
     cursor: not-allowed;
 }
 
-/* Joint (multi-aircraft) candidate: same chip shape, magenta instead of
-   blue -- matches --solution-magenta, the map's own color for a
-   previewed hypothetical path -- so it visually reads as "a different
-   kind of candidate", not just another numbered one. */
+/* Joint (multi-aircraft) candidate: same chip shape and sequential
+   number as a regular candidate (unified list -- see
+   renderCandidateList), magenta instead of blue -- matches
+   --solution-magenta, the map's own color for a previewed hypothetical
+   path -- plus a small corner dot as an explicit "this one's a joint
+   solution" badge, since color alone isn't enough signal once it's
+   mixed into the same numbered row as everything else. */
 .candidate-chip-joint {
-    margin-left: 6px;
     border-color: var(--solution-magenta);
     color: var(--solution-magenta);
+    position: relative;
+}
+
+.candidate-chip-joint::after {
+    content: "";
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--solution-magenta);
 }
 
 .candidate-chip-joint:hover {
@@ -1305,6 +1352,10 @@ th {
     background: var(--solution-magenta);
     border-color: var(--solution-magenta);
     color: #fff;
+}
+
+.candidate-chip-joint.active::after {
+    background: #fff;
 }
 
 .candidate-current-joint {

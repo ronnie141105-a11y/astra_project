@@ -60,6 +60,7 @@ def advance_along_route(
     heading_deg: float,
     route_waypoints: Optional[List[Tuple[float, float]]],
     distance_nm: float,
+    cap_at_route_end: bool = False,
 ) -> RouteAdvanceResult:
     """Advance one aircraft `distance_nm` along its remaining route.
 
@@ -67,10 +68,21 @@ def advance_along_route(
     if ``distance_nm`` overshoots the current leg (so a single call can
     correctly cover a long prediction horizon that spans several
     waypoints, not just one simulation tick). Once the final waypoint is
-    passed, any leftover distance is flown straight on the last heading
-    flown -- the aircraft continues past the end of its filed route
-    rather than stopping dead, matching real-world behaviour when a
-    cleared route runs out before the prediction horizon does.
+    passed, behaviour depends on ``cap_at_route_end``:
+
+    - ``False`` (default, used by ``MockConnector`` -- actual simulated
+      flight): any leftover distance is flown straight on the last
+      heading flown, so the aircraft continues past the end of its
+      filed route rather than stopping dead, matching real-world
+      behaviour when a cleared route runs out before the prediction
+      horizon does.
+    - ``True`` (used by ``RouteAwareTrajectoryEngine`` -- *predicted*
+      trajectories): leftover distance is discarded once the final
+      waypoint is reached, so the predicted position never overshoots
+      the flight plan's destination/transfer point. A predicted
+      position "at" or "beyond" the route end is reported as sitting
+      exactly on that final waypoint instead of projecting further
+      along a heading the aircraft has no filed intent to keep flying.
 
     If ``route_waypoints`` is ``None`` or empty, this degrades to plain
     constant-heading dead reckoning at ``heading_deg`` -- callers do not
@@ -84,6 +96,10 @@ def advance_along_route(
         route_waypoints: Ordered ``[(lat, lon), ...]`` of remaining
             waypoints, first-to-fly-to first. Not mutated.
         distance_nm: Distance to travel along the route (>= 0).
+        cap_at_route_end: If ``True``, stop exactly at the final
+            waypoint instead of continuing straight past it once the
+            route is fully flown. Defaults to ``False`` (legacy/actual-
+            simulation behaviour, unchanged for existing callers).
 
     Returns:
         A ``RouteAdvanceResult`` with the new position, heading, and
@@ -114,9 +130,11 @@ def advance_along_route(
             remaining_distance = 0.0
 
     route_completed = not remaining_waypoints
-    if remaining_distance > 0:
+    if remaining_distance > 0 and not (cap_at_route_end and route_completed):
         # Route flown out with distance still to travel -- continue
-        # straight on the last heading flown.
+        # straight on the last heading flown (skipped when capping at
+        # the route end: the final waypoint position computed above is
+        # the answer, full stop).
         current_lat, current_lon = move_position(
             current_lat, current_lon, current_heading, remaining_distance
         )
@@ -124,3 +142,78 @@ def advance_along_route(
     return RouteAdvanceResult(
         current_lat, current_lon, current_heading, remaining_waypoints, route_completed
     )
+
+
+def remaining_route_distance_nm(
+    lat: float, lon: float, route_waypoints: Optional[List[Tuple[float, float]]]
+) -> float:
+    """Total great-circle distance (NM) from `(lat, lon)` to the end of
+    `route_waypoints`, following the polyline through every remaining
+    waypoint in order (not a straight line to the last one).
+
+    Used by scenario-generation code that needs to know "how far along
+    the route am I" independent of `advance_along_route`'s own per-tick
+    stepping -- e.g. a Landing-profile aircraft deciding when to begin
+    its descent (40 NM from the final waypoint), which needs the actual
+    remaining track distance, not a straight-line shortcut across any
+    turns still ahead.
+
+    Args:
+        lat, lon: Current position (decimal degrees).
+        route_waypoints: Ordered `[(lat, lon), ...]` of remaining
+            waypoints, first-to-fly-to first. Not mutated.
+
+    Returns:
+        0.0 if `route_waypoints` is `None`/empty (no route, or the
+        route has already been fully flown).
+    """
+    if not route_waypoints:
+        return 0.0
+    total_nm = 0.0
+    prev_lat, prev_lon = lat, lon
+    for wp_lat, wp_lon in route_waypoints:
+        total_nm += haversine_distance_nm(prev_lat, prev_lon, wp_lat, wp_lon)
+        prev_lat, prev_lon = wp_lat, wp_lon
+    return total_nm
+
+
+def top_of_descent_distance_nm(
+    altitude_ft: float, groundspeed_kt: float, vertical_rate_fpm: float
+) -> float:
+    """Distance (NM) before reaching 0 ft that a constant-rate descent
+    from `altitude_ft` must begin -- i.e. how far out "top of descent"
+    (TOD) is, flying at `groundspeed_kt` and descending at
+    `vertical_rate_fpm` (a positive rate, e.g. 2000 -- not a signed
+    vertical speed).
+
+    Pure kinematics: `time_to_descend_min = altitude_ft / vertical_rate_fpm`,
+    then `distance_nm = groundspeed_kt * (time_to_descend_min / 60)`.
+    E.g. descending from FL300 (30,000 ft) at 2,000 ft/min takes 15
+    minutes; at 480 kt groundspeed that is 120 NM of TOD distance.
+
+    Shared by `MockConnector` (which *applies* this profile to a
+    "LANDING" aircraft's actual simulated descent) and
+    `RouteAwareTrajectoryEngine` (which *predicts* the same profile
+    forward for hotspot/complexity scoring during timeline scrubbing) --
+    one implementation of "when should this aircraft start descending"
+    so the two can never silently disagree, the same reasoning
+    `advance_along_route`'s module docstring gives for route-following
+    geometry.
+
+    Args:
+        altitude_ft: Current altitude above the descent's target
+            (treated as 0 ft -- i.e. this is "altitude still to lose").
+            Negative values are clamped to 0.
+        groundspeed_kt: Current ground speed, knots.
+        vertical_rate_fpm: Descent rate, feet per minute (positive).
+
+    Returns:
+        0.0 if `groundspeed_kt` or `vertical_rate_fpm` is not positive
+        (nothing meaningful to compute -- callers should treat this as
+        "no TOD distance, not yet applicable" rather than "TOD is right
+        here").
+    """
+    if groundspeed_kt <= 0 or vertical_rate_fpm <= 0:
+        return 0.0
+    descent_time_min = max(0.0, altitude_ft) / vertical_rate_fpm
+    return groundspeed_kt * (descent_time_min / 60.0)

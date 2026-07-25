@@ -94,7 +94,9 @@ def predict_vector_and_rejoin(
         final_lat, final_lon, final_heading = lat1, lon1, vector_heading_deg
     else:
         phase2_distance_nm = ac.ground_speed_kt * (remaining_s / 3600.0)
-        rejoin = advance_along_route(lat1, lon1, vector_heading_deg, route, phase2_distance_nm)
+        rejoin = advance_along_route(
+            lat1, lon1, vector_heading_deg, route, phase2_distance_nm, cap_at_route_end=True
+        )
         final_lat, final_lon, final_heading = rejoin.lat, rejoin.lon, rejoin.heading_deg
 
     # Altitude/vertical-speed extrapolation is identical for every

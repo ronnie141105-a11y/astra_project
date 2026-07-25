@@ -295,6 +295,14 @@ class GeoLayerManager {
             case "star":
                 this._drawStar(ctx, x, y, size);
                 break;
+            case "triangle":
+                ctx.beginPath();
+                ctx.moveTo(x, y - size * 1.2);
+                ctx.lineTo(x + size, y + size);
+                ctx.lineTo(x - size, y + size);
+                ctx.closePath();
+                ctx.fill();
+                break;
             case "square":
                 ctx.fillRect(x - size, y - size, size * 2, size * 2);
                 break;

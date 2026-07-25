@@ -181,6 +181,14 @@ class JointResolutionCandidate:
     domino_cost_norm: float = 0.0
     complexity_after_components: Optional[Dict[str, float]] = None
     complexity_before_components: Optional[Dict[str, float]] = None
+    #: The single combined re-prediction with every leg's clearance applied
+    #: simultaneously (see `ResolutionEngine._score_joint_legs`) -- the same
+    #: kind of object `ResolutionCandidate.hypothetical_prediction` holds,
+    #: just covering every leg's target aircraft at once instead of one.
+    #: Lets the dashboard draw each leg's own post-clearance path (the pink
+    #: solution line) by slicing this one prediction per `target_callsign`,
+    #: instead of every leg needing its own separate re-prediction.
+    hypothetical_prediction: Optional[PredictionResult] = None
 
 
 #: Anything `ranked_by_impact()` / `best_overall()` can hand back --

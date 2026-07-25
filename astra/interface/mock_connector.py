@@ -47,18 +47,64 @@ Stack commands understood
 ``ALT  callsign  value_ft``                        Set altitude (feet).
 ``HDG  callsign  value_deg``                       Set heading (degrees).
 ``VS   callsign  value_fpm``                       Set vertical speed (fpm).
+
+Async streaming (real-time dashboard)
+--------------------------------------
+`stream()` (near the bottom of this class) is an async generator that
+turns the same `poll()` tick this class has always used into a
+real-time asyncio telemetry feed: it calls `poll()` on a wall-clock
+timer (`asyncio.sleep`) and yields the resulting `TrafficSnapshot`, at
+a configurable rate (Hz).
+
+This is purely an additional way to drive the connector -- every
+synchronous method above (`poll()`, `connect()`, `create_aircraft()`,
+the Scenario Builder passthroughs, etc.) is unchanged and still works
+exactly as before; `stream()` just calls them on a timer. It exists so
+`astra.pipeline.AsyncPipeline` and `astra.dashboard.server` (FastAPI +
+WebSockets) can `async for` frames instead of owning a manual poll
+loop plus `time.sleep()` on a background thread, the way the old Flask
+dashboard's `main.py` loop did.
 """
 
+import asyncio
+import time
 from dataclasses import dataclass
 from threading import Lock
-from typing import Dict, List, Optional, Tuple
+from typing import AsyncIterator, Dict, List, Optional, Tuple
 
 from astra.interface.traffic_state import AircraftState, TrafficSnapshot
-from astra.trajectory.route_following import advance_along_route
+from astra.trajectory.route_following import (
+    advance_along_route,
+    remaining_route_distance_nm,
+    top_of_descent_distance_nm,
+)
 from astra.utils.geodesy import bearing_deg, move_position
 from astra.utils.logger import get_logger
 
 _LOG = get_logger(__name__)
+
+#: Landing profile: descent rate (ft/min) used both to compute the
+#: dynamic Top of Descent point (`top_of_descent_distance_nm`) and to
+#: actually fly the descent once past it. ~2,000 ft/min is a typical
+#: continuous-descent rate.
+_LANDING_VERTICAL_RATE_FPM = 2000.0
+#: Both profiles: seconds after passing/reaching the final waypoint at
+#: which a "LANDING" or "OVERFLIGHT" aircraft is automatically
+#: despawned and removed from the simulation entirely (map + aircraft
+#: table). 3 minutes gives an operator a moment to see the aircraft
+#: land/overfly before it disappears, without leaving it stuck on
+#: screen indefinitely.
+_ROUTE_END_DESPAWN_S = 180.0
+#: Valid values for `_AircraftRecord.flight_type` / `create_aircraft`'s
+#: `flight_type` argument (besides `None`, meaning "no forced profile").
+VALID_FLIGHT_TYPES = ("LANDING", "OVERFLIGHT")
+
+#: Recommended bounds for `stream()`'s `hz` argument -- 1-5 Hz matches
+#: standard ATC radar-style HMI refresh rates. Values outside this
+#: range are still accepted (e.g. a test wanting a very fast tick) but
+#: are logged once at WARNING rather than rejected outright.
+_RECOMMENDED_MIN_HZ = 1.0
+_RECOMMENDED_MAX_HZ = 5.0
 
 
 @dataclass
@@ -84,6 +130,21 @@ class _AircraftRecord:
     route_waypoints: Optional[List[Tuple[float, float]]] = None
     #: Index into `route_waypoints` of the waypoint currently being flown to.
     route_index: int = 0
+    #: Scenario Builder "spawn aircraft" profile -- only meaningful
+    #: alongside `route_waypoints`. `"LANDING"`: descend to FL100 at 40
+    #: NM from the final waypoint, reach FL000 exactly at it, then stop
+    #: (aircraft has landed). `"OVERFLIGHT"`: hold cruise flight level
+    #: across the whole route, then despawn 5 minutes after passing the
+    #: final waypoint. `None`: legacy behaviour -- follow the route with
+    #: whatever altitude/vertical-speed the aircraft already has, no
+    #: forced descent or despawn.
+    flight_type: Optional[str] = None
+    #: Simulation time (`self._simt`) at which `route_waypoints` first
+    #: became empty -- i.e. the final waypoint was reached. `None` until
+    #: then. Drives the "LANDING" stop and the "OVERFLIGHT" 5-minute
+    #: despawn timer, both of which need "how long ago did this aircraft
+    #: finish its route", not just "has it finished".
+    route_completed_at_simt: Optional[float] = None
 
 
 class MockConnector:
@@ -228,6 +289,7 @@ class MockConnector:
         altitude_ft: float,
         speed_kt: float,
         route_waypoints: Optional[List[Tuple[float, float]]] = None,
+        flight_type: Optional[str] = None,
     ) -> None:
         """Insert an aircraft directly into the mock state.
 
@@ -248,7 +310,27 @@ class MockConnector:
             route_waypoints: Optional `[(lat, lon), ...]` airway to follow
                 -- see `_advance_along_route()`. `None`/empty falls back
                 to plain constant-heading dead reckoning.
+            flight_type: Optional Scenario Builder spawn profile, one of
+                `VALID_FLIGHT_TYPES` ("LANDING"/"OVERFLIGHT"). Only
+                meaningful alongside `route_waypoints` -- ignored
+                (logged once) otherwise, since both profiles are defined
+                relative to "the final waypoint". See
+                `_AircraftRecord.flight_type`'s docstring for what each
+                one does.
+
+        Raises:
+            ValueError: `flight_type` is not `None` and not one of
+                `VALID_FLIGHT_TYPES`.
         """
+        if flight_type is not None and flight_type not in VALID_FLIGHT_TYPES:
+            raise ValueError(f"flight_type must be one of {VALID_FLIGHT_TYPES} or None, got {flight_type!r}")
+        if flight_type is not None and not route_waypoints:
+            _LOG.warning(
+                "flight_type=%r given without route_waypoints; ignoring (no route end to profile against).",
+                flight_type,
+            )
+            flight_type = None
+
         normalized_route: Optional[List[Tuple[float, float]]] = None
         initial_heading = heading_deg % 360.0
         if route_waypoints:
@@ -266,17 +348,19 @@ class MockConnector:
             vertical_speed_fpm=0.0,
             route_waypoints=normalized_route,
             route_index=0,
+            flight_type=flight_type,
         )
         with self._lock:
             self._aircraft[callsign.upper()] = record
         _LOG.debug(
-            "MockConnector: created %s (%s) at (%.4f, %.4f) FL%.0f%s",
+            "MockConnector: created %s (%s) at (%.4f, %.4f) FL%.0f%s%s",
             callsign.upper(),
             aircraft_type.upper(),
             lat,
             lon,
             altitude_ft / 100.0,
             f", following {len(normalized_route)}-point route" if normalized_route else "",
+            f" [{flight_type}]" if flight_type else "",
         )
 
     # ------------------------------------------------------------------
@@ -399,6 +483,7 @@ class MockConnector:
                     "ground_speed_kt": rec.ground_speed_kt,
                     "vertical_speed_fpm": rec.vertical_speed_fpm,
                     "on_route": bool(rec.route_waypoints),
+                    "flight_type": rec.flight_type,
                 }
                 for rec in self._aircraft.values()
             ]
@@ -460,6 +545,111 @@ class MockConnector:
                 return None
             return list(record.route_waypoints)
 
+    def get_flight_profile(self, callsign: str) -> Optional[Dict]:
+        """Return one aircraft's Scenario Builder spawn profile, if any.
+
+        Companion to `get_route()`, for the same reason: exposes
+        information legitimately known right now (this aircraft was
+        spawned with a "LANDING" profile and is descending at this
+        rate) so `RouteAwareTrajectoryEngine` can predict the *same*
+        Top of Descent-aware altitude profile this connector is
+        actually flying, instead of assuming a flat/constant vertical
+        speed for the whole prediction horizon -- which is exactly what
+        used to cause false-positive hotspots during timeline scrubbing
+        (a descending aircraft was predicted as still at cruise
+        altitude, or vice versa past its actual landing).
+
+        Args:
+            callsign: Aircraft callsign -- case-insensitive.
+
+        Returns:
+            ``None`` if the aircraft is unknown or has no forced
+            profile (``flight_type is None``, including "OVERFLIGHT" --
+            which holds cruise level throughout, so it needs no special
+            prediction handling beyond the plain constant-vertical-speed
+            case `TrajectoryEngine`/`RouteAwareTrajectoryEngine` already
+            do). Otherwise ``{"flight_type": "LANDING", "vertical_rate_fpm": ...}``.
+        """
+        with self._lock:
+            record = self._aircraft.get(callsign.upper())
+            if record is None or record.flight_type != "LANDING":
+                return None
+            return {"flight_type": record.flight_type, "vertical_rate_fpm": _LANDING_VERTICAL_RATE_FPM}
+
+    # ------------------------------------------------------------------
+    # Async streaming (real-time dashboard)
+    # ------------------------------------------------------------------
+
+    async def stream(
+        self,
+        hz: float = 1.0,
+        *,
+        max_frames: Optional[int] = None,
+        stop_event: Optional[asyncio.Event] = None,
+    ) -> AsyncIterator[TrafficSnapshot]:
+        """Async-generate TrafficSnapshots in real time, at hz frames/second.
+
+        Wraps this connector's own synchronous poll() + latest_snapshot()
+        on a wall-clock asyncio.sleep() timer -- no new simulation logic,
+        just a real-time cadence around the existing tick. Each yielded
+        snapshot corresponds to exactly one poll() call, so the mock's
+        simulation clock (self.simt) still advances by sim_step_s per
+        frame, same as it always has; hz controls only how often that
+        happens in wall-clock time, independent of sim_step_s.
+
+        Intended consumer: astra.pipeline.AsyncPipeline.stream(), which
+        runs the full trajectory/hotspot/complexity pipeline on each
+        yielded snapshot and re-yields the result; astra.dashboard.server
+        then broadcasts that over WebSockets.
+
+        Args:
+            hz: Frames per second to poll and yield at. Must be > 0.
+                1-5 Hz is the recommended range for a human-watched ATC
+                HMI; values outside that range are accepted but logged
+                once at WARNING, not rejected.
+            max_frames: If given, stop after yielding this many frames
+                (mainly for tests).
+            stop_event: If given, checked before each frame; the
+                generator returns once it is set, instead of yielding
+                another frame.
+
+        Yields:
+            One TrafficSnapshot per tick, oldest first.
+
+        Raises:
+            ValueError: hz is not positive.
+        """
+        if hz <= 0:
+            raise ValueError(f"hz must be positive, got {hz}")
+        if not (_RECOMMENDED_MIN_HZ <= hz <= _RECOMMENDED_MAX_HZ):
+            _LOG.warning(
+                "MockConnector.stream(): hz=%.2f is outside the recommended "
+                "%.1f-%.1f Hz range for a live ATC HMI.",
+                hz,
+                _RECOMMENDED_MIN_HZ,
+                _RECOMMENDED_MAX_HZ,
+            )
+
+        period_s = 1.0 / hz
+        frames_yielded = 0
+        next_tick = time.monotonic()
+        while max_frames is None or frames_yielded < max_frames:
+            if stop_event is not None and stop_event.is_set():
+                return
+
+            self.poll()
+            snapshot = self.latest_snapshot()
+            if snapshot is not None:
+                yield snapshot
+                frames_yielded += 1
+
+            next_tick += period_s
+            sleep_s = next_tick - time.monotonic()
+            if sleep_s > 0:
+                await asyncio.sleep(sleep_s)
+            else:
+                next_tick = time.monotonic()
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -467,25 +657,125 @@ class MockConnector:
     def _propagate_positions(self, dt_s: float) -> None:
         """Move all aircraft forward by `dt_s` seconds.
 
-        Called inside `poll()` while `self._lock` is already held, so
-        this method must NOT acquire the lock itself.
+        Called inside `poll()`/`step()` while `self._lock` is already
+        held, so this method must NOT acquire the lock itself. Also
+        applies each aircraft's Scenario Builder spawn profile (see
+        `_AircraftRecord.flight_type`):
+
+        - Plain route (no profile) or no route at all: unchanged
+          original behaviour -- follow the route (or dead-reckon) with
+          whatever altitude/vertical-speed the aircraft already has.
+          Never despawned automatically.
+        - "LANDING": position is capped at the final waypoint (does not
+          slide past it once reached -- see `advance_along_route`'s
+          `cap_at_route_end`), ground speed is zeroed once there (it
+          has landed, so it stops). Altitude follows a dynamic Top of
+          Descent profile (`top_of_descent_distance_nm`): held level
+          until exactly far enough out to descend continuously at
+          `_LANDING_VERTICAL_RATE_FPM` and reach 0 ft (FL000) at the
+          final waypoint -- no instant altitude jump the way a fixed
+          "start descending at 40 NM regardless of cruise altitude"
+          rule would produce for any aircraft not already near FL100.
+        - "OVERFLIGHT": position continues straight past the final
+          waypoint as normal (cruise flight level held throughout, no
+          altitude override).
+
+        Both "LANDING" and "OVERFLIGHT" aircraft are automatically
+        despawned (removed entirely -- map and aircraft-table alike,
+        since both simply reflect `list_aircraft()`/`_build_snapshot()`
+        over `self._aircraft`) `_ROUTE_END_DESPAWN_S` after reaching/
+        passing the final waypoint, so neither is left stuck on screen
+        indefinitely.
 
         Args:
             dt_s: Time step in seconds.
         """
+        despawn: List[Tuple[str, str]] = []
         for record in self._aircraft.values():
+            already_completed_before_this_tick = record.route_completed_at_simt is not None
             # Convert speed to distance: gs_kt * (dt_s / 3600) gives NM.
             distance_nm = record.ground_speed_kt * (dt_s / 3600.0)
             if record.route_waypoints:
-                self._advance_along_route(record, distance_nm)
+                self._advance_along_route(
+                    record, distance_nm, cap_at_route_end=(record.flight_type == "LANDING")
+                )
+                if not record.route_waypoints and record.route_completed_at_simt is None:
+                    record.route_completed_at_simt = self._simt
+                    if record.flight_type == "LANDING":
+                        # Landed -- stop moving. (Position is already
+                        # pinned to the final waypoint by
+                        # cap_at_route_end above.) Altitude is pinned to
+                        # exactly 0 ft here too: the continuous descent
+                        # below tracks it very close to 0 by this point,
+                        # but "landed" should read as exactly FL000, not
+                        # a few residual feet from tick discretization.
+                        record.ground_speed_kt = 0.0
+                        record.vertical_speed_fpm = 0.0
+                        record.altitude_ft = 0.0
             else:
+                # (Ground speed is already zeroed once a "LANDING"
+                # aircraft has landed, so this is a no-op distance-0
+                # move for it -- no special-case needed.)
                 record.lat, record.lon = move_position(
                     record.lat, record.lon, record.heading_deg, distance_nm
                 )
-            # Altitude change: vs_fpm * (dt_s / 60) gives feet.
-            record.altitude_ft += record.vertical_speed_fpm * (dt_s / 60.0)
 
-    def _advance_along_route(self, record: "_AircraftRecord", distance_nm: float) -> None:
+            if record.flight_type == "LANDING":
+                # Ramp on every tick up through -- and including -- the
+                # very tick that completes the route (hence checking
+                # whether it was *already* completed before this tick,
+                # not its state after), so the final tick still lands
+                # exactly on FL000 instead of stopping one tick short of
+                # it. Once landed, altitude/vs are already pinned to 0
+                # above -- nothing further to compute.
+                if not already_completed_before_this_tick:
+                    distance_to_end_nm = remaining_route_distance_nm(
+                        record.lat, record.lon, record.route_waypoints
+                    )
+                    tod_distance_nm = top_of_descent_distance_nm(
+                        record.altitude_ft, record.ground_speed_kt, _LANDING_VERTICAL_RATE_FPM
+                    )
+                    if distance_to_end_nm <= tod_distance_nm:
+                        # Past Top of Descent -- descend continuously at
+                        # the configured rate (never an instant jump:
+                        # this applies the same -fpm every tick from the
+                        # moment TOD is crossed, so altitude and
+                        # distance-to-go run down in lockstep all the
+                        # way to the final waypoint).
+                        record.vertical_speed_fpm = -_LANDING_VERTICAL_RATE_FPM
+                        record.altitude_ft = max(
+                            0.0, record.altitude_ft + record.vertical_speed_fpm * (dt_s / 60.0)
+                        )
+                    else:
+                        # Still cruising -- more than TOD distance to go.
+                        record.vertical_speed_fpm = 0.0
+            elif record.flight_type == "OVERFLIGHT":
+                # Cruise flight level held throughout -- no altitude
+                # override.
+                record.altitude_ft += record.vertical_speed_fpm * (dt_s / 60.0)
+            else:
+                # Altitude change: vs_fpm * (dt_s / 60) gives feet.
+                record.altitude_ft += record.vertical_speed_fpm * (dt_s / 60.0)
+
+            if (
+                record.flight_type in VALID_FLIGHT_TYPES
+                and record.route_completed_at_simt is not None
+                and self._simt - record.route_completed_at_simt >= _ROUTE_END_DESPAWN_S
+            ):
+                despawn.append((record.callsign, record.flight_type))
+
+        for callsign, flight_type in despawn:
+            self._aircraft.pop(callsign, None)
+            _LOG.debug(
+                "MockConnector: despawned %s (%s, %.0fs past its final waypoint).",
+                callsign,
+                flight_type,
+                _ROUTE_END_DESPAWN_S,
+            )
+
+    def _advance_along_route(
+        self, record: "_AircraftRecord", distance_nm: float, cap_at_route_end: bool = False
+    ) -> None:
         """Move `record` toward its remaining route waypoints.
 
         Thin wrapper around ``astra.trajectory.route_following.advance_along_route``
@@ -500,9 +790,19 @@ class MockConnector:
         Args:
             record: The aircraft to move (mutated in place).
             distance_nm: Distance available to travel this tick.
+            cap_at_route_end: Passed straight through to
+                ``advance_along_route`` -- ``True`` for a "LANDING"
+                profile aircraft (stop exactly at the final waypoint
+                rather than sliding past it), ``False`` (default) for
+                everything else, matching prior behaviour.
         """
         result = advance_along_route(
-            record.lat, record.lon, record.heading_deg, record.route_waypoints, distance_nm
+            record.lat,
+            record.lon,
+            record.heading_deg,
+            record.route_waypoints,
+            distance_nm,
+            cap_at_route_end=cap_at_route_end,
         )
         record.lat = result.lat
         record.lon = result.lon

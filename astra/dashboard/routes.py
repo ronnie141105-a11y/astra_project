@@ -28,8 +28,9 @@ def build_blueprint(store: CycleStore, config: ASTRAConfig) -> Blueprint:
 
     Args:
         store: The `CycleStore` `main.py`'s poll loop publishes into.
-        config: The running `ASTRAConfig` (for `poll_interval_s` and the
-            Phase 8 display-cap fields, read only via `serializers`).
+        config: The running `ASTRAConfig` (for `poll_interval_s`,
+            `separation_horizontal_nm`, and the Phase 8 display-cap
+            fields, read only via `serializers`).
 
     Returns:
         A `flask.Blueprint` ready to register on an `Flask` app.
@@ -44,6 +45,7 @@ def build_blueprint(store: CycleStore, config: ASTRAConfig) -> Blueprint:
             poll_interval_s=config.poll_interval_s,
             dashboard_host=config.dashboard_host,
             dashboard_port=config.dashboard_port,
+            separation_horizontal_nm=config.separation_horizontal_nm,
         )
 
     @blueprint.route("/state")

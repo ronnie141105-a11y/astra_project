@@ -19,18 +19,111 @@
     const POLL_INTERVAL_MS = Math.max(250, window.ASTRA_POLL_INTERVAL_S * 1000);
 
     // Canvas drawing can't read CSS custom properties directly, so these
-    // mirror :root's --aircraft-pink / --solution-magenta / --amber in
+    // mirror :root's --aircraft-green / --aircraft-pink / --solution-magenta / --amber in
     // dashboard.css. Keep the two in sync if either changes.
-    const AIRCRAFT_COLOR = "#ff3d9a";
+    const AIRCRAFT_COLOR = "#10b981"; // Muted emerald-green airplane symbol (toned down from neon #33ff57)
+    const ACTION_AIRCRAFT_COLOR = "#ff3d9a"; // Bright Pink for action aircraft
+    const AFFECTED_AIRCRAFT_COLOR = "#ff9fc7"; // Light Pink for affected aircraft
     const SOLUTION_COLOR = "#ff2fd6";
     const PREDICTED_PATH_COLOR = "#ffbf69";
+
+    // Strict 2-color aircraft focus system (see buildAircraftHighlightMap /
+    // buildEventModeHighlightMap): every aircraft marker is EITHER
+    // AIRCRAFT_FOCUS_COLOR (green -- normal baseline traffic, inside a
+    // selected sector, or involved in the active alert) OR
+    // AIRCRAFT_DIMMED_COLOR (grey -- everything else once the operator
+    // has actually narrowed focus onto an alert or a sector). No other
+    // color and no partial-opacity "adjacent" tier is used for the
+    // marker's own fill/leader-line -- that's what "strictly binary"
+    // means here. Reuses the existing AIRCRAFT_COLOR green so it stays
+    // in sync with --aircraft-green in dashboard.css rather than
+    // introducing a second, slightly different green.
+    const AIRCRAFT_FOCUS_COLOR = AIRCRAFT_COLOR;
+    const AIRCRAFT_DIMMED_COLOR = "#888888";
+
+    // DBSCAN's horizontal separation threshold (NM) -- the exact distance
+    // at which another aircraft would/wouldn't be pulled into a hotspot.
+    // Injected server-side in index.html from ASTRAConfig.separation_horizontal_nm.
+    const SEPARATION_HORIZONTAL_NM = window.ASTRA_SEPARATION_NM || 15;
+
+    // Cache for smoothed hull points to prevent flickering between cycles.
+    // Keyed by *membership* (sorted member callsigns), not the cluster's
+    // DBSCAN label -- the label is an arbitrary index that can be
+    // reassigned to the same physical group between polls, which would
+    // otherwise blow away the cache and pop the polygon every cycle.
+    const hullCache = new Map(); // "CS1,CS2,CS3" -> [{x, y}]
+
+    /** Andrew's Monotone Chain Convex Hull algorithm over 2D canvas points [{x, y}].
+     * Returns ordered hull points array [{x, y}]. */
+    function convexHull(points) {
+        if (!points || points.length === 0) return [];
+        if (points.length <= 3) return points;
+
+        // Sort by x, then by y
+        const pts = points.slice().sort((a, b) => a.x === b.x ? a.y - b.y : a.x - b.x);
+
+        const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+
+        const lower = [];
+        for (let i = 0; i < pts.length; i++) {
+            while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], pts[i]) <= 0) {
+                lower.pop();
+            }
+            lower.push(pts[i]);
+        }
+
+        const upper = [];
+        for (let i = pts.length - 1; i >= 0; i--) {
+            while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], pts[i]) <= 0) {
+                upper.pop();
+            }
+            upper.push(pts[i]);
+        }
+
+        upper.pop();
+        lower.pop();
+        return lower.concat(upper);
+    }
+
+    /** Expand a polygon outward from its centroid by marginPx. */
+    function expandPolygon(hullPoints, marginPx) {
+        if (!hullPoints || hullPoints.length === 0) return [];
+        if (hullPoints.length < 3) return hullPoints;
+        const cx = hullPoints.reduce((sum, p) => sum + p.x, 0) / hullPoints.length;
+        const cy = hullPoints.reduce((sum, p) => sum + p.y, 0) / hullPoints.length;
+        return hullPoints.map(p => {
+            const dx = p.x - cx;
+            const dy = p.y - cy;
+            const dist = Math.hypot(dx, dy) || 1;
+            const scale = (dist + marginPx) / dist;
+            return { x: cx + dx * scale, y: cy + dy * scale };
+        });
+    }
+
+    /** Smoothly interpolate hull points from cache to prevent flickering between updates. */
+    function smoothHullPoints(clusterId, targetPoints) {
+        const prev = hullCache.get(clusterId);
+        if (!prev || prev.length !== targetPoints.length) {
+            hullCache.set(clusterId, targetPoints);
+            return targetPoints;
+        }
+        // Smooth lerp 35% towards new target
+        const smoothed = targetPoints.map((tp, i) => ({
+            x: prev[i].x + (tp.x - prev[i].x) * 0.35,
+            y: prev[i].y + (tp.y - prev[i].y) * 0.35
+        }));
+        hullCache.set(clusterId, smoothed);
+        return smoothed;
+    }
 
     // Session-only UI state. Never sent to the backend; resets on reload.
     const ui = {
         selectedArhacId: null,
-        selectedCandidateIndex: {}, // arhac_id -> candidate index being previewed, or the string "joint" for the joint_candidate
+        simTimeS: 0, // latest cycle.snapshot.timestamp_s seen -- the Independent Simulation Clock's source of truth (see startSimClock/updateTimeBox); 0 until the first cycle arrives, matching "starts at 00:00:00 at scenario launch".
+        selectedCandidateIndex: {}, // arhac_id -> index into the unified (candidates + joints, sorted by score) list currently being previewed
         selectedAircraftCallsign: null, // set by clicking an aircraft marker on the map
         displayMode: "overall", // "overall" | "event" | a specific sector's full name
+        manualOverallFir: false, // true once the operator explicitly clicks "Return to Overall FIR" -- suppresses the poll loop's auto-reselect of the top alert until a new alert is deliberately selected
         viewTransition: null, // {fromView, toView, startMs, durationMs} while animating a mode switch
         lastAutoFitKey: "overall", // re-arms the auto-zoom only when (mode, resolved sector) actually changes
         lifecycle: {}, // arhac_id -> "DRAFT" | "PROPOSED" | "ACKNOWLEDGED" | "CANCELED"
@@ -369,25 +462,34 @@
         return best;
     }
 
-    /** `{callsign: {color, bucket}}` for every aircraft belonging to an open
-     * track, for the map's aircraft-marker highlight colour. Built once per
-     * poll cycle and reused every animation frame (cheap dict lookup) rather
-     * than recomputed per marker per frame. */
+    /** Baseline ("Overall FIR", no alert selected, no sector picked)
+     * aircraft-marker coloring.
+     *
+     * Bug A fix ("Hotspot Interference"): this used to color every
+     * aircraft belonging to an open track with `urgencyColor()` -- the
+     * same red/amber/blue used for hotspot rings -- so a hotspot's
+     * urgency color visibly bled into the aircraft icon itself. Under
+     * the strict 2-color system there is no such coupling: the baseline
+     * view has no "focus" to narrow onto yet, so every aircraft is
+     * simply the normal green (AIRCRAFT_FOCUS_COLOR), same as any other
+     * normal traffic. Hotspot urgency is still fully visible on the map
+     * via the hotspot rings themselves (`drawComplexityRegions`) -- it's
+     * just never pushed onto the aircraft marker's color anymore.
+     *
+     * Bug B fix ("State Cleanup"): returning an empty map here (every
+     * aircraft falls back to AIRCRAFT_COLOR/opacity 1 in
+     * `drawAircraftMarker`/`drawScrubbedTraffic`) means there is no
+     * per-aircraft bucket that could possibly "stick" across a mode
+     * switch -- color is recomputed from scratch, straight from
+     * `ui.displayMode`/`ui.selectedArhacId`, on every single render
+     * rather than carried over from whatever the previous highlight map
+     * happened to contain. Returning to Overall FIR from an alert/sector
+     * view is exactly a call into *this* function instead of
+     * `buildEventModeHighlightMap`, so there is no leftover grey state to
+     * clean up in the first place. */
     function buildAircraftHighlightMap(cycle) {
-        const nowS = cycle.snapshot.timestamp_s;
-        const map = {};
-        cycle.tracks.forEach((t) => {
-            if (t.status === "CLOSED") {
-                return;
-            }
-            const onsetInS = t.predicted_onset_s === null ? null : t.predicted_onset_s - nowS;
-            const bucket = urgencyBucket(onsetInS);
-            const color = urgencyColor(bucket);
-            t.member_aircraft.forEach((callsign) => {
-                map[callsign] = { color, bucket };
-            });
-        });
-        return map;
+        void cycle;
+        return {};
     }
 
     // ------------------------------------------------------------------
@@ -410,43 +512,58 @@
     // ------------------------------------------------------------------
 
     /** No-op: the header no longer shows a LIVE/WAITING badge or cycle
-     * count (removed per the header clean-up), leaving just the live UTC
-     * clock (`startLiveUtcClock`, independent of poll data). Kept as a
-     * function so its call site doesn't need to change if that ever
-     * comes back. */
+     * count (removed per the header clean-up), leaving just the
+     * Independent Simulation Clock (`startSimClock`/`updateSimClock`).
+     * Kept as a function so its call site doesn't need to change if
+     * that ever comes back. */
     function renderHeader(payload) {
         void payload;
     }
 
-    /** Formats a JS Date as "HH:MM" in UTC (the vector time slider's edge
-     * labels and time box) -- always UTC so it reads consistently
-     * alongside the header's live UTC clock, regardless of the
-     * operator's own browser timezone. */
-    function utcHm(date) {
-        const h = String(date.getUTCHours()).padStart(2, "0");
-        const m = String(date.getUTCMinutes()).padStart(2, "0");
-        return `${h}:${m}`;
+    /** Formats a count of elapsed simulation seconds as "HH:MM:SS",
+     * wrapping at 24h (a scenario can in principle run longer than a
+     * day at high speed multipliers) -- shared by the header clock and
+     * the vector time slider's "Now"/edge labels so every clock-like
+     * readout on this page always means the same thing: elapsed
+     * simulation time since scenario launch, never the operator's own
+     * wall-clock time. */
+    function simClockHms(totalSimSeconds) {
+        const total = Math.max(0, Math.round(totalSimSeconds || 0)) % 86400;
+        const h = String(Math.floor(total / 3600)).padStart(2, "0");
+        const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+        const s = String(total % 60).padStart(2, "0");
+        return `${h}:${m}:${s}`;
     }
 
-    /** Starts the header's independent live UTC clock (HH:MM:SS), ticking
-     * every second off the operator's real system clock -- deliberately
-     * not derived from the simulation's own elapsed-time cycle (that
-     * would freeze it whenever the sim is paused), since this is meant
-     * to always read as "the actual current real-world time". */
-    function startLiveUtcClock() {
+    /** Same as `simClockHms` but "HH:MM" only, for the vector time
+     * slider's compact edge labels. */
+    function simClockHm(totalSimSeconds) {
+        return simClockHms(totalSimSeconds).slice(0, 5);
+    }
+
+    /** Updates the header's Independent Simulation Clock (HH:MM:SS +
+     * "UTC" label, kept for visual realism per the HMI's styling) from
+     * the latest cycle's own elapsed simulation time --
+     * `cycle.snapshot.timestamp_s`, which already correctly reflects
+     * the mock's speed multiplier and pauses (see `MockConnector.poll`)
+     * -- rather than the operator's real system clock. Starts at
+     * 00:00:00 before the first cycle arrives (`ui.simTimeS`'s default),
+     * matching "starts at 00:00:00 upon scenario launch", and simply
+     * holds its last value while paused, since `timestamp_s` itself
+     * stops advancing then. */
+    function updateSimClock() {
         const el = document.getElementById("status-time-value");
-        if (!el) {
-            return;
+        if (el) {
+            el.textContent = simClockHms(ui.simTimeS);
         }
-        function tick() {
-            const now = new Date();
-            const h = String(now.getUTCHours()).padStart(2, "0");
-            const m = String(now.getUTCMinutes()).padStart(2, "0");
-            const s = String(now.getUTCSeconds()).padStart(2, "0");
-            el.textContent = `${h}:${m}:${s}`;
-        }
-        tick();
-        setInterval(tick, 1000);
+    }
+
+    /** One-time setup for the header clock: nothing to tick on its own
+     * (unlike the old real-time version) since `render()` already
+     * calls `updateSimClock()` on every poll cycle -- this only paints
+     * the initial 00:00:00 before that first cycle arrives. */
+    function startSimClock() {
+        updateSimClock();
     }
 
     // ------------------------------------------------------------------
@@ -480,25 +597,26 @@
     }
 
     /** Refreshes the time box ("Now" / actual clock time the slider is
-     * currently at) and the bar's start/end edge labels. Uses the
-     * operator's real current time as T=0, per `utcHm`'s docstring --
-     * not the sim's own elapsed-seconds clock, which has no fixed
-     * relationship to a real time of day. */
+     * currently at) and the bar's start/end edge labels. Uses
+     * `ui.simTimeS` -- the Independent Simulation Clock, same source as
+     * the header clock -- as T=0, so the slider always reads relative
+     * to the simulation's own elapsed time (correctly reflecting pause/
+     * speed-multiplier) rather than the operator's real wall-clock time,
+     * which has no fixed relationship to it. */
     function updateTimeBox() {
         const valueEl = document.getElementById("time-box-value");
         const labelEl = document.querySelector("#time-box .time-box-label");
         const startEl = document.getElementById("time-slider-start-label");
         const endEl = document.getElementById("time-slider-end-label");
-        const now = new Date();
+        const nowS = ui.simTimeS;
         if (startEl) {
-            startEl.textContent = utcHm(now);
+            startEl.textContent = simClockHm(nowS);
         }
         if (endEl) {
-            endEl.textContent = utcHm(new Date(now.getTime() + 60 * 60000));
+            endEl.textContent = simClockHm(nowS + 60 * 60);
         }
         if (valueEl) {
-            const at = new Date(now.getTime() + ui.selectedHorizon * 60000);
-            valueEl.textContent = utcHm(at);
+            valueEl.textContent = simClockHm(nowS + ui.selectedHorizon * 60);
         }
         if (labelEl) {
             labelEl.textContent = ui.selectedHorizon === 0 ? "Now" : `+${ui.selectedHorizon} min`;
@@ -966,68 +1084,75 @@
         return findSectorNameForPoint(centroid.lat, centroid.lon);
     }
 
-    /** Aircraft coloring for Event Sector / named-sector display modes:
-     * members of the currently selected track get the normal pink at
-     * full opacity; every other aircraft is greyed out and dimmed, per
-     * "do not remove them, de-emphasize them" -- so the operator sees
-     * at a glance which aircraft the alert is actually about without
-     * losing situational awareness of everything else nearby. Falls
-     * back to plain grey-out for all aircraft if no track is selected
-     * (still useful for a manually-picked "Sector N" with no active
-     * alert -- nothing is "involved" yet, so nothing is highlighted). */
+    /** Strict 2-color aircraft coloring for Event Sector / named-sector
+     * display modes:
+     *
+     * - An alert is selected (`track` truthy): its `member_aircraft` are
+     *   the focus -> GREEN. Every other aircraft -> GREY. (Requirement 3:
+     *   "Aircraft in normal active focus... or involved in an active
+     *   event alert" is green; "all other aircraft" is grey -- there is
+     *   no third, partially-dimmed "adjacent sector" tier anymore.)
+     * - No alert is selected but a sector was manually clicked/picked
+     *   (Sector Selection Mode, `track` is null, `targetSectorName` is
+     *   the picked sector): aircraft physically inside that sector are
+     *   the focus -> GREEN; every aircraft outside it -> GREY.
+     *   (Requirement 5.1/5.2.)
+     *
+     * Every bucket uses full opacity -- the earlier version varied
+     * opacity (1.0/0.55/0.45/0.22) across several grey-ish tiers, which
+     * is exactly the kind of non-binary state this system replaces.
+     * `bucket: "focus"` is read by `drawAircraftMarker` to force the
+     * callsign label on for these aircraft regardless of the global
+     * "Aircraft Labels" toggle (requirement 4/5.1). */
     function buildEventModeHighlightMap(cycle) {
         const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
         const involved = new Set(track ? track.member_aircraft : []);
+        const targetSectorName = getTargetSectorName(cycle);
+
         const map = {};
         cycle.snapshot.aircraft.forEach((ac) => {
-            map[ac.callsign] = involved.has(ac.callsign)
-                ? { color: AIRCRAFT_COLOR, opacity: 1, bucket: "involved" }
-                : { color: "#8494a2", opacity: 0.32, bucket: "dimmed" };
+            if (involved.has(ac.callsign)) {
+                map[ac.callsign] = { color: AIRCRAFT_FOCUS_COLOR, opacity: 1.0, bucket: "focus" };
+                return;
+            }
+            if (!track && targetSectorName) {
+                const sec = findSectorNameForPoint(ac.lat, ac.lon);
+                if (sec === targetSectorName) {
+                    map[ac.callsign] = { color: AIRCRAFT_FOCUS_COLOR, opacity: 1.0, bucket: "focus" };
+                    return;
+                }
+            }
+            map[ac.callsign] = { color: AIRCRAFT_DIMMED_COLOR, opacity: 1.0, bucket: "dimmed" };
         });
         return map;
     }
 
     function drawGrid(ctx, width, height) {
-        // Faint square reference grid (kept subtle -- the range rings below
-        // are the primary "this is a radar" visual cue).
-        ctx.strokeStyle = "#141c24";
-        ctx.lineWidth = 1;
-        for (let i = 1; i < 8; i++) {
-            const x = (width / 8) * i;
-            const y = (height / 8) * i;
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, height);
-            ctx.moveTo(0, y);
-            ctx.lineTo(width, y);
-            ctx.stroke();
-        }
-
-        // Radar-style concentric range rings removed for this HMI layout.
-        // (Previously drawn here; removed per design decision.)
+        // Square reference grid removed per design decision -- it added
+        // visual noise without conveying information the FIR/sector
+        // boundaries and range context don't already provide.
+        // (Radar-style concentric range rings were removed earlier for
+        // the same reason.)
     }
 
-    function drawSectorBoundaries(ctx, project, bounds, width, sectorRegions) {
-        Object.entries(sectorRegions || {}).forEach(([name, region]) => {
-            const [cx, cy] = project(region.cluster.centroid_lat, region.cluster.centroid_lon);
-            const degPerNm = (bounds.maxLon - bounds.minLon) / 60;
-            const radiusPx = Math.max(
-                10,
-                (region.cluster.horizontal_extent_nm * degPerNm * width) /
-                    (bounds.maxLon - bounds.minLon || 1)
-            );
-            ctx.beginPath();
-            ctx.setLineDash([5, 5]);
-            ctx.strokeStyle = "#4a5866";
-            ctx.lineWidth = 1;
-            ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.fillStyle = "#8494a2";
-            ctx.font = "12px monospace";
-            ctx.fillText(name, cx - radiusPx + 4, cy - radiusPx + 12);
-        });
-    }
+    /** REMOVED: `drawSectorBoundaries` used to draw one dashed grey
+     * circle per entry in `cycle.sector_regions` (2 in a typical cycle --
+     * matching the reported "2 dashed grey circles" zoom artifact). Its
+     * radius formula was `extent_nm * degPerNm * width / lonSpan`, and
+     * since `degPerNm` is itself `lonSpan / 60`, the `lonSpan` term
+     * cancelled out completely -- the circle's on-screen radius was
+     * always exactly `extent_nm * width / 60`, a fixed pixel size that
+     * never scaled with the current zoom/view bounds at all,
+     * independent of how far the operator zoomed in or out. That's the
+     * same bug already diagnosed and fixed for hotspot rings (see the
+     * comment on `nmToPixels` below); this function was the one place
+     * it never got fixed. It's also functionally a duplicate of
+     * `drawComplexityRegions` below, which already draws these same
+     * regions properly (zoom-correct radius via `nmToPixels`, urgency-
+     * colored, with onset styling) -- i.e. exactly the kind of
+     * redundant range-ring clutter `drawGrid`'s concentric-rings removal
+     * (above) already decided against. Deleting the call entirely fixes
+     * the artifact rather than patching its math. */
 
     /** Hotspot ring style now reflects onset urgency (reusing the same
      * `urgencyBucket`/`urgencyColor` the alerts table and aircraft
@@ -1053,11 +1178,6 @@
     function drawComplexityRegions(ctx, project, bounds, width, regions, cycle) {
         const nowS = cycle.snapshot.timestamp_s;
         (regions || []).forEach((region) => {
-            const [cx, cy] = project(region.cluster.centroid_lat, region.cluster.centroid_lon);
-            const radiusPx = Math.max(
-                18,
-                nmToPixels(region.cluster.horizontal_extent_nm, region.cluster.centroid_lat, bounds, width)
-            );
             const track = nearestTrack(
                 region.cluster.centroid_lat,
                 region.cluster.centroid_lon,
@@ -1070,51 +1190,101 @@
             const dash = { soon: [], near: [6, 4], far: [3, 5], none: [3, 5] }[bucket];
             const lineWidth = bucket === "soon" ? 2.5 : 1.5;
 
-            // Soft glow instead of a flat filled disc: a radial gradient
-            // fading from a low peak opacity at the centroid to fully
-            // transparent at the edge, so it reads as a hazy overlay
-            // rather than an opaque wash that hides the traffic and map
-            // underneath it. Extends slightly past the ring itself
-            // (1.4x) so the fade-out is gradual, not a visible edge.
-            const glowRadius = radiusPx * 1.4;
-            const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowRadius);
-            glow.addColorStop(0, withAlpha(ringColor, 0.12));
-            glow.addColorStop(0.6, withAlpha(ringColor, 0.05));
-            glow.addColorStop(1, withAlpha(ringColor, 0));
+            // The polygon is the actual DBSCAN detection boundary, not a
+            // cosmetic shape: for every member aircraft, eps
+            // (SEPARATION_HORIZONTAL_NM) is the exact distance at which
+            // another aircraft would still be pulled into this hotspot.
+            // Ring each member with sample points at that radius and hull
+            // the union -- inside the polygon, a new aircraft would
+            // trigger membership; outside it, it wouldn't. This is
+            // deliberately independent of predicted trajectory (which
+            // shifts far more between polls than current position, and
+            // was why the old polygon expanded/jumped every cycle).
+            const epsPx = Math.max(18, nmToPixels(SEPARATION_HORIZONTAL_NM, region.cluster.centroid_lat, bounds, width));
+            const memberPositions = region.member_positions && region.member_positions.length > 0
+                ? region.member_positions
+                : (region.cluster.member_callsigns || [])
+                    .map((cs) => cycle.snapshot.aircraft.find((a) => a.callsign === cs))
+                    .filter(Boolean);
+
+            if (memberPositions.length === 0) {
+                return; // no known member positions this cycle -- nothing to draw
+            }
+
+            const RING_STEPS = 10;
+            const rawPoints = [];
+            memberPositions.forEach((mp) => {
+                const [mx, my] = project(mp.lat, mp.lon);
+                for (let i = 0; i < RING_STEPS; i++) {
+                    const angle = (Math.PI * 2 * i) / RING_STEPS;
+                    rawPoints.push({ x: mx + Math.cos(angle) * epsPx, y: my + Math.sin(angle) * epsPx });
+                }
+            });
+
+            // 1. Compute Convex Hull of the detection-boundary ring points
+            const hull = convexHull(rawPoints);
+
+            // 2. Smooth hull points across cycles to prevent flickering.
+            // Keyed by membership so a same-aircraft cluster doesn't lose
+            // its cache just because DBSCAN relabeled it this poll.
+            const cacheKey = region.cluster.member_callsigns
+                ? [...region.cluster.member_callsigns].sort().join(",")
+                : region.cluster.cluster_id;
+            const finalHull = smoothHullPoints(cacheKey, hull);
+
+            // 5. Draw Dynamic Convex Hull Polygon
+            ctx.save();
             ctx.beginPath();
-            ctx.fillStyle = glow;
-            ctx.arc(cx, cy, glowRadius, 0, Math.PI * 2);
+            ctx.moveTo(finalHull[0].x, finalHull[0].y);
+            for (let i = 1; i < finalHull.length; i++) {
+                ctx.lineTo(finalHull[i].x, finalHull[i].y);
+            }
+            ctx.closePath();
+
+            // Semi-transparent fill with urgency-colored borders
+            ctx.fillStyle = withAlpha(ringColor, 0.14);
             ctx.fill();
 
-            ctx.beginPath();
             ctx.setLineDash(dash);
             ctx.strokeStyle = ringColor;
-            ctx.globalAlpha = 0.7;
+            ctx.globalAlpha = 0.85;
             ctx.lineWidth = lineWidth;
-            ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2);
             ctx.stroke();
-            ctx.globalAlpha = 1;
             ctx.setLineDash([]);
-            // A soon-onset ring gets a second, slightly larger ring for a
-            // "target lock" look -- a static stand-in for a pulse animation
-            // that reads clearly even on a once-per-poll redraw.
+            ctx.restore();
+
+            // Target lock secondary outer polygon border for soon-onset hotspots
             if (bucket === "soon") {
+                const outerLock = expandPolygon(finalHull, 5);
+                ctx.save();
                 ctx.beginPath();
-                ctx.strokeStyle = withAlpha(ringColor, 0.4);
+                ctx.moveTo(outerLock[0].x, outerLock[0].y);
+                for (let i = 1; i < outerLock.length; i++) {
+                    ctx.lineTo(outerLock[i].x, outerLock[i].y);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = withAlpha(ringColor, 0.45);
                 ctx.lineWidth = 1;
-                ctx.arc(cx, cy, radiusPx + 5, 0, Math.PI * 2);
                 ctx.stroke();
+                ctx.restore();
             }
+
+            // Urgency Rank Badge rendered at top-right corner of polygon bounding box
             if (track && track.forecast_urgency_rank) {
+                const maxX = Math.max(...finalHull.map((p) => p.x));
+                const minY = Math.min(...finalHull.map((p) => p.y));
+                const badgeX = maxX - 2;
+                const badgeY = minY + 2;
+
                 ctx.beginPath();
                 ctx.fillStyle = ringColor;
-                ctx.arc(cx + radiusPx - 4, cy - radiusPx + 4, 8, 0, Math.PI * 2);
+                ctx.arc(badgeX, badgeY, 8, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.fillStyle = "#060a0f";
                 ctx.font = "bold 11px monospace";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
-                ctx.fillText(String(track.forecast_urgency_rank), cx + radiusPx - 4, cy - radiusPx + 5);
+                ctx.fillText(String(track.forecast_urgency_rank), badgeX, badgeY + 1);
                 ctx.textAlign = "left";
                 ctx.textBaseline = "alphabetic";
             }
@@ -1127,30 +1297,52 @@
      * Shared by `drawResolutionSolutionPath` (the magenta line) and
      * `drawScrubbedTraffic` (so the target aircraft's marker at a future
      * horizon reflects the proposed clearance instead of "do nothing"). */
-    /** Single source of truth for "what's currently selected for this
-     * track's resolution set" -- a numeric candidate index (clamped to
-     * the current candidate count, same as before) or the joint
-     * candidate (stored as the sentinel string `"joint"` in
-     * `ui.selectedCandidateIndex`, the same per-track map used for
-     * numeric indices). Every consumer (map preview, the chip list, the
-     * event panel's charts) calls this instead of re-deriving it, so
-     * they can't disagree with each other about what's selected. Falls
-     * back to candidate 0 if "joint" was selected but the track no
-     * longer has a joint_candidate this cycle (e.g. it dropped below 3
-     * members). */
-    function resolveActiveSelection(rs) {
+    /** Merges a track's single-aircraft candidates and multi-aircraft
+     * joint candidates into one array, sorted by `resolution_score`
+     * descending -- this is "the unified solution list" the Event panel
+     * numbers sequentially (Option 1, Option 2, ...) instead of showing
+     * two separately-numbered groups. Each entry keeps enough of its
+     * origin (`isJoint` + `index`/`jointIndex`) to resolve back to the
+     * original candidate/joint object for map preview and detail
+     * rendering. */
+    function buildUnifiedCandidates(rs) {
         if (!rs) {
-            return { isJoint: false, index: null, candidate: null };
+            return [];
+        }
+        const joints = rs.joint_candidates || (rs.joint_candidate ? [rs.joint_candidate] : []);
+        const regular = (rs.candidates || []).map((c, i) => ({
+            isJoint: false,
+            index: i,
+            jointIndex: null,
+            candidate: c,
+        }));
+        const jointItems = joints.map((jc, i) => ({
+            isJoint: true,
+            index: null,
+            jointIndex: i,
+            candidate: jc,
+        }));
+        return regular.concat(jointItems).sort((a, b) => b.candidate.resolution_score - a.candidate.resolution_score);
+    }
+
+    /** Single source of truth for "what's currently selected for this
+     * track's resolution set" -- an index into `buildUnifiedCandidates`'s
+     * merged, score-sorted list (candidates and joint candidates
+     * together). `ui.selectedCandidateIndex` stores exactly that index;
+     * every consumer (map preview, the chip list, the event panel's
+     * charts) calls this instead of re-deriving it, so they can't
+     * disagree with each other about what's selected. Clamps to the
+     * current list length so a stale index (e.g. the cluster shrank and
+     * there are fewer options this cycle) still resolves to something. */
+    function resolveActiveSelection(rs) {
+        const unified = buildUnifiedCandidates(rs);
+        if (!rs || unified.length === 0) {
+            return { isJoint: false, index: null, jointIndex: null, candidate: null, unifiedIndex: null, unified: [] };
         }
         const stored = ui.selectedCandidateIndex[rs.arhac_id];
-        if (stored === "joint" && rs.joint_candidate) {
-            return { isJoint: true, index: null, candidate: rs.joint_candidate };
-        }
-        if (rs.candidates.length === 0) {
-            return { isJoint: false, index: null, candidate: null };
-        }
-        const index = Math.min(typeof stored === "number" ? stored : 0, rs.candidates.length - 1);
-        return { isJoint: false, index, candidate: rs.candidates[index] };
+        const unifiedIndex = Math.min(Math.max(0, typeof stored === "number" ? stored : 0), unified.length - 1);
+        const picked = unified[unifiedIndex];
+        return { isJoint: picked.isJoint, index: picked.index, jointIndex: picked.jointIndex, candidate: picked.candidate, unifiedIndex, unified };
     }
 
     /** Short human label for a candidate's maneuver_kind/vector_duration_s
@@ -1169,70 +1361,94 @@
         return "";
     }
 
-    function getActiveResolutionCandidate(cycle) {
+    /** Every {target_callsign, hypothetical_path} pair the currently
+     * active resolution selection would apply -- one entry for a
+     * single-aircraft candidate, one per leg for a joint candidate.
+     * Each leg's own `hypothetical_path` is sliced server-side from the
+     * joint candidate's one combined re-prediction (see
+     * `serialize_resolution_leg` / `JointResolutionCandidate.
+     * hypothetical_prediction`), so every leg -- whether it's a heading
+     * change, a speed change, or a mix across 2-3 aircraft -- has its
+     * own real post-clearance path to draw, not just the primary leg.
+     * This is the single shared source every solution-preview consumer
+     * (the pink line, the scrubbed marker, hit-testing) reads from, so
+     * a joint pick is drawn/scrubbed identically to a single-aircraft
+     * one instead of silently showing nothing. Returns `[]` if nothing
+     * is selected or the selection has no usable path yet. */
+    function getActiveResolutionLegs(cycle) {
         const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
         if (!track) {
-            return null;
+            return [];
         }
         const rs = cycle.resolution_sets.find((r) => r.arhac_id === track.arhac_id);
         const sel = resolveActiveSelection(rs);
-        // A joint candidate has no single target_callsign/hypothetical_path
-        // (it's 2-3 simultaneous per-aircraft legs, see serializers.py) --
-        // nothing sane to draw as "the" magenta preview line, so skip it
-        // rather than passing an object callers don't expect.
-        return sel.isJoint ? null : sel.candidate;
+        if (!sel.candidate) {
+            return [];
+        }
+        if (sel.isJoint) {
+            return (sel.candidate.legs || [])
+                .filter((leg) => leg.hypothetical_path && leg.hypothetical_path.length > 0)
+                .map((leg) => ({ target_callsign: leg.target_callsign, hypothetical_path: leg.hypothetical_path }));
+        }
+        if (!sel.candidate.hypothetical_path || sel.candidate.hypothetical_path.length === 0) {
+            return [];
+        }
+        return [{ target_callsign: sel.candidate.target_callsign, hypothetical_path: sel.candidate.hypothetical_path }];
     }
 
-    /** The resolution candidate currently being previewed in the Event
+    /** The resolution candidate(s) currently being previewed in the Event
      * panel (whichever track is focused there, whichever chip is active) --
      * drawn on the map as a magenta line so it's clear which way the
      * proposed clearance actually sends the aircraft, not just that a
-     * clearance exists. Draws nothing if no track is focused or the
-     * focused track has no eligible candidates.
+     * clearance exists. Draws one line per `getActiveResolutionLegs`
+     * entry -- a single line for a single-aircraft candidate, one line
+     * per aircraft for a joint candidate (2-3 simultaneous legs, heading
+     * and/or speed changes mixed) -- so a joint pick is never silently
+     * blank the way it used to be. Draws nothing if no track is focused
+     * or the focused track has no eligible candidates.
      *
-     * Note on what this line represents: each candidate is a single
-     * constant clearance change (e.g. one heading step, held from the
-     * observed position onward) evaluated at one horizon -- not a
-     * multi-leg "turn away, then turn back onto a waypoint" maneuver.
-     * The line drawn here is exactly that: a kink at the observed
-     * position, then straight to the hypothetical horizon point(s). A
-     * dogleg-back-to-course maneuver would need a resolution-engine
-     * change (multi-leg candidate generation), not just a rendering one.
+     * Note on what each line represents: a single leg is one constant
+     * clearance change (e.g. one heading step, held from the observed
+     * position onward) evaluated at one horizon -- not a multi-leg
+     * "turn away, then turn back onto a waypoint" maneuver. The line
+     * drawn here is exactly that: a kink at the observed position, then
+     * straight to the hypothetical horizon point(s). A dogleg-back-to-
+     * course maneuver would need a resolution-engine change (multi-leg
+     * candidate generation), not just a rendering one.
      */
     function drawResolutionSolutionPath(ctx, project, cycle) {
-        const candidate = getActiveResolutionCandidate(cycle);
-        if (!candidate || !candidate.hypothetical_path || candidate.hypothetical_path.length === 0) {
-            return;
-        }
-        const observed = cycle.snapshot.aircraft.find((ac) => ac.callsign === candidate.target_callsign);
-        if (!observed) {
-            return;
-        }
-        const points = [...candidate.hypothetical_path].sort((a, b) => a.horizon_min - b.horizon_min);
+        const legs = getActiveResolutionLegs(cycle);
+        legs.forEach((leg) => {
+            const observed = cycle.snapshot.aircraft.find((ac) => ac.callsign === leg.target_callsign);
+            if (!observed) {
+                return;
+            }
+            const points = [...leg.hypothetical_path].sort((a, b) => a.horizon_min - b.horizon_min);
 
-        ctx.setLineDash([9, 3]);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = SOLUTION_COLOR;
-        ctx.beginPath();
-        const [sx, sy] = project(observed.lat, observed.lon);
-        ctx.moveTo(sx, sy);
-        points.forEach((p) => {
-            const [px, py] = project(p.lat, p.lon);
-            ctx.lineTo(px, py);
+            ctx.setLineDash([9, 3]);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = SOLUTION_COLOR;
+            ctx.beginPath();
+            const [sx, sy] = project(observed.lat, observed.lon);
+            ctx.moveTo(sx, sy);
+            points.forEach((p) => {
+                const [px, py] = project(p.lat, p.lon);
+                ctx.lineTo(px, py);
+            });
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Small filled diamond at the far end so the proposed heading's
+            // direction is unambiguous even on a short line.
+            const last = points[points.length - 1];
+            const [ex, ey] = project(last.lat, last.lon);
+            ctx.save();
+            ctx.translate(ex, ey);
+            ctx.rotate(Math.PI / 4);
+            ctx.fillStyle = SOLUTION_COLOR;
+            ctx.fillRect(-4, -4, 8, 8);
+            ctx.restore();
         });
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Small filled diamond at the far end so the proposed heading's
-        // direction is unambiguous even on a short line.
-        const last = points[points.length - 1];
-        const [ex, ey] = project(last.lat, last.lon);
-        ctx.save();
-        ctx.translate(ex, ey);
-        ctx.rotate(Math.PI / 4);
-        ctx.fillStyle = SOLUTION_COLOR;
-        ctx.fillRect(-4, -4, 8, 8);
-        ctx.restore();
     }
 
     /** Where each aircraft is *currently drawn* at `ui.selectedHorizon`
@@ -1245,9 +1461,10 @@
         if (ui.selectedHorizon === 0) {
             return cycle.snapshot.aircraft.find((ac) => ac.callsign === callsign) || null;
         }
-        const candidate = getActiveResolutionCandidate(cycle);
-        if (candidate && candidate.target_callsign === callsign && candidate.hypothetical_path) {
-            const hypo = interpolatePredictedPoint(candidate.hypothetical_path, ui.selectedHorizon, null);
+        const legs = getActiveResolutionLegs(cycle);
+        const leg = legs.find((l) => l.target_callsign === callsign);
+        if (leg) {
+            const hypo = interpolatePredictedPoint(leg.hypothetical_path, ui.selectedHorizon, null);
             if (hypo) {
                 return { callsign, lat: hypo.lat, lon: hypo.lon, altitude_ft: hypo.altitude_ft };
             }
@@ -1288,8 +1505,19 @@
      * (`drawHotspotMemberTrajectories`), so both contexts render the
      * exact same style.
      *
-     * Deliberately always uses `cycle.prediction.paths[callsign]` --
-     * this used to also special-case the active resolution candidate's
+     * Prefers `cycle.routes[callsign]` -- the aircraft's own real
+     * remaining waypoints, straight from the flight plan/route
+     * provider -- when one is known, so the line runs all the way to
+     * the aircraft's actual final route/transfer waypoint regardless of
+     * where the fixed prediction-horizon set (5/10/15/30/60 min) happens
+     * to cut off. Falls back to `cycle.prediction.paths[callsign]`
+     * (horizon-sampled, and itself now capped at the route end rather
+     * than projecting past it -- see `RouteAwareTrajectoryEngine`) for
+     * any aircraft with no known route (e.g. vectored traffic).
+     *
+     * Deliberately always uses the aircraft's *current* route/prediction,
+     * never the active resolution candidate's `hypothetical_path` -- this
+     * used to also special-case the active resolution candidate's
      * target aircraft and substitute `candidate.hypothetical_path`
      * here, which is the *proposed* path, not the current one. That
      * made the white line silently become an exact copy of the pink
@@ -1306,7 +1534,10 @@
         if (!observed) {
             return;
         }
-        const points = (cycle.prediction.paths[callsign] || []).slice().sort((a, b) => a.horizon_min - b.horizon_min);
+        const route = (cycle.routes && cycle.routes[callsign]) || null;
+        const points = route && route.length > 0
+            ? route.map((wp) => ({ lat: wp.lat, lon: wp.lon }))
+            : (cycle.prediction.paths[callsign] || []).slice().sort((a, b) => a.horizon_min - b.horizon_min);
 
         ctx.setLineDash([2, 3]);
         ctx.lineWidth = 1.5;
@@ -1567,17 +1798,51 @@
      * @param {object} ac - {callsign, lat, lon, altitude_ft, heading_deg?, ground_speed_kt?}
      * @param {{color?: string, showHeading?: boolean}} opts
      */
+    function getAircraftStatusInSelectedAlert(cycle, callsign) {
+        if (!cycle || !ui.selectedArhacId) return { isInvolved: false, isAction: false, isAffected: false };
+        const track = (cycle.tracks || []).find((t) => t.arhac_id === ui.selectedArhacId);
+        if (!track || !(track.member_aircraft || []).includes(callsign)) {
+            return { isInvolved: false, isAction: false, isAffected: false };
+        }
+        const rs = (cycle.resolution_sets || []).find((r) => r.arhac_id === track.arhac_id);
+        const sel = resolveActiveSelection(rs);
+        const actionCallsigns = new Set();
+        if (sel && sel.candidate) {
+            if (sel.isJoint && sel.candidate.legs) {
+                sel.candidate.legs.forEach((l) => actionCallsigns.add(l.target_callsign));
+            } else if (sel.candidate.target_callsign) {
+                actionCallsigns.add(sel.candidate.target_callsign);
+            }
+        }
+        const isAction = actionCallsigns.has(callsign);
+        return {
+            isInvolved: true,
+            isAction: isAction,
+            isAffected: !isAction,
+        };
+    }
+
+    /** One aircraft marker: airplane silhouette + speed leader line (when
+     * heading/speed are known -- observed/interpolated traffic) or a plain
+     * dot (predicted-horizon points only carry a position, no heading), plus
+     * a boxed data-block label.
+     *
+     * `opts.isFocus` mirrors the highlight map's `bucket === "focus"` --
+     * whether this particular aircraft IS the active alert/sector focus
+     * (as opposed to just "some aircraft drawn while a focus mode
+     * happens to be active"). It drives the forced-label behaviour
+     * below; see the comment at its use.
+     */
     function drawAircraftMarker(ctx, project, ac, opts) {
         const options = opts || {};
         const color = options.color || AIRCRAFT_COLOR;
         const opacity = options.opacity === undefined ? 1 : options.opacity;
+        const cycle = window.__astraLastCycle;
         const [x, y] = project(ac.lat, ac.lon);
 
         if (options.showHeading && ac.heading_deg !== undefined && ac.heading_deg !== null) {
             const headingRad = (ac.heading_deg * Math.PI) / 180;
-            // Speed leader line -- standard radar "velocity vector": length
-            // scales with ground speed so a fast jet visibly reaches further
-            // ahead of its own symbol than a slow one, at a glance.
+            // Speed leader line -- standard radar "velocity vector"
             const gs = ac.ground_speed_kt || 0;
             const leaderLen = Math.max(10, Math.min(40, gs / 10));
             const lx = x + Math.sin(headingRad) * leaderLen;
@@ -1591,13 +1856,17 @@
             ctx.stroke();
             ctx.globalAlpha = opacity;
 
+            // Simple aircraft symbol: a plain triangle pointing in the
+            // direction of travel (swapped out for the earlier multi-point
+            // "airplane silhouette" to keep the radar picture readable).
             ctx.save();
             ctx.translate(x, y);
             ctx.rotate(headingRad);
             ctx.beginPath();
             ctx.moveTo(0, -7);
-            ctx.lineTo(4, 6);
-            ctx.lineTo(-4, 6);
+            ctx.lineTo(5, 6);
+            ctx.lineTo(0, 3);
+            ctx.lineTo(-5, 6);
             ctx.closePath();
             ctx.fillStyle = color;
             ctx.fill();
@@ -1610,7 +1879,35 @@
             ctx.fill();
         }
 
-        if (ui.showAircraftLabels) {
+        // Label visibility (requirements 4 & 5.1/5.2):
+        //   - Baseline Overall FIR (no alert, no sector picked): the
+        //     operator's global "Aircraft Labels" toggle alone decides,
+        //     for every aircraft -- unchanged from before.
+        //   - A focus is active (an alert selected, or a sector manually
+        //     picked with none active): the focus aircraft's label is
+        //     FORCED on, even if the global toggle is off, and no other
+        //     aircraft's label is shown even if the toggle is on. This
+        //     also fixes Sector Selection Mode, which previously never
+        //     showed a single label there (it only ever checked alert
+        //     membership via `getAircraftStatusInSelectedAlert`, which is
+        //     always false with no alert selected) -- `options.isFocus`
+        //     comes from the highlight map's own bucket, so it's correct
+        //     for both an alert focus and a sector focus.
+        //   - Clearing the alert/sector and returning to Overall FIR is
+        //     just `inFocusMode` becoming false again, so the operator's
+        //     original global preference takes back over automatically --
+        //     nothing to separately "restore".
+        const inFocusMode = ui.displayMode !== "overall";
+        const showLabel = inFocusMode ? !!options.isFocus : ui.showAircraftLabels;
+        if (showLabel) {
+            const status = getAircraftStatusInSelectedAlert(cycle, ac.callsign);
+            let badgeColor = color;
+            if (status.isAction) {
+                badgeColor = ACTION_AIRCRAFT_COLOR; // Bright Pink
+            } else if (status.isAffected) {
+                badgeColor = AFFECTED_AIRCRAFT_COLOR; // Light Pink
+            }
+
             const label = `${ac.callsign} FL${Math.round(ac.altitude_ft / 100)}`;
             ctx.font = "12px monospace";
             const textWidth = ctx.measureText(label).width;
@@ -1619,12 +1916,12 @@
             ctx.globalAlpha = opacity;
             ctx.fillStyle = "rgba(6, 10, 15, 0.72)";
             ctx.fillRect(boxX - 3, boxY - 2, textWidth + 6, 16);
-            ctx.strokeStyle = color;
-            ctx.globalAlpha = 0.7 * opacity;
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = badgeColor;
+            ctx.globalAlpha = (status.isAction || status.isAffected ? 1.0 : 0.7) * opacity;
+            ctx.lineWidth = status.isAction ? 1.8 : 1.2;
             ctx.strokeRect(boxX - 3, boxY - 2, textWidth + 6, 16);
             ctx.globalAlpha = opacity;
-            ctx.fillStyle = "#d7e2ea";
+            ctx.fillStyle = status.isAction ? ACTION_AIRCRAFT_COLOR : (status.isAffected ? AFFECTED_AIRCRAFT_COLOR : "#d7e2ea");
             ctx.fillText(label, boxX, y + 3);
         }
         ctx.globalAlpha = 1;
@@ -1683,27 +1980,34 @@
                     color: h ? h.color : AIRCRAFT_COLOR,
                     opacity: h ? h.opacity : 1,
                     showHeading: true,
+                    isFocus: h ? h.bucket === "focus" : false,
                 });
             });
             return;
         }
         // If a resolution candidate is currently being previewed, its
-        // target aircraft is drawn at the *hypothetical* (post-clearance)
-        // position instead of the do-nothing prediction, in the solution
-        // color -- so scrubbing the horizon forward actually shows the
-        // aircraft turning onto the proposed heading, matching the
-        // magenta line drawn by `drawResolutionSolutionPath`. Every other
-        // aircraft is unaffected (still the plain predicted position).
-        const candidate = getActiveResolutionCandidate(cycle);
-        const hypoPoint =
-            candidate && candidate.hypothetical_path
-                ? interpolatePredictedPoint(candidate.hypothetical_path, horizonMin, null)
-                : null;
+        // target aircraft (every leg's target, for a joint candidate) is
+        // drawn at the *hypothetical* (post-clearance) position instead
+        // of the do-nothing prediction, in the solution color -- so
+        // scrubbing the horizon forward actually shows each aircraft
+        // turning onto/adjusting to its proposed clearance, matching the
+        // magenta line(s) drawn by `drawResolutionSolutionPath`. Every
+        // other aircraft is unaffected (still the plain predicted
+        // position).
+        const legs = getActiveResolutionLegs(cycle);
+        const hypoPointByCallsign = new Map();
+        legs.forEach((leg) => {
+            const hypo = interpolatePredictedPoint(leg.hypothetical_path, horizonMin, null);
+            if (hypo) {
+                hypoPointByCallsign.set(leg.target_callsign, hypo);
+            }
+        });
 
         const observedByCallsign = new Map(cycle.snapshot.aircraft.map((ac) => [ac.callsign, ac]));
 
         Object.entries(cycle.prediction.paths).forEach(([callsign, points]) => {
-            const isHypoTarget = candidate && callsign === candidate.target_callsign && hypoPoint;
+            const hypoPoint = hypoPointByCallsign.get(callsign);
+            const isHypoTarget = !!hypoPoint;
             const atHorizon = isHypoTarget ? hypoPoint : interpolatePredictedPoint(points, horizonMin, observedByCallsign.get(callsign));
             if (!atHorizon) {
                 return;
@@ -1717,6 +2021,7 @@
                     color: isHypoTarget ? SOLUTION_COLOR : h ? h.color : "#e0a63c",
                     opacity: h ? h.opacity : 1,
                     showHeading: false,
+                    isFocus: h ? h.bucket === "focus" : false,
                 }
             );
         });
@@ -1852,6 +2157,34 @@
             return !ui.hiddenSectorNames.has(name);
         });
         if (eventMode && targetSectorName) {
+            // Find sectors containing involved aircraft (e.g. Aircraft B approaching from Sector 2)
+            const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
+            const involved = new Set(track ? track.member_aircraft : []);
+            const adjacentSectors = new Set();
+            cycle.snapshot.aircraft.forEach((ac) => {
+                if (involved.has(ac.callsign)) {
+                    const sec = findSectorNameForPoint(ac.lat, ac.lon);
+                    if (sec && sec !== targetSectorName) {
+                        adjacentSectors.add(sec);
+                    }
+                }
+            });
+
+            // 1. Draw Adjacent Involved Sector(s) in medium-dark gray
+            adjacentSectors.forEach((secName) => {
+                const adjSectorStyle = { stroke: "#4a5568", fill: "rgba(45, 52, 62, 0.45)", width: 1, dash: [4, 4] };
+                sectorFeaturesByName(secName).forEach((feature) => {
+                    if (feature.geometry.type === "Polygon") {
+                        geoLayers._drawPolygon(ctx, project, adjSectorStyle, feature.geometry.coordinates, secName);
+                    } else if (feature.geometry.type === "MultiPolygon") {
+                        feature.geometry.coordinates.forEach((poly) =>
+                            geoLayers._drawPolygon(ctx, project, adjSectorStyle, poly, secName)
+                        );
+                    }
+                });
+            });
+
+            // 2. Draw Active Event Sector in standard bright gray workspace fill
             const eventSectorStyle = { stroke: "#35c3a3", fill: "rgba(90, 100, 110, 0.55)", width: 1.5, dash: [] };
             sectorFeaturesByName(targetSectorName).forEach((feature) => {
                 if (feature.geometry.type === "Polygon") {
@@ -1863,7 +2196,10 @@
                 }
             });
         }
-        drawSectorBoundaries(ctx, project, bounds, width, cycle.sector_regions);
+        // drawSectorBoundaries(...) call removed here -- see the comment
+        // at its old definition above (zoom-artifact bug fix); the
+        // regions it drew are already covered by drawComplexityRegions
+        // just below.
         // Complexity regions are only ever computed at the backend's real
         // horizons (10-min steps) -- unlike aircraft, which now interpolate
         // every 1-min slider step, there's no sane way to "interpolate" a
@@ -1916,8 +2252,7 @@
         return bucket === "none" ? "" : `onset-${bucket}`;
     }
 
-    /** Sector label for a track's row (Alerts Table) / aircraft table
-     * "Action sector" column.
+    /** Sector label for a track's row in the Alerts Table's Sector column.
      *
      * Prefers `track.sector_label` -- the backend's canonical
      * "HCM-S<number>" label (scenario_geo.hcm_sector_label), which
@@ -2041,7 +2376,7 @@
      * see MockConnector.set_speed_multiplier -- so it speeds up how fast
      * tracks/forecasts play out without changing how often the browser
      * itself refreshes. */
-    const SPEED_MULTIPLIERS = [1, 2, 5, 10, 20];
+    const SPEED_MULTIPLIERS = [1, 2, 5, 10, 20, 60];
 
     function setupSpeedButtons() {
         const container = document.getElementById("speed-buttons");
@@ -2067,6 +2402,29 @@
             } catch (e) {
                 // Live-BlueSky mode or server hiccup -- button state already
                 // reflects the click; nothing further to show here.
+            }
+        });
+    }
+
+    /** Toggles the Sim Speed button's dropdown panel open/closed --
+     * same show/hide-on-outside-click pattern as setupOptionsDropdown,
+     * just for the new dropdown next to it. The speed buttons
+     * themselves are built/wired by setupSpeedButtons(), called
+     * separately at startup. */
+    function setupSpeedDropdown() {
+        const btn = document.getElementById("speed-btn");
+        const panel = document.getElementById("speed-panel");
+        const wrap = document.getElementById("speed-dropdown");
+        if (!btn || !panel || !wrap) {
+            return;
+        }
+        btn.addEventListener("click", (evt) => {
+            evt.stopPropagation();
+            panel.classList.toggle("hidden");
+        });
+        document.addEventListener("click", (evt) => {
+            if (!wrap.contains(evt.target)) {
+                panel.classList.add("hidden");
             }
         });
     }
@@ -2173,9 +2531,16 @@
     }
 
     /** Before/after complexity rings (linked by an arrow) plus a confidence bar,
-     * mirroring the reference ASTRA Event & Dissipation panel layout. */
+     * mirroring the reference ASTRA Event & Dissipation panel layout.
+     * With no track selected (the default state), shows a plain
+     * "No Alert Selected" status line instead of rings/confidence --
+     * there's no complexity or confidence to speak of without an alert. */
     function renderComplexityReduction(track, candidate) {
         const container = document.getElementById("complexity-reduction");
+        if (!track) {
+            container.innerHTML = '<div class="complexity-reduction-empty">No Alert Selected</div>';
+            return;
+        }
         const before = candidate ? candidate.complexity_before : track.current_complexity_score;
         const after = candidate ? candidate.complexity_after : null;
         const afterKnown = after !== null && after !== undefined;
@@ -2255,41 +2620,53 @@
     const CANDIDATE_PAGE_SIZE = 5;
 
     /** Numbered "solution proposal" chips (one per ranked candidate, up to
-     * `CANDIDATE_PAGE_SIZE` at a time with </> paging beyond that), an
-     * optional trailing "J" chip for a multi-aircraft joint_candidate,
-     * and a detail line for whichever is currently active. Paging always
+     * `CANDIDATE_PAGE_SIZE` at a time with </> paging beyond that), one
+     * "J1"/"J2".../"J" chip per diverse multi-aircraft joint candidate
+     * (multiple lever-combination joint candidates, not just one), and a
+     * detail line for whichever is currently active. Paging always
      * follows selection -- the visible page is derived from the active
      * index/joint state (`resolveActiveSelection`), not tracked
      * separately, so they can never fall out of sync with each other. */
-    function renderCandidateList(rs, onSelectCandidate, onSelectJoint) {
+    /** Numbered "solution proposal" chips -- one per ranked candidate
+     * *or* joint candidate, merged into a single score-sorted sequence
+     * and numbered "1, 2, 3, ..." (up to `CANDIDATE_PAGE_SIZE` at a time
+     * with </> paging beyond that), with a small magenta marker on
+     * whichever chips are multi-aircraft joint solutions -- and a detail
+     * line for whichever is currently active. Paging always follows
+     * selection -- the visible page is derived from the active unified
+     * index (`resolveActiveSelection`), not tracked separately, so they
+     * can never fall out of sync with each other. */
+    function renderCandidateList(rs, onSelectUnified) {
         const container = document.getElementById("candidate-list");
-        if (!rs || (rs.candidates.length === 0 && !rs.joint_candidate)) {
+        const sel = resolveActiveSelection(rs);
+        const unified = sel.unified;
+        if (unified.length === 0) {
             container.innerHTML = '<p class="panel-hint">No eligible resolution candidates this cycle.</p>';
             return;
         }
-        const sel = resolveActiveSelection(rs);
-        const totalPages = Math.max(1, Math.ceil(rs.candidates.length / CANDIDATE_PAGE_SIZE));
-        const currentPage = sel.isJoint ? 0 : Math.floor((sel.index || 0) / CANDIDATE_PAGE_SIZE);
+        const totalPages = Math.max(1, Math.ceil(unified.length / CANDIDATE_PAGE_SIZE));
+        const currentPage = Math.floor((sel.unifiedIndex || 0) / CANDIDATE_PAGE_SIZE);
         const pageStart = currentPage * CANDIDATE_PAGE_SIZE;
-        const pageCandidates = rs.candidates.slice(pageStart, pageStart + CANDIDATE_PAGE_SIZE);
-        const needsPaging = rs.candidates.length > CANDIDATE_PAGE_SIZE;
+        const pageItems = unified.slice(pageStart, pageStart + CANDIDATE_PAGE_SIZE);
+        const needsPaging = unified.length > CANDIDATE_PAGE_SIZE;
 
-        const chipsHtml = pageCandidates
-            .map((_, i) => {
+        const chipsHtml = pageItems
+            .map((item, i) => {
                 const idx = pageStart + i;
-                const active = !sel.isJoint && idx === sel.index;
-                return `<button class="candidate-chip ${active ? "active" : ""}" data-idx="${idx}">${idx + 1}</button>`;
+                const active = idx === sel.unifiedIndex;
+                const jointClass = item.isJoint ? "candidate-chip-joint" : "";
+                const title = item.isJoint
+                    ? ` title="Joint multi-aircraft solution: ${item.candidate.legs.map((leg) => `${leg.target_callsign} ${leg.clearance_type}`).join(" + ")}"`
+                    : "";
+                return `<button type="button" class="candidate-chip ${jointClass} ${active ? "active" : ""}" data-idx="${idx}"${title}>${idx + 1}</button>`;
             })
             .join("");
         const prevArrow = `<button type="button" class="candidate-page-arrow" data-dir="prev" ${currentPage <= 0 ? "disabled" : ""}>&lsaquo;</button>`;
         const nextArrow = `<button type="button" class="candidate-page-arrow" data-dir="next" ${currentPage >= totalPages - 1 ? "disabled" : ""}>&rsaquo;</button>`;
-        const jointChipHtml = rs.joint_candidate
-            ? `<button type="button" class="candidate-chip candidate-chip-joint ${sel.isJoint ? "active" : ""}" data-joint="1" title="Joint multi-aircraft solution">J</button>`
-            : "";
 
         let detailHtml = "";
         if (sel.isJoint) {
-            const jc = rs.joint_candidate;
+            const jc = sel.candidate;
             const scoreClass = jc.resolution_score >= 0 ? "cand-score-positive" : "cand-score-negative";
             const legsHtml = jc.legs
                 .map((leg) => {
@@ -2309,6 +2686,7 @@
                 <div class="joint-label">Joint solution &middot; ${jc.legs.length} aircraft</div>
                 ${legsHtml}
                 <span class="${scoreClass}">score ${fmt(jc.resolution_score, 2)}</span>
+                <span class="cand-impact">complexity -${fmt(jc.complexity_delta_norm * 100, 0)}%</span>
             </div>`;
         } else if (sel.candidate) {
             const c = sel.candidate;
@@ -2325,30 +2703,30 @@
             </div>`;
         }
 
+        const horizonNote = rs.horizons_evaluated && rs.horizons_evaluated.length > 1
+            ? `Solution proposal (recommended +${rs.evaluated_horizon_min} min, evaluated across +${rs.horizons_evaluated.join("/")} min)`
+            : `Solution proposal (evaluated at +${rs.evaluated_horizon_min} min)`;
+
         container.innerHTML = `
-            <div class="panel-hint" style="margin-bottom:6px;">Solution proposal (evaluated at +${rs.evaluated_horizon_min} min)</div>
+            <div class="panel-hint" style="margin-bottom:6px;">${horizonNote}</div>
             <div class="candidate-chips">
-                ${needsPaging ? prevArrow : ""}${chipsHtml}${needsPaging ? nextArrow : ""}${jointChipHtml}
+                ${needsPaging ? prevArrow : ""}${chipsHtml}${needsPaging ? nextArrow : ""}
             </div>
             ${detailHtml}`;
 
         container.querySelectorAll(".candidate-chip[data-idx]").forEach((chip) => {
-            chip.addEventListener("click", () => onSelectCandidate(Number(chip.dataset.idx)));
+            chip.addEventListener("click", () => onSelectUnified(Number(chip.dataset.idx)));
         });
-        const jointChip = container.querySelector(".candidate-chip-joint");
-        if (jointChip && onSelectJoint) {
-            jointChip.addEventListener("click", onSelectJoint);
-        }
         container.querySelectorAll(".candidate-page-arrow").forEach((btn) => {
             if (btn.disabled) {
                 return;
             }
             btn.addEventListener("click", () => {
                 const targetPage = btn.dataset.dir === "prev" ? currentPage - 1 : currentPage + 1;
-                // Jump selection to the first candidate of the target page --
+                // Jump selection to the first item of the target page --
                 // the page shown next render is derived from this, per the
                 // "paging follows selection" design above.
-                onSelectCandidate(Math.min(rs.candidates.length - 1, Math.max(0, targetPage * CANDIDATE_PAGE_SIZE)));
+                onSelectUnified(Math.min(unified.length - 1, Math.max(0, targetPage * CANDIDATE_PAGE_SIZE)));
             });
         });
     }
@@ -2369,38 +2747,101 @@
         return "Trajectory change";
     }
 
+    //: Cap on how many aircraft the "no alert selected" default state
+    //: lists in the aircraft table -- general traffic, not tied to any
+    //: hotspot, so there's no natural "all of them" list to fall back to.
+    const DEFAULT_TRAFFIC_ROW_LIMIT = 10;
+
     /** Renders the Event panel's aircraft table -- one row per aircraft
      * in the selected track (`track.member_aircraft`), styled as a
-     * nested box directly under the solution proposal selector, the
-     * second of the merged Event Box's three sections (selector /
-     * table / action details).
+     * nested box directly under the solution proposal selector.
      *
-     * Every row is at least "affected" (light pink) -- it's a member of
-     * this track, i.e. already part of the hotspot -- and "action"
-     * (bright pink, sorted to the top) when it's also the target of
-     * whichever candidate/leg is currently active (`sel`, from
-     * `resolveActiveSelection`); those two tiers reuse the app's
-     * existing AIRCRAFT_COLOR/--aircraft-light-pink pair rather than
-     * introducing new colors. Action rows additionally get an "Act
-     * by"/"Action sector" value; the *description* of what's being done
-     * to them (e.g. "Horizontal trajectory change") lives in the
-     * separate Action details section below the table, not inline here
-     * -- see `renderEventActionDetails`. Uninvolved rows show '-' for
-     * Act by/Action sector. FL/groundspeed/vertical rate come straight
+     * Every row is at least "affected" (light pink outline on the
+     * callsign) -- it's a member of this track, i.e. already part of
+     * the hotspot -- and "action" (bright pink, sorted to the top)
+     * when it's also the target of whichever candidate/leg is
+     * currently active (`sel`, from `resolveActiveSelection`); those
+     * two tiers reuse the app's existing AIRCRAFT_COLOR/
+     * --aircraft-light-pink pair rather than introducing new colors.
+     * Action rows additionally get an "Act by" value and a detail row
+     * directly beneath them describing the change (e.g. "Horizontal
+     * trajectory change") -- this is the "selected solution details"
+     * surfaced right where the affected aircraft is. Uninvolved rows
+     * show '-' for Act by. FL/groundspeed/vertical rate come straight
      * from the aircraft's current observed state
      * (`cycle.snapshot.aircraft`); FL's "target" half additionally
      * reflects the candidate's delta_value when it's a FLIGHT_LEVEL
      * clearance, since that's the only column this data model can
      * compute a genuine before/after for. Clicking a row pans the map
      * to that aircraft (the one piece of the old, now-removed Aircraft
-     * Box worth keeping here). */
+     * Box worth keeping here).
+     *
+     * With no track selected (the default "no alert selected" state --
+     * `track` is `null`), falls back to listing traffic instead of an
+     * empty table: no tiers, no Act by, nothing to click into -- just
+     * "what's flying right now". Two variants of that fallback:
+     *   - No sector picked either (`ui.displayMode === "overall"`):
+     *     general traffic, capped at `DEFAULT_TRAFFIC_ROW_LIMIT`,
+     *     callsign order -- there's no natural "all of them" list to
+     *     fall back to otherwise.
+     *   - A sector WAS manually picked (Sector Selection Mode --
+     *     `ui.displayMode` is that sector's name): the table shows ONLY
+     *     the aircraft physically inside that sector right now, with no
+     *     row cap (requirement 5.3 -- this is meant to be the complete
+     *     sector picture, not a capped preview). */
     function renderEventAircraftTable(cycle, track, rs, sel) {
         const tbody = document.getElementById("event-aircraft-tbody");
         if (!tbody) {
             return;
         }
-        if (!track || !track.member_aircraft || track.member_aircraft.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No aircraft in this event.</td></tr>';
+
+        if (!track) {
+            // A sector is "selected" for table-filtering purposes only
+            // when the operator manually picked one with no alert active
+            // -- ui.displayMode is then that sector's literal name,
+            // never "overall" or "event" (an active-but-track-less
+            // "event" mode, e.g. a just-closed alert, isn't a sector
+            // pick and falls back to general traffic like "overall" does).
+            const targetSectorName =
+                ui.displayMode !== "overall" && ui.displayMode !== "event" ? getTargetSectorName(cycle) : null;
+            const pool = targetSectorName
+                ? cycle.snapshot.aircraft.filter((ac) => findSectorNameForPoint(ac.lat, ac.lon) === targetSectorName)
+                : cycle.snapshot.aircraft;
+            const sorted = [...pool].sort((a, b) => a.callsign.localeCompare(b.callsign));
+            const general = targetSectorName ? sorted : sorted.slice(0, DEFAULT_TRAFFIC_ROW_LIMIT);
+            if (general.length === 0) {
+                const emptyMessage = targetSectorName ? "No aircraft in this sector." : "No aircraft in view.";
+                tbody.innerHTML = `<tr><td colspan="5" class="empty-row">${emptyMessage}</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = general
+                .map((ac) => {
+                    const fl = Math.round(ac.altitude_ft / 100);
+                    const gs = Math.round(ac.ground_speed_kt);
+                    const vs = Math.round(ac.vertical_speed_fpm);
+                    return `
+                <tr class="event-ac-row" data-callsign="${ac.callsign}">
+                    <td><span class="event-ac-callsign">${ac.callsign}</span></td>
+                    <td>${fl} - ${fl}</td>
+                    <td>${gs}</td>
+                    <td>${vs}</td>
+                    <td>-</td>
+                </tr>`;
+                })
+                .join("");
+            tbody.querySelectorAll(".event-ac-row").forEach((row) => {
+                row.addEventListener("click", () => {
+                    const ac = cycle.snapshot.aircraft.find((a) => a.callsign === row.dataset.callsign);
+                    if (ac) {
+                        panMapTo(ac.lat, ac.lon);
+                    }
+                });
+            });
+            return;
+        }
+
+        if (!track.member_aircraft || track.member_aircraft.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-row">No aircraft in this event.</td></tr>';
             return;
         }
 
@@ -2419,7 +2860,6 @@
             track.predicted_onset_s !== null && track.predicted_dissipation_s !== null
                 ? `${clockFmtHM(track.predicted_onset_s)} - ${clockFmtHM(track.predicted_dissipation_s)}`
                 : clockFmtHM(track.predicted_onset_s);
-        const actionSectorLabel = nearestSectorName(track, cycle);
 
         // Action aircraft (has an active leg) pinned to the top, then
         // affected-only aircraft, alphabetical within each tier.
@@ -2446,16 +2886,22 @@
                 const tier = leg ? "action" : "affected";
                 const callsignCell = leg
                     ? `<span class="event-ac-callsign action">${callsign} <span class="event-ac-badge">H</span></span>`
-                    : `<span class="event-ac-callsign">${callsign}</span>`;
-                return `
-                <tr class="event-ac-row ${tier}" data-callsign="${callsign}">
+                    : `<span class="event-ac-callsign affected">${callsign}</span>`;
+                const row = `
+                <tr class="event-ac-row" data-callsign="${callsign}">
                     <td>${callsignCell}</td>
                     <td>${flPredicted === null ? "-" : flPredicted} - ${flTarget === null ? "-" : flTarget}</td>
                     <td>${gs === null ? "-" : gs}</td>
                     <td>${vs === null ? "-" : vs}</td>
                     <td>${leg ? actByLabel : "-"}</td>
-                    <td>${leg ? actionSectorLabel : "-"}</td>
                 </tr>`;
+                const detailRow = leg
+                    ? `
+                <tr class="event-ac-detail-row">
+                    <td colspan="5"><span class="event-ac-detail-icon">&#9432;</span>${eventActionDetailLabel(leg.clearance_type)}</td>
+                </tr>`
+                    : "";
+                return row + detailRow;
             })
             .join("");
         tbody.querySelectorAll(".event-ac-row").forEach((row) => {
@@ -2468,50 +2914,20 @@
         });
     }
 
-    /** Renders the Event panel's third and final section, below the
-     * aircraft table: one line per aircraft currently being acted on --
-     * the single active candidate's target, or every leg of a joint
-     * candidate -- naming what's being done to it (e.g. "Horizontal
-     * trajectory change"). Shows a hint instead when nothing is
-     * selected yet. */
-    function renderEventActionDetails(sel) {
-        const container = document.getElementById("event-action-details-body");
-        if (!container) {
-            return;
-        }
-        const legs =
-            sel && sel.isJoint && sel.candidate && sel.candidate.legs
-                ? sel.candidate.legs
-                : sel && sel.candidate && sel.candidate.target_callsign
-                ? [sel.candidate]
-                : [];
-        if (legs.length === 0) {
-            container.innerHTML = '<p class="panel-hint">No solution selected.</p>';
-            return;
-        }
-        container.innerHTML = legs
-            .map(
-                (leg) => `
-            <div class="event-action-detail-row">
-                <span class="event-action-detail-icon">&#9432;</span>
-                <span class="event-action-detail-callsign">${leg.target_callsign}</span>
-                <span class="event-action-detail-text">${eventActionDetailLabel(leg.clearance_type)}</span>
-            </div>`
-            )
-            .join("");
-    }
-
     function renderEventPanel(cycle) {
-        const empty = document.getElementById("event-empty");
-        const body = document.getElementById("event-body");
-        const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId);
+        const track = cycle.tracks.find((t) => t.arhac_id === ui.selectedArhacId) || null;
+
         if (!track) {
-            empty.classList.remove("hidden");
-            body.classList.add("hidden");
+            // Default state: no alert selected -- clear the stepper and
+            // candidate list (nothing to show without a track), show
+            // "No Alert Selected" in place of the complexity/confidence
+            // rings, and fall back to a general-traffic aircraft table.
+            renderEventStepper(null, () => renderEventPanel(cycle));
+            renderComplexityReduction(null, null);
+            renderCandidateList(null, () => {});
+            renderEventAircraftTable(cycle, null, null, null);
             return;
         }
-        empty.classList.add("hidden");
-        body.classList.remove("hidden");
 
         const rs = cycle.resolution_sets.find((r) => r.arhac_id === track.arhac_id);
         const sel = resolveActiveSelection(rs);
@@ -2523,15 +2939,8 @@
         renderComplexityReduction(track, candidate);
         renderCandidateList(
             rs,
-            (idx) => {
-                ui.selectedCandidateIndex[track.arhac_id] = idx;
-                renderEventPanel(cycle);
-                if (window.__astraLastCycle) {
-                    renderMap(window.__astraLastCycle);
-                }
-            },
-            () => {
-                ui.selectedCandidateIndex[track.arhac_id] = "joint";
+            (unifiedIdx) => {
+                ui.selectedCandidateIndex[track.arhac_id] = unifiedIdx;
                 renderEventPanel(cycle);
                 if (window.__astraLastCycle) {
                     renderMap(window.__astraLastCycle);
@@ -2539,7 +2948,6 @@
             }
         );
         renderEventAircraftTable(cycle, track, rs, sel);
-        renderEventActionDetails(sel);
     }
 
     // ------------------------------------------------------------------
@@ -2658,6 +3066,7 @@
 
     function selectTrack(arhacId) {
         ui.selectedArhacId = arhacId;
+        ui.manualOverallFir = false; // operator is deliberately drilling into an alert again
         // Selecting an alert is the operator saying "focus on this" --
         // Event Sector mode (auto-identify sector, dim uninvolved
         // traffic, zoom in) is exactly that focus, so clicking an alert
@@ -2680,6 +3089,33 @@
         }
     }
 
+    /** "Return to Overall FIR" button: deselects the active alert,
+     * switches back to Overall FIR display mode, and re-fits the map to
+     * the full FIR view -- the one-click way back to the default state
+     * after drilling into an alert via `selectTrack`'s automatic switch
+     * into Event Sector mode. */
+    function resetToOverallFir() {
+        ui.selectedArhacId = null;
+        ui.displayMode = "overall";
+        ui.manualOverallFir = true; // operator explicitly backed out -- don't let the next poll cycle re-select an alert for them
+        ui.lastAutoFitKey = null; // force the auto-zoom to re-arm to the full FIR view
+        syncDisplayModeSelector();
+        if (window.__astraLastCycle) {
+            updateTimeSliderAlertSegment(window.__astraLastCycle);
+            renderTracksTable(window.__astraLastCycle, selectTrack);
+            renderEventPanel(window.__astraLastCycle);
+            renderMap(window.__astraLastCycle);
+        }
+    }
+
+    function setupResetViewButton() {
+        const btn = document.getElementById("reset-view-btn");
+        if (!btn) {
+            return;
+        }
+        btn.addEventListener("click", resetToOverallFir);
+    }
+
     function render(payload) {
         renderHeader(payload);
         if (!payload.has_data) {
@@ -2695,11 +3131,14 @@
         }
         ui.curCycleAtMs = performance.now();
         window.__astraLastCycle = cycle;
+        ui.simTimeS = cycle.snapshot.timestamp_s;
+        updateSimClock();
+        updateTimeBox();
 
         if (ui.selectedArhacId && !cycle.tracks.some((t) => t.arhac_id === ui.selectedArhacId)) {
             ui.selectedArhacId = null;
         }
-        if (!ui.selectedArhacId && cycle.tracks.length > 0) {
+        if (!ui.selectedArhacId && cycle.tracks.length > 0 && !ui.manualOverallFir) {
             const sorted = [...cycle.tracks].sort((a, b) => {
                 const ar = a.forecast_urgency_rank === null ? Infinity : a.forecast_urgency_rank;
                 const br = b.forecast_urgency_rank === null ? Infinity : b.forecast_urgency_rank;
@@ -2896,15 +3335,40 @@
             savePersistedView(ui.view);
             // A mousedown/mouseup with negligible movement in between is a
             // click, not a pan -- select whichever aircraft marker (if any)
-            // is under the cursor at its currently-drawn position.
+            // is under the cursor at its currently-drawn position. Failing
+            // that, while an alert is active, a click inside a sector
+            // polygon is Sector Selection Mode: it drops the active alert
+            // and switches map focus to that sector instead (the same
+            // destination as picking it from the Display Mode dropdown,
+            // just reachable directly from the map).
             if (!dragMoved) {
                 const cycle = currentCycleOrEmpty();
                 if (cycle && ui.view) {
                     const [px, py] = toCanvasPx(evt.clientX, evt.clientY);
                     const project = makeProjector(ui.view, canvas.width, canvas.height);
                     const hit = findAircraftAtPixel(cycle, project, px, py, 14);
-                    ui.selectedAircraftCallsign = hit === ui.selectedAircraftCallsign ? null : hit;
-                    redraw();
+                    if (hit || !ui.selectedArhacId) {
+                        ui.selectedAircraftCallsign = hit === ui.selectedAircraftCallsign ? null : hit;
+                        redraw();
+                    } else {
+                        const unproject = makeUnprojector(ui.view, canvas.width, canvas.height);
+                        const [lat, lon] = unproject(px, py);
+                        const sectorName = findSectorNameForPoint(lat, lon);
+                        if (sectorName) {
+                            ui.selectedAircraftCallsign = null;
+                            ui.selectedArhacId = null;
+                            ui.manualOverallFir = true; // operator deliberately left the alert view for a sector -- don't let the poll loop re-select an alert
+                            ui.displayMode = sectorName;
+                            ui.lastAutoFitKey = null; // force the auto-zoom to re-arm to the new sector
+                            syncDisplayModeSelector();
+                            updateTimeSliderAlertSegment(cycle);
+                            renderTracksTable(cycle, selectTrack);
+                            renderEventPanel(cycle);
+                        } else {
+                            ui.selectedAircraftCallsign = null;
+                        }
+                        redraw();
+                    }
                 }
             }
         });
@@ -2943,9 +3407,12 @@
     document.addEventListener("DOMContentLoaded", () => {
         setupTabs();
         setupTimeSlider();
-        startLiveUtcClock();
+        startSimClock();
         setupOptionsDropdown();
+        setupSpeedDropdown();
+        setupSpeedButtons();
         setupPauseResumeButton();
+        setupResetViewButton();
         setupMapInteraction();
         loadPersistedUiPrefs();
         geoLayers.init().then(() => {

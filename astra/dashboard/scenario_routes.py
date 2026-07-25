@@ -29,7 +29,11 @@ from typing import Dict
 from flask import Blueprint, Response, jsonify, render_template, request
 
 from astra.dashboard import scenario_presets
+from astra.interface.mock_connector import VALID_FLIGHT_TYPES
 from astra.interface.state_reader import StateReader
+from astra.utils.logger import get_logger
+
+_LOG = get_logger(__name__)
 
 #: Only these characters may appear in a saved scenario's file-safe name.
 _NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -153,7 +157,19 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
 
         Body: callsign, aircraft_type, altitude_ft, speed_kt, plus either
         lat/lon/heading_deg (free-standing spawn) or airway_designator
-        (+ optional start_index) to spawn onto and follow a named airway.
+        (+ optional start_index, optional reverse_route) to spawn onto
+        and follow a named airway. `reverse_route: true` flies the
+        airway's filed waypoint order backwards (e.g. a filed
+        `ACT -> ... -> CRA` airway becomes `CRA -> ... -> ACT`) --
+        `start_index` is still applied afterwards, against the reversed
+        list, so "start at index 0" always means "start at whichever
+        end the aircraft is now flying from". For an airway spawn, an
+        optional `flight_type` of "LANDING" or "OVERFLIGHT" applies a
+        profile relative to the airway's final waypoint (the reversed
+        one, when `reverse_route` is set) -- see
+        `MockConnector.create_aircraft`'s docstring. Ignored (with a
+        warning, not an error) for a free-standing spawn, since there's
+        no "final waypoint" to profile against.
         """
         if not _require_mock():
             return _error("Scenario Builder requires --mock mode.", 409)
@@ -161,6 +177,10 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
         missing = [f for f in _REQUIRED_CREATE_FIELDS_BASE if f not in body]
         if missing:
             return _error(f"Missing field(s): {', '.join(missing)}")
+
+        flight_type = body.get("flight_type") or None
+        if flight_type is not None and flight_type not in VALID_FLIGHT_TYPES:
+            return _error(f"flight_type must be one of {VALID_FLIGHT_TYPES}.")
 
         route_waypoints = None
         airway_designator = body.get("airway_designator")
@@ -173,6 +193,13 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
             coords = airway["coordinates"]
             if len(coords) < 2:
                 return _error(f"Airway '{airway_designator}' has too few points to follow.")
+            # Reverse Route Direction toggle (Scenario Builder Spawn panel):
+            # flip the filed waypoint order before anything below reads
+            # `coords` -- start_index, the spawn position, and the
+            # follow-route waypoints all then fall out of the normal
+            # forward logic, just against the flipped list.
+            if body.get("reverse_route"):
+                coords = list(reversed(coords))
             try:
                 start_index = int(body.get("start_index", 0))
             except (TypeError, ValueError):
@@ -186,6 +213,9 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
             if missing_pos:
                 return _error(f"Missing field(s): {', '.join(missing_pos)}")
             lat, lon, heading_deg = body["lat"], body["lon"], body["heading_deg"]
+            if flight_type is not None:
+                _LOG.warning("flight_type given without an airway spawn; ignoring.")
+                flight_type = None
 
         try:
             reader.create_aircraft(
@@ -197,10 +227,17 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
                 altitude_ft=float(body["altitude_ft"]),
                 speed_kt=float(body["speed_kt"]),
                 route_waypoints=route_waypoints,
+                flight_type=flight_type,
             )
         except (TypeError, ValueError) as exc:
             return _error(f"Invalid aircraft field: {exc}")
-        return _ok({"callsign": body["callsign"], "on_route": route_waypoints is not None})
+        return _ok(
+            {
+                "callsign": body["callsign"],
+                "on_route": route_waypoints is not None,
+                "reversed": bool(body.get("reverse_route")) if airway_designator else False,
+            }
+        )
 
     @blueprint.route("/scenario/aircraft/<callsign>", methods=["PATCH"])
     def edit_aircraft(callsign: str) -> Response:
@@ -325,7 +362,7 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
 
     @blueprint.route("/scenario/presets")
     def presets() -> Response:
-        """List predefined traffic situations (crossing, merge, arrival rush, ...)."""
+        """List predefined traffic situations (crossing, sector overload, arrival sequencing, ...)."""
         return _ok({"presets": scenario_presets.list_presets()})
 
     @blueprint.route("/scenario/presets/<key>/load", methods=["POST"])
@@ -348,6 +385,7 @@ def build_scenario_blueprint(reader: StateReader, scenarios_dir: str) -> Bluepri
                 altitude_ft=ac["altitude_ft"],
                 speed_kt=ac["speed_kt"],
                 route_waypoints=ac.get("route_waypoints"),
+                flight_type=ac.get("flight_type"),
             )
         return _ok({"key": key, "aircraft_count": len(preset["aircraft"])})
 

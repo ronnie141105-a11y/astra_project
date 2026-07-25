@@ -37,7 +37,7 @@ connectors.
 """
 
 from collections import deque
-from typing import Deque, List, Optional
+from typing import Deque, Dict, List, Optional
 
 from astra.interface.connector_base import ConnectorProtocol
 from astra.interface.traffic_state import TrafficSnapshot
@@ -224,6 +224,7 @@ class StateReader:
         altitude_ft: float,
         speed_kt: float,
         route_waypoints: Optional[List] = None,
+        flight_type: Optional[str] = None,
     ) -> None:
         """Create an aircraft in the simulation.
 
@@ -243,11 +244,16 @@ class StateReader:
                 aircraft to fly along. Mock-only -- live BlueSky ignores
                 it (logged once) since route injection isn't implemented
                 there.
+            flight_type: Optional Scenario Builder spawn profile, one of
+                `astra.interface.mock_connector.VALID_FLIGHT_TYPES`
+                ("LANDING"/"OVERFLIGHT"). Mock-only, and only meaningful
+                alongside `route_waypoints` -- see
+                `MockConnector.create_aircraft`'s docstring.
         """
         if route_waypoints and self.is_mock:
             self._connector.create_aircraft(
                 callsign, aircraft_type, lat, lon, heading_deg, altitude_ft, speed_kt,
-                route_waypoints=route_waypoints,
+                route_waypoints=route_waypoints, flight_type=flight_type,
             )
             return
         if route_waypoints:
@@ -296,6 +302,31 @@ class StateReader:
         if get_route_fn is None:
             return None
         return get_route_fn(callsign)
+
+    def get_flight_profile(self, callsign: str) -> Optional[Dict]:
+        """Return one aircraft's Scenario Builder spawn profile, if known.
+
+        Companion to ``get_route()``: the current-information-available-
+        now that ``RouteAwareTrajectoryEngine`` uses to predict a
+        "LANDING" aircraft's Top of Descent-aware altitude instead of
+        assuming constant vertical speed for the whole prediction
+        horizon. See
+        ``astra.interface.mock_connector.MockConnector.get_flight_profile``.
+
+        Args:
+            callsign: Aircraft callsign -- case-insensitive.
+
+        Returns:
+            ``None`` if unknown, no forced profile, or the connector
+            doesn't support profile queries (live BlueSky doesn't --
+            callers should treat that like "no profile known" and fall
+            back to plain constant-vertical-speed prediction, which
+            ``RouteAwareTrajectoryEngine`` already does).
+        """
+        get_profile_fn = getattr(self._connector, "get_flight_profile", None)
+        if get_profile_fn is None:
+            return None
+        return get_profile_fn(callsign)
 
     def send_command(self, command_text: str) -> None:
         """Send a raw ATC stack command to the simulator.

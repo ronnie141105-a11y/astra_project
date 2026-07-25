@@ -14,8 +14,8 @@ identically offline and against a live BlueSky node -- this script is
 a reproducibility aid, not a different scenario.
 
 Usage:
-    python3 scripts/run_scn_offline.py scenarios/thesis_converging_hotspot.scn \\
-        --duration-min 20 --sim-step-s 15 --out-prefix converging
+    python3 scripts/run_scn_offline.py scenarios/thesis_multi_hotspot.scn \\
+        --duration-min 20 --sim-step-s 15 --out-prefix multi_hotspot
 
 Produces, under /mnt/user-data/outputs/:
     <out-prefix>_cycles.csv    -- one row per poll cycle, headline metrics

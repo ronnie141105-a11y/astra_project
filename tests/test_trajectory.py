@@ -283,15 +283,19 @@ def test_route_aware_falls_back_per_aircraft(r: Runner) -> None:
     )
 
     # 30 NM leg at 240 kt is reached at t=7.5min; by h=30min the aircraft
-    # has long since passed the single waypoint and continued straight
-    # (dead reckoning) on the post-waypoint heading -- verify it's past
-    # the waypoint, not artificially stuck there.
+    # has long since passed the single waypoint. Predictions now cap at
+    # the route end (see route_following.advance_along_route's
+    # cap_at_route_end), so the *predicted* position sits exactly on
+    # the final waypoint rather than projecting further along a heading
+    # the aircraft has no filed intent to keep flying -- unlike
+    # MockConnector's own (uncapped) actual-simulation stepping, which
+    # is exercised separately in test_interface.py.
     predicted_on_route = result.at(30).get("ONROUTE")
     dist_from_start_nm = haversine_distance_nm(10.0, 106.0, predicted_on_route.lat, predicted_on_route.lon)
     r.check_close(
-        "aircraft on a route travels the full 120 NM (240kt x 30min), passing its one waypoint",
+        "aircraft on a route: prediction caps at the 30 NM route end, not the full 120 NM",
         dist_from_start_nm,
-        240.0 * 30.0 / 60.0,
+        30.0,
         tol=1e-3,
     )
 

@@ -279,6 +279,18 @@
     color: var(--text-dim);
 }
 
+/* Row-style variant of `.sb-modal label` for a checkbox + its own text
+   (e.g. "Reverse Route Direction") -- the default label is a column
+   stack meant for a caption above a full-width input/select, which
+   would otherwise put the checkbox on its own line above the text. */
+.sb-modal label.sb-checkbox-label {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text);
+}
+
 .sb-modal input {
     background: var(--panel-bg-raised);
     border: 1px solid var(--panel-border);

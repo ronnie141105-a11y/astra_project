@@ -36,36 +36,62 @@ drive every coordinate/speed choice here:
     `ResolutionEngine` has nothing eligible to resolve even though a
     real (if brief) hotspot existed.
 
-`crossing`, `merge`, and `arrival_rush` are validated to reliably cross
-`forecast_onset_threshold` (50) within the first few predicted horizons
-and trigger a resolution. `head_on` and `parallel_overtake` also now
-reliably cross it (empirically re-validated after the fix below) --
-earlier versions of this docstring claimed their 2-aircraft geometry
-structurally capped complexity below the 3+ aircraft presets, because
-the MTCA/LTCA conflict sub-score's saturation reference
+`crossing` is validated to reliably cross `forecast_onset_threshold`
+(50) within the first few predicted horizons and trigger a resolution.
+`ComplexityEngine._effective_conflict_reference` caps the MTCA/LTCA
+conflict sub-score's saturation reference
 (`complexity_mtca_reference_count`/`complexity_ltca_reference_count`,
-calibrated for 3-5 *concurrent* conflict pairs) could never be reached
-by a 2-aircraft cluster's one possible pair, no matter how severe the
-actual conflict. `ComplexityEngine._effective_conflict_reference` fixes
-this by capping the reference at each cluster's actual maximum possible
-pair count (`C(n, 2)`) -- found and fixed while validating
-`arrival_sequencing` (see docs/backend_improvements_backlog.md item 2);
-it only ever lowers the reference for clusters below the configured
-reference's own implied size, so `arrival_rush` (10 possible pairs vs. a
-default LTCA reference of 5) is completely unaffected, and `merge` (3
-possible pairs, same as the default MTCA reference) is only affected on
-its LTCA side. `free_flow` intentionally stays far apart -- it is the
-negative control, and has no possible pairs to affect either way.
+calibrated for 3-5 *concurrent* conflict pairs) at each cluster's
+actual maximum possible pair count (`C(n, 2)`) -- found and fixed while
+validating `arrival_sequencing` (see
+docs/backend_improvements_backlog.md item 2) -- so small clusters like
+`crossing`'s single pair aren't structurally prevented from reaching
+the onset threshold no matter how severe the actual conflict.
 
-`dogleg_turn` is a different kind of demo and is exempt from
-constraint 1 above on purpose: its two aircraft start ~40 NM apart
-specifically so no cluster/track forms and the two predicted paths
-(dead-reckoning vs route-aware) stay visually distinct on the map for
-longer -- the point of that preset is to *see* the predicted-trajectory
-lines diverge after a turn, not to trigger tracking/resolution (compare
-"CONV1"/"CONV2" in `scripts/evaluate_trajectory_predictors.py`, which
-uses the same routes for the formal, non-visual version of this
-comparison).
+A handful of earlier hand-picked presets (`merge`, `arrival_rush`,
+`head_on`, `parallel_overtake`, `free_flow`, `dogleg_turn`) and two
+thesis-replay presets (`thesis_baseline`, `thesis_converging_hotspot`)
+were built against an older connector that had no route-aware spawn
+profile at all -- every aircraft in them just flew a fixed heading
+forever, with no concept of "land" or "overflight". They have been
+retired now that `MockConnector` supports real `flight_type`-driven
+behaviour (see "Route-aware flight profiles" below); their old .scn
+equivalents (`scenarios/thesis_baseline.scn`,
+`scenarios/thesis_converging_hotspot.scn`) have been removed for the
+same reason. `crossing` and `thesis_multi_hotspot` are kept as
+lightweight, destination-agnostic tracking/complexity demos (no
+`route_waypoints`, so `flight_type` doesn't apply to them either); the
+operational presets below are the ones exercising the new system.
+
+Route-aware flight profiles ("LANDING"/"OVERFLIGHT")
+------------------------------------------------------
+Every preset that supplies `route_waypoints` can additionally tag each
+aircraft with a `flight_type` of `"LANDING"` or `"OVERFLIGHT"` (see
+`astra.interface.mock_connector.VALID_FLIGHT_TYPES` and
+`MockConnector.create_aircraft`'s docstring) -- this is the connector's
+actual spawn-profile mechanism and supersedes the older approach (still
+used by `crossing`/`thesis_multi_hotspot` below, which have no
+`route_waypoints` at all) of just placing dead-reckoning aircraft on a
+converging heading with no destination-aware behaviour:
+
+* `"LANDING"`: the aircraft genuinely descends over the final 40 NM of
+  its route and stops (ground speed zeroed) exactly at the final
+  waypoint -- for a route whose last waypoint is a real arrival
+  airport/fix.
+* `"OVERFLIGHT"`: the aircraft holds its cruise level straight through
+  the final waypoint and is automatically despawned 5 minutes after
+  passing it -- for a route whose last waypoint is only a crossing
+  fix, not a destination.
+* Omitted (`None`): plain route-following with no forced end-of-route
+  behaviour -- e.g. a departure already established at its climb-band
+  altitude, where this project's connector has no "climb away" profile
+  to model.
+
+Every preset below built from real airway data
+(`scenario_presets_operational.py`) now sets `flight_type` per
+aircraft according to this rule, so aircraft actually land, hold
+level, or despawn as their role implies instead of flying off the map
+forever.
 
 Operational (geo-based) scenarios
 ----------------------------------
@@ -135,289 +161,14 @@ PRESETS: Dict[str, Preset] = {
             },
         ],
     },
-    "merge": {
-        "key": "merge",
-        "label": "Merging streams",
-        "description": (
-            "Three aircraft converging from different headings onto "
-            "roughly the same point and level. Starts at ~45 pts, "
-            "forecast to reach ~75 pts by the 5-min horizon."
-        ),
-        "aircraft": [
-            {
-                "callsign": "HVN301",
-                "aircraft_type": "A359",
-                "lat": 10.936588,
-                "lon": 106.670000,
-                "heading_deg": 180.0,
-                "altitude_ft": 36000,
-                "speed_kt": 55,
-            },
-            {
-                "callsign": "VJC402",
-                "aircraft_type": "A321",
-                "lat": 10.761689,
-                "lon": 106.772776,
-                "heading_deg": 300.0,
-                "altitude_ft": 36000,
-                "speed_kt": 60,
-            },
-            {
-                "callsign": "PIC503",
-                "aircraft_type": "B789",
-                "lat": 10.761689,
-                "lon": 106.567224,
-                "heading_deg": 60.0,
-                "altitude_ft": 36500,
-                "speed_kt": 65,
-            },
-        ],
-    },
-    "arrival_rush": {
-        "key": "arrival_rush",
-        "label": "Arrival rush",
-        "description": (
-            "Five inbound aircraft descending toward the same terminal "
-            "area from different directions -- a sustained, multi-aircraft "
-            "hotspot rather than a single pair. Starts below threshold "
-            "(~47 pts), forecast to reach ~80-89 pts by the 10-15 min "
-            "horizon."
-        ),
-        "aircraft": [
-            {
-                "callsign": "HVN601",
-                "aircraft_type": "A321",
-                "lat": 10.986554,
-                "lon": 106.670000,
-                "heading_deg": 180.0,
-                "altitude_ft": 24000,
-                "speed_kt": 55,
-            },
-            {
-                "callsign": "VJC602",
-                "aircraft_type": "A320",
-                "lat": 10.871426,
-                "lon": 106.831297,
-                "heading_deg": 252.0,
-                "altitude_ft": 23500,
-                "speed_kt": 53,
-            },
-            {
-                "callsign": "PIC603",
-                "aircraft_type": "B789",
-                "lat": 10.685239,
-                "lon": 106.769626,
-                "heading_deg": 324.0,
-                "altitude_ft": 24500,
-                "speed_kt": 57,
-            },
-            {
-                "callsign": "AXJ604",
-                "aircraft_type": "A320",
-                "lat": 10.685239,
-                "lon": 106.570374,
-                "heading_deg": 36.0,
-                "altitude_ft": 23000,
-                "speed_kt": 54,
-            },
-            {
-                "callsign": "HVN605",
-                "aircraft_type": "A359",
-                "lat": 10.871426,
-                "lon": 106.508703,
-                "heading_deg": 108.0,
-                "altitude_ft": 24000,
-                "speed_kt": 56,
-            },
-        ],
-    },
-    "head_on": {
-        "key": "head_on",
-        "label": "Head-on pair",
-        "description": (
-            "Two aircraft on reciprocal headings at the same level -- "
-            "tests onset/urgency timing on a fast-closing geometry. "
-            "Starts at ~44 pts, forecast to cross the 50-pt threshold by "
-            "the 5-min horizon (~71 pts)."
-        ),
-        "aircraft": [
-            {
-                "callsign": "HVN701",
-                "aircraft_type": "A321",
-                "lat": 10.819988,
-                "lon": 106.585216,
-                "heading_deg": 90.0,
-                "altitude_ft": 35000,
-                "speed_kt": 50,
-            },
-            {
-                "callsign": "VJC702",
-                "aircraft_type": "A320",
-                "lat": 10.819988,
-                "lon": 106.754784,
-                "heading_deg": 270.0,
-                "altitude_ft": 35000,
-                "speed_kt": 55,
-            },
-        ],
-    },
-    "parallel_overtake": {
-        "key": "parallel_overtake",
-        "label": "Parallel overtake",
-        "description": (
-            "Same track, same level, one aircraft faster than the other -- "
-            "a slow-building conflict. Starts at ~44 pts and now crosses "
-            "the 50-pt onset threshold by the 15-min horizon (~56 pts), "
-            "then eases off again once the faster aircraft has passed."
-        ),
-        "aircraft": [
-            {
-                "callsign": "HVN801",
-                "aircraft_type": "A320",
-                "lat": 10.820000,
-                "lon": 106.670000,
-                "heading_deg": 45.0,
-                "altitude_ft": 33000,
-                "speed_kt": 115,
-            },
-            {
-                "callsign": "PIC802",
-                "aircraft_type": "B789",
-                "lat": 10.737548,
-                "lon": 106.586091,
-                "heading_deg": 45.0,
-                "altitude_ft": 33000,
-                "speed_kt": 145,
-            },
-        ],
-    },
-    "free_flow": {
-        "key": "free_flow",
-        "label": "Free flow (light)",
-        "description": (
-            "Four aircraft on divergent, non-conflicting tracks -- a "
-            "quiet baseline scene with no expected hotspot, useful for "
-            "confirming the dashboard stays calm when it should. The "
-            "negative control: no cluster forms at any horizon."
-        ),
-        "aircraft": [
-            {
-                "callsign": "HVN901",
-                "aircraft_type": "A321",
-                "lat": _CENTER_LAT + 0.6,
-                "lon": _CENTER_LON - 1.6,
-                "heading_deg": 60.0,
-                "altitude_ft": 31000,
-                "speed_kt": 440,
-            },
-            {
-                "callsign": "VJC902",
-                "aircraft_type": "A320",
-                "lat": _CENTER_LAT - 0.8,
-                "lon": _CENTER_LON + 1.4,
-                "heading_deg": 240.0,
-                "altitude_ft": 29000,
-                "speed_kt": 430,
-            },
-            {
-                "callsign": "PIC903",
-                "aircraft_type": "B789",
-                "lat": _CENTER_LAT + 1.7,
-                "lon": _CENTER_LON + 1.2,
-                "heading_deg": 160.0,
-                "altitude_ft": 37000,
-                "speed_kt": 480,
-            },
-            {
-                "callsign": "AXJ904",
-                "aircraft_type": "A320",
-                "lat": _CENTER_LAT - 1.6,
-                "lon": _CENTER_LON - 0.9,
-                "heading_deg": 10.0,
-                "altitude_ft": 27000,
-                "speed_kt": 400,
-            },
-        ],
-    },
-    "dogleg_turn": {
-        "key": "dogleg_turn",
-        "label": "Route-following dogleg (route-aware demo)",
-        "description": (
-            "Two aircraft, each on a filed route with one sharp turn "
-            "partway along. Dead-reckoning prediction (the dashed grey "
-            "line) flies straight through both turns; the route-aware "
-            "prediction (the solid amber line) turns onto the real leg "
-            "and correctly shows the two aircraft converging afterward -- "
-            "a hotspot dead reckoning alone would miss entirely. See "
-            "scripts/evaluate_trajectory_predictors.py for the same "
-            "comparison run as a formal thesis evaluation."
-        ),
-        "aircraft": [
-            {
-                "callsign": "CONV1",
-                "aircraft_type": "A320",
-                "lat": 10.80,
-                "lon": 106.20,
-                "heading_deg": 90.0,
-                "altitude_ft": 35000,
-                "speed_kt": 250,
-                "route_waypoints": [(10.80, 106.55), (11.50, 106.55)],
-            },
-            {
-                "callsign": "CONV2",
-                "aircraft_type": "B738",
-                "lat": 10.90,
-                "lon": 106.90,
-                "heading_deg": 270.0,
-                "altitude_ft": 34500,
-                "speed_kt": 250,
-                "route_waypoints": [(10.90, 106.55), (11.60, 106.55)],
-            },
-        ],
-    },
-    # ---- Thesis scenarios (identical traffic to scenarios/thesis_*.scn) ----
-    # These mirror the BlueSky .scn files used for the thesis' Chapter 4 data
-    # collection exactly (same coordinates/speeds/types), so results loaded
-    # here match the documented thesis numbers -- and, being plain presets,
-    # need no BlueSky process at all, only `--mock` mode. The .scn files
-    # remain available unchanged for anyone who does want to run them
+    # ---- Thesis scenario (identical traffic to scenarios/thesis_multi_hotspot.scn) ----
+    # This mirrors the one remaining BlueSky .scn file used for the thesis'
+    # Chapter 4 data collection (same coordinates/speeds/types), so results
+    # loaded here match the documented thesis numbers -- and, being a plain
+    # preset, needs no BlueSky process at all, only `--mock` mode. The .scn
+    # file remains available unchanged for anyone who does want to run it
     # against a live BlueSky node instead; both paths produce the same
-    # traffic because MockConnector and BlueSky consume the same CRE
-    # syntax (scripts/run_scn_offline.py is the CLI equivalent of loading
-    # one of these three presets from the dashboard).
-    "thesis_baseline": {
-        "key": "thesis_baseline",
-        "label": "Thesis: baseline (control)",
-        "description": (
-            "6 well-separated aircraft, no convergence -- confirms zero "
-            "false-positive hotspots. Identical traffic to "
-            "scenarios/thesis_baseline.scn."
-        ),
-        "aircraft": [
-            {"callsign": "HVN101", "aircraft_type": "A321", "lat": 11.79933, "lon": 106.70000, "heading_deg": 90.0, "altitude_ft": 30000, "speed_kt": 250},
-            {"callsign": "VJC202", "aircraft_type": "A320", "lat": 11.25696, "lon": 107.50888, "heading_deg": 200.0, "altitude_ft": 33000, "speed_kt": 260},
-            {"callsign": "PIC303", "aircraft_type": "A319", "lat": 10.25726, "lon": 107.65278, "heading_deg": 260.0, "altitude_ft": 36000, "speed_kt": 270},
-            {"callsign": "AXJ404", "aircraft_type": "B738", "lat": 9.96723, "lon": 106.70000, "heading_deg": 10.0, "altitude_ft": 29000, "speed_kt": 240},
-            {"callsign": "QTR505", "aircraft_type": "B77W", "lat": 10.21540, "lon": 105.67407, "heading_deg": 70.0, "altitude_ft": 38000, "speed_kt": 280},
-            {"callsign": "SIA606", "aircraft_type": "A359", "lat": 11.28182, "lon": 105.84693, "heading_deg": 160.0, "altitude_ft": 31000, "speed_kt": 255},
-        ],
-    },
-    "thesis_converging_hotspot": {
-        "key": "thesis_converging_hotspot",
-        "label": "Thesis: converging hotspot",
-        "description": (
-            "4-aircraft symmetric converging cross -- primary thesis demo "
-            "(starts ~44 pts, forecast onset, ranked resolution). Identical "
-            "traffic to scenarios/thesis_converging_hotspot.scn and this "
-            "app's own --mock default traffic."
-        ),
-        "aircraft": [
-            {"callsign": "HVN301", "aircraft_type": "A320", "lat": 10.96655, "lon": 106.70000, "heading_deg": 180.0, "altitude_ft": 30000, "speed_kt": 120},
-            {"callsign": "VJC302", "aircraft_type": "B738", "lat": 10.63345, "lon": 106.70000, "heading_deg": 0.0, "altitude_ft": 30000, "speed_kt": 130},
-            {"callsign": "PIC303", "aircraft_type": "A319", "lat": 10.79995, "lon": 106.86956, "heading_deg": 270.0, "altitude_ft": 30500, "speed_kt": 115},
-            {"callsign": "AXJ304", "aircraft_type": "B77W", "lat": 10.79995, "lon": 106.53044, "heading_deg": 90.0, "altitude_ft": 30000, "speed_kt": 125},
-        ],
-    },
+    # traffic because MockConnector and BlueSky consume the same CRE syntax.
     "thesis_multi_hotspot": {
         "key": "thesis_multi_hotspot",
         "label": "Thesis: two simultaneous hotspots",
@@ -495,6 +246,52 @@ PRESETS: Dict[str, Preset] = {
             "measured onset horizon and proposed strategic adjustments."
         ),
         "aircraft": operational.crossing_airways_aircraft(),
+    },
+    "nominal_sector_traffic": {
+        "key": "nominal_sector_traffic",
+        "label": "Nominal sector traffic (~72 aircraft)",
+        "description": (
+            "72 aircraft (configurable 40-100) spread across 22 real "
+            "airways -- a realistic overflight/arrival/departure mix, no "
+            "pair closer than 10 NM at spawn. Arrivals descend from "
+            "FL200-FL300 and level at FL100; departures climb from low "
+            "altitude and level at a jittered intermediate/cruise level "
+            "-- both at 2000 ft/min, both via this project's automatic "
+            "level-off (ALT-capture), not an indefinite climb/descent. "
+            "A general-purpose baseline scene for exercising the whole "
+            "pipeline at volume, not a single scripted encounter."
+        ),
+        "aircraft": operational.nominal_sector_traffic_aircraft(),
+    },
+    "convergence_hotspot": {
+        "key": "convergence_hotspot",
+        "label": "5-way convergence hotspot at AC (30 min)",
+        "description": (
+            "5 aircraft on 5 real routes (W1, Q1, W2, W15, L644) "
+            "approaching waypoint AC from 5 distinct bearings, all "
+            "reaching it simultaneously at exactly t=30 min -- same "
+            "cruise level, a genuine 5-way lateral encounter. All start "
+            "100+ NM apart (no track at t=0), so early cycles show "
+            "normal tracker noise before a real cluster forms as they "
+            "close in -- ResolutionEngine then proposes both single- "
+            "and joint-aircraft candidates from it."
+        ),
+        "aircraft": operational.convergence_hotspot_aircraft(),
+    },
+    "solvable_conflict": {
+        "key": "solvable_conflict",
+        "label": "Solvable 2-aircraft conflict at BMT (20 min)",
+        "description": (
+            "A TSH departure and a PLK arrival, both reaching BMT -- and "
+            "the same level, FL100 -- at exactly t=20 min (BMT-PLK isn't "
+            "linked by any single filed airway in the current dataset, "
+            "so that leg is a flagged straight-line approximation between "
+            "the two real points). A clean, resolvable benchmark: a real "
+            "lateral and vertical conflict at a known time/place, with "
+            "both a heading-based and an altitude-based fix genuinely "
+            "available to ResolutionEngine."
+        ),
+        "aircraft": operational.solvable_conflict_aircraft(),
     },
 }
 

@@ -767,6 +767,7 @@ class ResolutionEngine:
             domino_cost_norm=domino_cost_norm,
             complexity_after_components=after_components,
             complexity_before_components=dict(before_region.components),
+            hypothetical_prediction=prediction,
         )
 
     def _domino_cost(

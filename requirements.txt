@@ -1,27 +1,38 @@
-# ASTRA prototype - Python dependencies
-#
-# Phase 1 (data interface) only needs the BlueSky simulator package itself,
-# for its networking client (bluesky.network.client.Client) and stack
-# command helper (bluesky.stack.stack). No GUI extras are required since
-# ASTRA never uses BlueSky's own QtGL/pygame interface - BlueSky is always
-# run headless as a separate process, and ASTRA connects to it as a plain
-# network client.
-#
-# Later phases will extend this file further:
-#   Phase 4/5 (complexity/4DARHAC tracking) -> numpy (already present below)
+# ASTRA - Python dependencies
 #
 # Install with:
-#   pip install -r requirements.txt --break-system-packages   (Linux, externally-managed envs)
+#   pip install -r requirements.txt --break-system-packages   (externally-managed envs, e.g. Debian/Ubuntu)
 #   pip install -r requirements.txt                            (most other setups)
 
-bluesky-simulator[full]
+# --- Core pipeline (Phases 2-7: trajectory, hotspot, complexity, tracking,
+#     forecast, resolution) ---------------------------------------------
+numpy>=1.26,<3
+scikit-learn>=1.3,<2
 
-# Phase 3 (cluster detection, astra.hotspot) -- DBSCAN + the precomputed
-# horizontal/vertical distance matrix it runs against.
-numpy
-scikit-learn
+# --- Real-time dashboard / API (astra.dashboard) ------------------------
+# FastAPI + Uvicorn serve the WebSocket telemetry stream and REST
+# fallback; pydantic backs FastAPI's request/response models.
+fastapi>=0.111,<1
+uvicorn[standard]>=0.29,<1
+pydantic>=2.6,<3
+# websockets is pulled in by uvicorn[standard], listed explicitly since
+# astra.dashboard.server depends on the ASGI websocket protocol directly.
+websockets>=12.0,<16
 
-# Phase 8 (dashboard / HMI, astra.dashboard) -- minimal local web server
-# for the live map/table/timeline/resolutions HMI. See
-# docs/milestone_8_dashboard.md.
-flask
+# --- Legacy Flask dashboard (Scenario Builder / BlueSky live-mode HMI) --
+# Kept only for astra.dashboard.legacy_flask_app (Scenario Builder, the
+# geo-layer map shell, and live-BlueSky mode), which has not been
+# ported to FastAPI (see astra/dashboard/server.py's module docstring).
+# It is mounted underneath the new FastAPI app via a2wsgi, so both are
+# required together, not as alternatives.
+flask>=3.0,<4
+a2wsgi>=1.10,<2
+
+# --- Live BlueSky connectivity (astra.interface.bluesky_connector) ------
+# Optional: only required when running main.py without --mock.
+
+
+# --- Testing --------------------------------------------------------------
+pytest>=8.0,<9
+pytest-asyncio>=0.23,<1
+httpx>=0.27,<1

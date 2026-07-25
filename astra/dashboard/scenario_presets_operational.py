@@ -4,7 +4,7 @@ waypoints/airways (`astra/dashboard/geo/airways.json`,
 `geo/sectors.json`) via `scenario_geo.py`, instead of the hand-picked
 demo coordinates in `scenario_presets.py`.
 
-These three presets exist to demonstrate ASTRA's actual value
+These builders exist to demonstrate ASTRA's actual value
 proposition -- medium-term (30-60 min) flow-management prediction --
 rather than tactical (already-close) conflict detection, which is all
 the original hand-picked presets show. See each builder's docstring
@@ -23,12 +23,24 @@ sub-route of a real airway (via `scenario_geo.sub_route` /
   * `RouteAwareTrajectoryEngine` flies it through the *real* remaining
     waypoint sequence, turns included, until the route runs out
 
-All three builders are deterministic: aircraft counts, callsigns,
+All builders are deterministic: aircraft counts, callsigns,
 airway/waypoint choices and altitude/speed bands are fixed; the only
-randomised part (cruise level/speed jitter within a band, for realism)
-uses a fixed `random.Random` seed, so repeated runs produce the same
-traffic every time -- comparable demonstrations, not a new scene each
-load.
+randomised part (cruise level/speed jitter within a band, for realism,
+and -- for `nominal_sector_traffic_aircraft`/`sector_overload_aircraft`
+-- the separation retry jitter) uses a fixed `random.Random` seed, so
+repeated runs produce the same traffic every time -- comparable
+demonstrations, not a new scene each load. Every builder in this
+module sets `flight_type` per aircraft (`"LANDING"`/`"OVERFLIGHT"`,
+see `MockConnector.create_aircraft`) according to what its route
+actually represents: aircraft whose final waypoint is a real
+destination airport (e.g. TSH, PLK) spawn with `flight_type="LANDING"`
+and genuinely descend and stop there; aircraft whose final waypoint is
+only a crossing/reporting fix (e.g. AC) spawn with
+`flight_type="OVERFLIGHT"` and hold cruise level through it before
+auto-despawning; aircraft representing a departure spawn directly at
+their intended departure altitude with `flight_type=None` (no forced
+profile) -- see each builder's own docstring for its specific role
+mix.
 """
 
 import random
@@ -100,6 +112,11 @@ def arrival_sequencing_aircraft() -> List[PresetAircraft]:
     interesting, representative result: a workload-motivated pair that
     ASTRA also correctly recognises will become a genuine, if distant
     (40-50 min out), separation concern if left unmanaged.
+
+    Both aircraft spawn with `flight_type="LANDING"` (see
+    `MockConnector.create_aircraft`): TSH is their real destination
+    airport, so both genuinely descend over the final 40 NM of the
+    route and stop there, rather than flying on past it forever.
     """
     route = geo.sub_route("W1", "MEVON", "TSH")
     coords = [(lat, lon) for _, lat, lon in route]
@@ -118,6 +135,7 @@ def arrival_sequencing_aircraft() -> List[PresetAircraft]:
             "altitude_ft": 34000,
             "speed_kt": 255,
             "route_waypoints": lead.remaining_waypoints,
+            "flight_type": "LANDING",
         },
         {
             "callsign": "VJC456",
@@ -128,6 +146,7 @@ def arrival_sequencing_aircraft() -> List[PresetAircraft]:
             "altitude_ft": 34000,
             "speed_kt": 261,  # slightly faster: gap holds, doesn't open up
             "route_waypoints": trail.remaining_waypoints,
+            "flight_type": "LANDING",
         },
     ]
 
@@ -225,6 +244,13 @@ def sector_overload_aircraft() -> List[PresetAircraft]:
             ac_type = rng.choice(
                 _TYPES_REGIONAL if role == "departure" and rng.random() < 0.15 else _TYPES_JET
             )
+            # Role-based Scenario Builder spawn profile (same convention as
+            # `nominal_sector_traffic_aircraft` below): "overflight" holds
+            # cruise level through its final waypoint then auto-despawns,
+            # "arrival" genuinely descends and lands at its final waypoint,
+            # "departure" spawns level with no forced profile (this
+            # project's connector has no "climb away" profile to model).
+            flight_type = {"overflight": "OVERFLIGHT", "arrival": "LANDING", "departure": None}[role]
 
             aircraft.append(
                 {
@@ -236,6 +262,7 @@ def sector_overload_aircraft() -> List[PresetAircraft]:
                     "altitude_ft": alt_ft,
                     "speed_kt": speed_kt,
                     "route_waypoints": start.remaining_waypoints,
+                    "flight_type": flight_type,
                 }
             )
 
@@ -322,6 +349,7 @@ def crossing_airways_aircraft() -> List[PresetAircraft]:
                 "lat": lead.lat, "lon": lead.lon, "heading_deg": lead.heading_deg,
                 "altitude_ft": alt_ft, "speed_kt": lead_speed,
                 "route_waypoints": lead.remaining_waypoints,
+                "flight_type": "OVERFLIGHT",
             }
         )
         aircraft.append(
@@ -330,6 +358,7 @@ def crossing_airways_aircraft() -> List[PresetAircraft]:
                 "lat": trail.lat, "lon": trail.lon, "heading_deg": trail.heading_deg,
                 "altitude_ft": alt_ft, "speed_kt": trail_speed,
                 "route_waypoints": trail.remaining_waypoints,
+                "flight_type": "OVERFLIGHT",
             }
         )
 
@@ -358,6 +387,7 @@ def crossing_airways_aircraft() -> List[PresetAircraft]:
             "lat": near_start.lat, "lon": near_start.lon, "heading_deg": near_start.heading_deg,
             "altitude_ft": alt_ft, "speed_kt": near_speed,
             "route_waypoints": near_start.remaining_waypoints,
+            "flight_type": "OVERFLIGHT",
         }
     )
     aircraft.append(
@@ -366,6 +396,365 @@ def crossing_airways_aircraft() -> List[PresetAircraft]:
             "lat": far_start.lat, "lon": far_start.lon, "heading_deg": far_start.heading_deg,
             "altitude_ft": alt_ft, "speed_kt": far_speed,
             "route_waypoints": far_start.remaining_waypoints,
+            "flight_type": "OVERFLIGHT",
         }
     )
     return aircraft
+
+
+# ----------------------------------------------------------------------
+# 4. Nominal sector traffic
+# ----------------------------------------------------------------------
+
+#: (designator, from_wp, to_wp, count, role). 30 flows across 22 of the
+#: 70 real airways, deliberately spanning routes this file's earlier
+#: presets never touch (L625, L628, L642, M765, M771, N639, N892, Q1,
+#: Q15, A1, A206, G221 and more) as well as reusing a few TSH corridors
+#: (W1, W2, L637/L644, W8/W9/W17/W19, N500, Q2, M768) in both directions
+#: for genuine departure/arrival pairs, not just one-way overflights.
+#: `role` picks the altitude/speed/vertical-profile band below --
+#: "arrival"/"departure" both fly toward/away from TSH specifically
+#: (this project's one major airport in the current dataset), everything
+#: else is "overflight" (level cruise, no vertical motion).
+_NOMINAL_FLOWS = [
+    ("W1", "NOB", "TSH", 4, "arrival"),
+    ("W1", "TSH", "NOB", 2, "departure"),
+    ("W2", "NAH", "TSH", 3, "arrival"),
+    ("W2", "TSH", "NAH", 2, "departure"),
+    ("Q2", "TSH", "VPH", 3, "departure"),
+    ("N500", "TSH", "PANDI", 2, "departure"),
+    ("L644", "TSH", "DUDIS", 3, "departure"),
+    ("M768", "AKMON", "TSH", 3, "arrival"),
+    ("L637", "BITOD", "TSH", 3, "arrival"),
+    ("W8", "TSH", "PQU", 2, "departure"),
+    ("W19", "TSH", "CN", 2, "departure"),
+    ("W9", "TSH", "CN", 2, "departure"),
+    ("W17", "TSH", "TUNPO", 2, "departure"),
+    ("L642", "EGEMU", "ESPOB", 3, "overflight"),
+    ("M765", "PANDI", "IGARI", 3, "overflight"),
+    ("Q1", "NOB", "AC", 3, "overflight"),
+    ("N892", "MIGUG", "MELAS", 3, "overflight"),
+    ("M771", "DUDIS", "DONDA", 3, "overflight"),
+    ("L625", "AKMON", "ARESI", 2, "overflight"),
+    ("L628", "PCA", "ARESI", 2, "overflight"),
+    ("W12", "PCA", "TRN", 2, "overflight"),
+    ("W10", "HUE", "CBI", 2, "overflight"),
+    ("Q15", "CRA", "MESOX", 2, "overflight"),
+    ("A206", "NALAO", "ASSAD", 2, "overflight"),
+    ("W4", "CBI", "DBN", 2, "overflight"),
+    ("N639", "NAH", "VILAO", 2, "overflight"),
+    ("G221", "PCA", "BUNTA", 2, "overflight"),
+    ("A1", "PAPRA", "BUNTA", 2, "overflight"),
+    ("W15", "AC", "CRA", 2, "overflight"),
+    ("W6", "NOB", "LAOCAI", 2, "overflight"),
+]
+
+_NOMINAL_ALT_BANDS_FT = {
+    "overflight": [29000, 31000, 33000, 35000, 37000, 39000, 41000],
+    "arrival": [20000, 24000, 28000, 30000],
+    "departure": [2000, 3000, 4000, 5000],
+}
+_NOMINAL_SPEED_BAND_KT = {
+    "overflight": (280, 420),
+    "arrival": (250, 320),
+    "departure": (250, 320),
+}
+#: Role-based Scenario Builder spawn profile (see
+#: `MockConnector.create_aircraft`'s `flight_type`): "arrival" aircraft
+#: spawn with `flight_type="LANDING"` (a real descent to FL000 and stop
+#: at the hub waypoint, TSH); "overflight" aircraft spawn with
+#: `flight_type="OVERFLIGHT"` (cruise level held throughout, then
+#: auto-despawn once past the final waypoint); "departure" aircraft
+#: spawn directly at their departure-band altitude with no forced
+#: profile (`flight_type=None`) -- this project's connector has no
+#: "climb away from an airport" profile, only "descend into one"
+#: (LANDING) or "hold level across one" (OVERFLIGHT), so a departure is
+#: simply presented already at its initial climb-band altitude rather
+#: than animating an indefinite climb.
+_NOMINAL_MIN_SEPARATION_NM = 10.0
+
+
+def nominal_sector_traffic_aircraft(count: int = 72) -> List[PresetAircraft]:
+    """40-100 aircraft (default 72) spread across 22 real airways, no pair closer than 10 NM.
+
+    Each of `_NOMINAL_FLOWS`'s 30 (route, direction, role) segments gets
+    its aircraft placed at a jittered fractional distance along that
+    segment via `scenario_geo.advance_from_route_start`, exactly like
+    `sector_overload_aircraft` above -- but this preset additionally
+    enforces a **global** minimum separation (`_NOMINAL_MIN_SEPARATION_NM`,
+    10 NM) across *every* pair of aircraft, not just within one flow's
+    own in-trail spacing: several of these routes converge on the same
+    hub waypoints (AC, TSH, PCA, CRA, NAH, NOB...) that
+    `sector_overload_aircraft`'s smaller 11-flow set mostly avoided
+    stacking up on, so an aircraft from one flow landing within 10 NM of
+    one from an unrelated flow near a shared hub is a real possibility
+    here and is checked for, not assumed away. Each candidate position
+    gets up to 25 jitter attempts before that slot is silently dropped
+    (logged via the returned list simply being shorter than planned) --
+    at the default `count`/flow mix this has not been observed to drop
+    any slot (see this module's own validation run), but the retry loop
+    exists because the flow list was hand-tuned for 30 slots at the
+    default `count`, not proven to always succeed at arbitrary `count`
+    values in [40, 100].
+
+    Every aircraft also gets a role-appropriate spawn profile (see
+    `_NOMINAL_ALT_BANDS_FT`/`_NOMINAL_SPEED_BAND_KT` above): overflights
+    spawn level and cruise straight through (`flight_type="OVERFLIGHT"`);
+    arrivals spawn already at an arrival-band altitude and genuinely
+    descend-and-land at the hub waypoint they're flying toward
+    (`flight_type="LANDING"`); departures spawn level at a departure-band
+    altitude with no forced profile. All ground speeds are drawn from
+    [250, 450] kt.
+
+    Args:
+        count: Total aircraft across all flows, proportionally scaled
+            from `_NOMINAL_FLOWS`'s 72-aircraft default mix. Must be
+            reachable by scaling every flow's `count` by the same
+            factor and rounding -- extreme values far from 72 will
+            distort the role mix (rounding dominates small counts).
+    """
+    scale = count / sum(f[3] for f in _NOMINAL_FLOWS)
+    rng = random.Random(_SEED)
+    used_callsigns: set = set()
+    placed: List[tuple] = []
+    aircraft: List[PresetAircraft] = []
+
+    def far_enough(lat: float, lon: float) -> bool:
+        return all(
+            geo.haversine_distance_nm(lat, lon, plat, plon) >= _NOMINAL_MIN_SEPARATION_NM
+            for plat, plon in placed
+        )
+
+    for designator, from_wp, to_wp, base_count, role in _NOMINAL_FLOWS:
+        flow_count = max(1, round(base_count * scale))
+        route = geo.sub_route(designator, from_wp, to_wp)
+        coords = [(lat, lon) for _, lat, lon in route]
+        total_nm = geo.polyline_length_nm(coords)
+        slot = total_nm / (flow_count + 1)
+
+        for i in range(1, flow_count + 1):
+            start = None
+            for _attempt in range(25):
+                jitter = rng.uniform(-0.3, 0.3) * slot
+                distance_nm = max(3.0, min(total_nm - 3.0, i * slot + jitter))
+                candidate = geo.advance_from_route_start(coords, distance_nm)
+                if far_enough(candidate.lat, candidate.lon):
+                    start = candidate
+                    break
+            if start is None:
+                continue  # could not clear 10 NM from existing traffic; drop this slot
+            placed.append((start.lat, start.lon))
+
+            if role == "overflight":
+                alt_ft = float(rng.choice(_NOMINAL_ALT_BANDS_FT["overflight"]))
+                flight_type = "OVERFLIGHT"
+            elif role == "arrival":
+                alt_ft = float(rng.choice(_NOMINAL_ALT_BANDS_FT["arrival"]))
+                flight_type = "LANDING"
+            else:  # departure
+                alt_ft = float(rng.choice(_NOMINAL_ALT_BANDS_FT["departure"]))
+                flight_type = None
+
+            speed_lo, speed_hi = _NOMINAL_SPEED_BAND_KT[role]
+            ac_type = rng.choice(
+                _TYPES_REGIONAL if role != "overflight" and rng.random() < 0.15 else _TYPES_JET
+            )
+            aircraft.append(
+                {
+                    "callsign": _callsign(rng, used_callsigns),
+                    "aircraft_type": ac_type,
+                    "lat": start.lat, "lon": start.lon, "heading_deg": start.heading_deg,
+                    "altitude_ft": alt_ft, "speed_kt": rng.randint(speed_lo, speed_hi),
+                    "route_waypoints": start.remaining_waypoints,
+                    "flight_type": flight_type,
+                }
+            )
+
+    return aircraft
+
+
+# ----------------------------------------------------------------------
+# 5. Convergence hotspot -- 5 aircraft, 5 routes, one waypoint, 30 min
+# ----------------------------------------------------------------------
+
+#: (designator, far_wp, converge_wp, speed_kt, callsign, aircraft_type).
+#: AC is referenced by more distinct airways (5: L644, Q1, W1, W15, W2)
+#: than any other waypoint except the TSH/NOB/NAH/CN hub group (see this
+#: module's dev notes) -- and unlike TSH (an airport, i.e. every route
+#: through it is naturally an arrival/departure funnel, not 5 genuinely
+#: different approach *directions*), AC's 5 routes approach from 5
+#: distinct real bearings (207-271 deg for four of them, 77 deg -- the
+#: opposite side entirely -- for the fifth via L644/TSH), a real
+#: multi-directional convergence rather than 5 named designators sharing
+#: one physical corridor (checked: e.g. Q1 and W1 both pass through DAN
+#: with *identical* point sequences up to that waypoint, which would
+#: have made DAN a poor choice for "5 different routes" despite also
+#: having 5 designators reference it).
+_CONVERGENCE_TARGET_MIN = 30.0
+_CONVERGENCE_FLOWS = [
+    ("W1", "NOB", "AC", 290, "HVN101", "A321"),
+    ("Q1", "NOB", "AC", 300, "VJC202", "A320"),
+    ("W2", "NAH", "AC", 280, "QH303", "A319"),
+    ("W15", "CRA", "AC", 260, "BAV404", "B738"),
+]
+#: L644's own TSH -> AC leg is only ~32 NM -- far short of the ~135 NM
+#: a 270 kt aircraft covers in 30 min -- so this fifth flow is padded
+#: backward past TSH via `scenario_geo.extend_route_backward` (same
+#: technique `arrival_sequencing_aircraft` above uses for in-trail
+#: spacing, here used for approach-leg *length* instead): a straight
+#: continuation of L644's own filed TSH->AC bearing, not a detour
+#: through the airport itself.
+_CONVERGENCE_FIFTH = ("L644", "TSH", "AC", 270, "PIC505", "B77W")
+
+
+def convergence_hotspot_aircraft() -> List[PresetAircraft]:
+    """5 aircraft on 5 real routes, all reaching AC at exactly t=30 min.
+
+    Each of `_CONVERGENCE_FLOWS`'s four aircraft is placed via
+    `scenario_geo.advance_from_route_start` at precisely `speed_kt *
+    30/60` NM back from AC along its own real sub-route (`from_wp` ->
+    `AC`); the fifth (`_CONVERGENCE_FIFTH`, on L644) is placed the same
+    way after first padding its too-short real leg backward past TSH
+    (see that constant's docstring). All five therefore arrive at AC's
+    exact real coordinates simultaneously at t=30 min -- verified by
+    direct `MockConnector` simulation to 0.00 NM residual for all five
+    at t=1800s (see this module's validation notes / thesis backlog
+    entry for the run).
+
+    All five start well outside `hotspot_dbscan_eps_nm` of each other
+    (100+ NM apart at t=0, on five different bearings into AC), so
+    unlike `arrival_sequencing_aircraft`/`crossing_airways_aircraft`
+    above, no track exists from cycle 1 -- the early cycles instead show
+    the normal tracker noise of five otherwise-unrelated aircraft
+    occasionally passing within clustering range of each other en route
+    (confirmed against a real pipeline run: several short-lived
+    PROVISIONAL/CANDIDATE tracks open and dissipate well before AC), not
+    a hotspot yet. As the five genuinely close in on AC, a real
+    horizon-0 cluster does eventually form (again confirmed by that same
+    run, well before t=30 min) and `ResolutionEngine` proposes both
+    single- and joint-aircraft candidates from it -- so this preset
+    demonstrates the ordinary tracked-cluster path maturing into a
+    resolution, same as every preset above, just with a deliberately
+    late, single, sharp convergence rather than an already-close pair.
+    All five share the same cruise level (35000 ft, level, no vertical
+    motion), so the eventual encounter is a genuine 5-way lateral
+    conflict at a single point and level, not resolved for free by
+    altitude staggering.
+    """
+    aircraft: List[PresetAircraft] = []
+
+    for designator, far_wp, converge_wp, speed_kt, callsign, ac_type in _CONVERGENCE_FLOWS:
+        route = geo.sub_route(designator, far_wp, converge_wp)
+        coords = [(lat, lon) for _, lat, lon in route]
+        total_nm = geo.polyline_length_nm(coords)
+        need_nm = speed_kt * _CONVERGENCE_TARGET_MIN / 60.0
+        start = geo.advance_from_route_start(coords, total_nm - need_nm)
+        aircraft.append(
+            {
+                "callsign": callsign, "aircraft_type": ac_type,
+                "lat": start.lat, "lon": start.lon, "heading_deg": start.heading_deg,
+                "altitude_ft": 35000.0, "speed_kt": speed_kt,
+                "route_waypoints": start.remaining_waypoints,
+                "flight_type": "OVERFLIGHT",
+            }
+        )
+
+    designator, far_wp, converge_wp, speed_kt, callsign, ac_type = _CONVERGENCE_FIFTH
+    route = geo.sub_route(designator, far_wp, converge_wp)
+    coords = [(lat, lon) for _, lat, lon in route]
+    total_nm = geo.polyline_length_nm(coords)
+    need_nm = speed_kt * _CONVERGENCE_TARGET_MIN / 60.0
+    extended = geo.extend_route_backward(coords, need_nm - total_nm)
+    start = geo.advance_from_route_start(extended, 0.0)
+    aircraft.append(
+        {
+            "callsign": callsign, "aircraft_type": ac_type,
+            "lat": start.lat, "lon": start.lon, "heading_deg": start.heading_deg,
+            "altitude_ft": 35000.0, "speed_kt": speed_kt,
+            "route_waypoints": start.remaining_waypoints,
+            "flight_type": "OVERFLIGHT",
+        }
+    )
+    return aircraft
+
+
+# ----------------------------------------------------------------------
+# 6. Solvable conflict -- TSH departure x PLK arrival, crossing at BMT, 20 min
+# ----------------------------------------------------------------------
+
+_SOLVABLE_TARGET_MIN = 20.0
+_SOLVABLE_DEPARTURE_SPEED_KT = 250.0
+_SOLVABLE_ARRIVAL_SPEED_KT = 270.0
+_SOLVABLE_LEVEL_OFF_FT = 10000.0  # FL100 -- both aircraft meet here, not just laterally
+
+
+def solvable_conflict_aircraft() -> List[PresetAircraft]:
+    """A TSH departure and a PLK arrival, both reaching BMT (and FL100) at exactly t=20 min.
+
+    **Departure** (`VJC777`): placed on W1 flown TSH -> BMT (the real
+    airway's own filed order is MEVON -> BMT -> ... -> TSH; `sub_route`
+    auto-reverses -- see its docstring) at the point exactly
+    `_SOLVABLE_DEPARTURE_SPEED_KT` * 20/60 NM short of BMT. Spawns
+    directly at FL100 -- this connector has no "climb away from an
+    airport, level at cruise" profile (only "descend into an airport"
+    via `flight_type="LANDING"`, or "hold level across a route" via
+    `flight_type="OVERFLIGHT"`), so rather than animate an indefinite
+    climb this preset simply presents the departure already established
+    at the conflict altitude, holding FL100 through the conflict.
+
+    **Arrival** (`HVN888`): its final destination is PLK, but BMT and
+    PLK are not connected by any single filed airway in the current
+    dataset (checked: no `airways.json` route lists both) -- W1 passes
+    through BMT, a *different* set of routes (G474, L628, B202) touch
+    PLK, and none bridge the two directly. This leg is therefore a
+    **straight-line approximation** between BMT and PLK's own real
+    coordinates (both genuine published points, just not linked by a
+    filed segment between them), built with `scenario_geo.
+    extend_route_backward([BMT, PLK], ...)` -- flagged here rather than
+    silently presented as a real airway leg. Also spawns directly at
+    FL100 (same reasoning as the departure above) and holds it through
+    BMT and on toward PLK (`route_waypoints` ends at PLK, but this
+    preset does not model the final FL100 -> FL000 landing segment --
+    same simplification as `nominal_sector_traffic_aircraft`'s
+    arrivals not being flown all the way to a landing here either).
+
+    Both aircraft are at the *same* FL100 from spawn, reach BMT's exact
+    real coordinates simultaneously at t=1200s (0.00 NM residual,
+    verified by direct `MockConnector` simulation), and start ~66 NM
+    (departure) / 90 NM (arrival) apart at t=0 -- outside
+    `hotspot_dbscan_eps_nm`, so like `convergence_hotspot_aircraft` this
+    exercises the proactive multi-horizon forecast path, not
+    horizon-0 clustering. A genuine lateral conflict at a known
+    time/place/level: `ResolutionEngine` has a real encounter to
+    resolve, with both a heading-based and an altitude-based fix
+    equally available (see this preset's own validation run for what
+    the engine actually proposes).
+    """
+    route1 = geo.sub_route("W1", "TSH", "BMT")
+    coords1 = [(lat, lon) for _, lat, lon in route1]
+    total1 = geo.polyline_length_nm(coords1)
+    need1 = _SOLVABLE_DEPARTURE_SPEED_KT * _SOLVABLE_TARGET_MIN / 60.0
+    spawn1 = geo.advance_from_route_start(coords1, total1 - need1)
+
+    bmt = geo.waypoint_latlon("W1", "BMT")
+    plk = geo.waypoint_latlon("W1", "PLK")
+    need2 = _SOLVABLE_ARRIVAL_SPEED_KT * _SOLVABLE_TARGET_MIN / 60.0
+    extended2 = geo.extend_route_backward([bmt, plk], need2)
+    spawn2 = geo.advance_from_route_start(extended2, 0.0)
+
+    return [
+        {
+            "callsign": "VJC777", "aircraft_type": "A320",
+            "lat": spawn1.lat, "lon": spawn1.lon, "heading_deg": spawn1.heading_deg,
+            "altitude_ft": _SOLVABLE_LEVEL_OFF_FT, "speed_kt": _SOLVABLE_DEPARTURE_SPEED_KT,
+            "route_waypoints": spawn1.remaining_waypoints,
+            "flight_type": None,
+        },
+        {
+            "callsign": "HVN888", "aircraft_type": "A321",
+            "lat": spawn2.lat, "lon": spawn2.lon, "heading_deg": spawn2.heading_deg,
+            "altitude_ft": _SOLVABLE_LEVEL_OFF_FT, "speed_kt": _SOLVABLE_ARRIVAL_SPEED_KT,
+            "route_waypoints": spawn2.remaining_waypoints,
+            "flight_type": "LANDING",
+        },
+    ]
