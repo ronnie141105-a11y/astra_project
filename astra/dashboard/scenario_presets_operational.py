@@ -250,7 +250,7 @@ def sector_overload_aircraft() -> List[PresetAircraft]:
             # "arrival" genuinely descends and lands at its final waypoint,
             # "departure" spawns level with no forced profile (this
             # project's connector has no "climb away" profile to model).
-            flight_type = {"overflight": "OVERFLIGHT", "arrival": "LANDING", "departure": None}[role]
+            flight_type = {"overflight": "OVERFLIGHT", "arrival": "LANDING", "departure": "OVERFLIGHT"}[role]
 
             aircraft.append(
                 {
