@@ -1,0 +1,1049 @@
+{
+  "name": "nominal_operation",
+  "aircraft": [
+    {
+      "callsign": "SIA166",
+      "aircraft_type": "A319",
+      "lat": 12.227132915926253,
+      "lon": 107.88410654843301,
+      "heading_deg": 207.9516345749845,
+      "altitude_ft": 31000,
+      "ground_speed_kt": 281,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          11.190833,
+          107.323889
+        ],
+        [
+          10.939167,
+          107.188333
+        ],
+        [
+          10.888611,
+          106.963889
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "THA139",
+      "aircraft_type": "A320",
+      "lat": 11.895210715793553,
+      "lon": 107.70414698515374,
+      "heading_deg": 207.91403077677947,
+      "altitude_ft": 31000,
+      "ground_speed_kt": 294,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          11.190833,
+          107.323889
+        ],
+        [
+          10.939167,
+          107.188333
+        ],
+        [
+          10.888611,
+          106.963889
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "AXJ827",
+      "aircraft_type": "A321",
+      "lat": 11.501472603532157,
+      "lon": 107.49131971877718,
+      "heading_deg": 207.87087784073714,
+      "altitude_ft": 37000,
+      "ground_speed_kt": 290,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          11.190833,
+          107.323889
+        ],
+        [
+          10.939167,
+          107.188333
+        ],
+        [
+          10.888611,
+          106.963889
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "HVN331",
+      "aircraft_type": "A320",
+      "lat": 11.213833896388843,
+      "lon": 107.33627201528029,
+      "heading_deg": 207.84034375172297,
+      "altitude_ft": 33000,
+      "ground_speed_kt": 275,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          11.190833,
+          107.323889
+        ],
+        [
+          10.939167,
+          107.188333
+        ],
+        [
+          10.888611,
+          106.963889
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "BAV706",
+      "aircraft_type": "A319",
+      "lat": 10.895185320678374,
+      "lon": 106.9930304938757,
+      "heading_deg": 257.0642129099961,
+      "altitude_ft": 37000,
+      "ground_speed_kt": 289,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          10.888611,
+          106.963889
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "VJC705",
+      "aircraft_type": "B77W",
+      "lat": 11.056178821879772,
+      "lon": 107.25132660484249,
+      "heading_deg": 27.860926350136946,
+      "altitude_ft": 19000,
+      "ground_speed_kt": 213,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          11.190833,
+          107.323889
+        ],
+        [
+          12.666389,
+          108.123056
+        ]
+      ]
+    },
+    {
+      "callsign": "BAV649",
+      "aircraft_type": "ATR72",
+      "lat": 11.47975145473544,
+      "lon": 107.47959874124547,
+      "heading_deg": 27.868542935577423,
+      "altitude_ft": 17000,
+      "ground_speed_kt": 214,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          12.666389,
+          108.123056
+        ]
+      ]
+    },
+    {
+      "callsign": "BAV565",
+      "aircraft_type": "B77W",
+      "lat": 12.142731198836975,
+      "lon": 107.83829783550748,
+      "heading_deg": 27.941965830212204,
+      "altitude_ft": 15500,
+      "ground_speed_kt": 220,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          12.666389,
+          108.123056
+        ]
+      ]
+    },
+    {
+      "callsign": "QH942",
+      "aircraft_type": "A321",
+      "lat": 13.099914724338948,
+      "lon": 109.11765598568837,
+      "heading_deg": 175.17588480500586,
+      "altitude_ft": 26000,
+      "ground_speed_kt": 259,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          12.648889,
+          109.156667
+        ],
+        [
+          12.226389,
+          109.201111
+        ],
+        [
+          11.994444,
+          109.22
+        ],
+        [
+          11.668889,
+          108.868056
+        ],
+        [
+          10.928056,
+          108.071944
+        ],
+        [
+          10.933333,
+          107.671667
+        ],
+        [
+          10.939167,
+          107.188333
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "BAV377",
+      "aircraft_type": "B77W",
+      "lat": 12.475645598212765,
+      "lon": 109.17490857387757,
+      "heading_deg": 174.13408118249066,
+      "altitude_ft": 28500,
+      "ground_speed_kt": 250,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          12.226389,
+          109.201111
+        ],
+        [
+          11.994444,
+          109.22
+        ],
+        [
+          11.668889,
+          108.868056
+        ],
+        [
+          10.928056,
+          108.071944
+        ],
+        [
+          10.933333,
+          107.671667
+        ],
+        [
+          10.939167,
+          107.188333
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "VJ828",
+      "aircraft_type": "B738",
+      "lat": 11.586988912991897,
+      "lon": 108.77972698510088,
+      "heading_deg": 226.56114550272457,
+      "altitude_ft": 28500,
+      "ground_speed_kt": 252,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          10.928056,
+          108.071944
+        ],
+        [
+          10.933333,
+          107.671667
+        ],
+        [
+          10.939167,
+          107.188333
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "JQ115",
+      "aircraft_type": "B77W",
+      "lat": 11.200471650030595,
+      "lon": 108.36394551371762,
+      "heading_deg": 226.47900702996608,
+      "altitude_ft": 26000,
+      "ground_speed_kt": 268,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          10.928056,
+          108.071944
+        ],
+        [
+          10.933333,
+          107.671667
+        ],
+        [
+          10.939167,
+          107.188333
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "SIA184",
+      "aircraft_type": "A320",
+      "lat": 10.935069225969968,
+      "lon": 107.53422847214243,
+      "heading_deg": 270.72411032615975,
+      "altitude_ft": 26000,
+      "ground_speed_kt": 268,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          10.939167,
+          107.188333
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "PIC811",
+      "aircraft_type": "A321",
+      "lat": 10.930297397173028,
+      "lon": 107.90671498663896,
+      "heading_deg": 90.77588351230902,
+      "altitude_ft": 17500,
+      "ground_speed_kt": 195,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          10.928056,
+          108.071944
+        ],
+        [
+          11.668889,
+          108.868056
+        ],
+        [
+          11.994444,
+          109.22
+        ],
+        [
+          12.226389,
+          109.201111
+        ],
+        [
+          12.648889,
+          109.156667
+        ],
+        [
+          13.2875,
+          109.101389
+        ],
+        [
+          13.957222,
+          109.042778
+        ]
+      ]
+    },
+    {
+      "callsign": "QH774",
+      "aircraft_type": "A359",
+      "lat": 11.637570893232436,
+      "lon": 108.83426994651471,
+      "heading_deg": 46.572124340773314,
+      "altitude_ft": 21000,
+      "ground_speed_kt": 187,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          11.668889,
+          108.868056
+        ],
+        [
+          11.994444,
+          109.22
+        ],
+        [
+          12.226389,
+          109.201111
+        ],
+        [
+          12.648889,
+          109.156667
+        ],
+        [
+          13.2875,
+          109.101389
+        ],
+        [
+          13.957222,
+          109.042778
+        ]
+      ]
+    },
+    {
+      "callsign": "HVN845",
+      "aircraft_type": "B738",
+      "lat": 12.911447119125862,
+      "lon": 109.13397445391787,
+      "heading_deg": 355.17955724312947,
+      "altitude_ft": 15000,
+      "ground_speed_kt": 214,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          13.2875,
+          109.101389
+        ],
+        [
+          13.957222,
+          109.042778
+        ]
+      ]
+    },
+    {
+      "callsign": "VJ651",
+      "aircraft_type": "B77W",
+      "lat": 13.018657065921392,
+      "lon": 108.37298830032911,
+      "heading_deg": 214.70126843501407,
+      "altitude_ft": 35500,
+      "ground_speed_kt": 290,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          12.666389,
+          108.123056
+        ],
+        [
+          12.336389,
+          107.81
+        ],
+        [
+          11.423333,
+          106.951667
+        ],
+        [
+          11.088056,
+          106.638333
+        ],
+        [
+          10.899444,
+          106.462778
+        ],
+        [
+          10.083333,
+          105.705556
+        ]
+      ]
+    },
+    {
+      "callsign": "SIA588",
+      "aircraft_type": "A320",
+      "lat": 12.352936670476177,
+      "lon": 107.82567094634408,
+      "heading_deg": 222.77428211779144,
+      "altitude_ft": 39000,
+      "ground_speed_kt": 275,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          12.336389,
+          107.81
+        ],
+        [
+          11.423333,
+          106.951667
+        ],
+        [
+          11.088056,
+          106.638333
+        ],
+        [
+          10.899444,
+          106.462778
+        ],
+        [
+          10.083333,
+          105.705556
+        ]
+      ]
+    },
+    {
+      "callsign": "PIC869",
+      "aircraft_type": "A320",
+      "lat": 11.688482341875135,
+      "lon": 107.2000864797931,
+      "heading_deg": 222.574169198237,
+      "altitude_ft": 37000,
+      "ground_speed_kt": 265,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          11.423333,
+          106.951667
+        ],
+        [
+          11.088056,
+          106.638333
+        ],
+        [
+          10.899444,
+          106.462778
+        ],
+        [
+          10.083333,
+          105.705556
+        ]
+      ]
+    },
+    {
+      "callsign": "THA470",
+      "aircraft_type": "A320",
+      "lat": 10.896767773389467,
+      "lon": 106.46028550123906,
+      "heading_deg": 222.44428071162255,
+      "altitude_ft": 39000,
+      "ground_speed_kt": 272,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          10.083333,
+          105.705556
+        ]
+      ]
+    },
+    {
+      "callsign": "SIA817",
+      "aircraft_type": "A359",
+      "lat": 11.316524453426695,
+      "lon": 107.72690714975948,
+      "heading_deg": 54.53117288731071,
+      "altitude_ft": 31000,
+      "ground_speed_kt": 280,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          11.754167,
+          108.355278
+        ],
+        [
+          11.833889,
+          108.640833
+        ],
+        [
+          11.994444,
+          109.22
+        ]
+      ]
+    },
+    {
+      "callsign": "BAV781",
+      "aircraft_type": "A319",
+      "lat": 11.664478936561137,
+      "lon": 108.22618400768498,
+      "heading_deg": 54.63063263785439,
+      "altitude_ft": 31500,
+      "ground_speed_kt": 277,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          11.754167,
+          108.355278
+        ],
+        [
+          11.833889,
+          108.640833
+        ],
+        [
+          11.994444,
+          109.22
+        ]
+      ]
+    },
+    {
+      "callsign": "THA240",
+      "aircraft_type": "B789",
+      "lat": 11.81160386131275,
+      "lon": 108.56089063726857,
+      "heading_deg": 74.09449259561343,
+      "altitude_ft": 33000,
+      "ground_speed_kt": 268,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          11.833889,
+          108.640833
+        ],
+        [
+          11.994444,
+          109.22
+        ]
+      ]
+    },
+    {
+      "callsign": "BAV636",
+      "aircraft_type": "ATR72",
+      "lat": 10.586482372119612,
+      "lon": 106.35160644760809,
+      "heading_deg": 231.68897780020635,
+      "altitude_ft": 21500,
+      "ground_speed_kt": 183,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          10.399722,
+          106.111389
+        ],
+        [
+          10.083333,
+          105.705556
+        ],
+        [
+          9.959444,
+          105.133056
+        ]
+      ]
+    },
+    {
+      "callsign": "SIA534",
+      "aircraft_type": "B789",
+      "lat": 10.24810591914593,
+      "lon": 105.91672905538313,
+      "heading_deg": 231.61414781376055,
+      "altitude_ft": 21000,
+      "ground_speed_kt": 224,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          10.083333,
+          105.705556
+        ],
+        [
+          9.959444,
+          105.133056
+        ]
+      ]
+    },
+    {
+      "callsign": "BAV704",
+      "aircraft_type": "B77W",
+      "lat": 10.056539356667436,
+      "lon": 105.58131820913829,
+      "heading_deg": 257.6342836058342,
+      "altitude_ft": 19000,
+      "ground_speed_kt": 222,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          9.959444,
+          105.133056
+        ]
+      ]
+    },
+    {
+      "callsign": "AXJ252",
+      "aircraft_type": "B738",
+      "lat": 10.226330519034319,
+      "lon": 106.64352045662982,
+      "heading_deg": 180.6688006273982,
+      "altitude_ft": 15500,
+      "ground_speed_kt": 189,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          10.140278,
+          106.6425
+        ],
+        [
+          9.393333,
+          106.633889
+        ],
+        [
+          8.732778,
+          106.626389
+        ]
+      ]
+    },
+    {
+      "callsign": "QH987",
+      "aircraft_type": "A319",
+      "lat": 9.86535167328676,
+      "lon": 106.63932605787059,
+      "heading_deg": 180.65110478118848,
+      "altitude_ft": 19000,
+      "ground_speed_kt": 189,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          9.393333,
+          106.633889
+        ],
+        [
+          8.732778,
+          106.626389
+        ]
+      ]
+    },
+    {
+      "callsign": "BAV703",
+      "aircraft_type": "B738",
+      "lat": 9.309785417539887,
+      "lon": 106.63293885460942,
+      "heading_deg": 180.64283269073604,
+      "altitude_ft": 15000,
+      "ground_speed_kt": 224,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          8.732778,
+          106.626389
+        ]
+      ]
+    },
+    {
+      "callsign": "PIC779",
+      "aircraft_type": "A319",
+      "lat": 9.195842727545568,
+      "lon": 106.75910818575561,
+      "heading_deg": 15.671533134483942,
+      "altitude_ft": 28000,
+      "ground_speed_kt": 259,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          9.683056,
+          106.897778
+        ],
+        [
+          10.372778,
+          107.094444
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "AXJ427",
+      "aircraft_type": "A320",
+      "lat": 9.71803388233287,
+      "lon": 106.90773081182105,
+      "heading_deg": 15.668446069489146,
+      "altitude_ft": 30000,
+      "ground_speed_kt": 265,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          10.372778,
+          107.094444
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "VJC682",
+      "aircraft_type": "B738",
+      "lat": 10.150791483842411,
+      "lon": 107.03105179582273,
+      "heading_deg": 15.689721656629708,
+      "altitude_ft": 26500,
+      "ground_speed_kt": 261,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          10.372778,
+          107.094444
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "JQ820",
+      "aircraft_type": "A321",
+      "lat": 10.525979932469674,
+      "lon": 106.9420302455191,
+      "heading_deg": 315.61296229148945,
+      "altitude_ft": 28500,
+      "ground_speed_kt": 250,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "VJ240",
+      "aircraft_type": "B789",
+      "lat": 8.028106813976212,
+      "lon": 104.66459054632385,
+      "heading_deg": 35.09835352165215,
+      "altitude_ft": 28500,
+      "ground_speed_kt": 274,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          8.5,
+          105.0
+        ],
+        [
+          9.787222,
+          105.908333
+        ],
+        [
+          10.266389,
+          106.248333
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "QH799",
+      "aircraft_type": "A319",
+      "lat": 8.82035662692669,
+      "lon": 105.22530762711975,
+      "heading_deg": 34.827304528326835,
+      "altitude_ft": 24000,
+      "ground_speed_kt": 266,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          9.787222,
+          105.908333
+        ],
+        [
+          10.266389,
+          106.248333
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "JQ317",
+      "aircraft_type": "B738",
+      "lat": 9.255208347807242,
+      "lon": 105.53192137734163,
+      "heading_deg": 34.87546963542588,
+      "altitude_ft": 24500,
+      "ground_speed_kt": 257,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          9.787222,
+          105.908333
+        ],
+        [
+          10.266389,
+          106.248333
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "SIA620",
+      "aircraft_type": "B738",
+      "lat": 10.069810454863841,
+      "lon": 106.1086962268782,
+      "heading_deg": 34.94814927715604,
+      "altitude_ft": 30000,
+      "ground_speed_kt": 252,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "LANDING",
+      "route_waypoints": [
+        [
+          10.266389,
+          106.248333
+        ],
+        [
+          10.818333,
+          106.650556
+        ]
+      ]
+    },
+    {
+      "callsign": "THA664",
+      "aircraft_type": "B77W",
+      "lat": 11.985907315314856,
+      "lon": 108.29645231639869,
+      "heading_deg": 346.0393415674699,
+      "altitude_ft": 35000,
+      "ground_speed_kt": 288,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          12.666389,
+          108.123056
+        ]
+      ]
+    },
+    {
+      "callsign": "HVN802",
+      "aircraft_type": "A319",
+      "lat": 12.17989575510256,
+      "lon": 108.24711546336498,
+      "heading_deg": 346.02901402851205,
+      "altitude_ft": 37000,
+      "ground_speed_kt": 283,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          12.666389,
+          108.123056
+        ]
+      ]
+    },
+    {
+      "callsign": "SIA536",
+      "aircraft_type": "B789",
+      "lat": 12.453849180422335,
+      "lon": 108.17731417696304,
+      "heading_deg": 346.0141241065843,
+      "altitude_ft": 33000,
+      "ground_speed_kt": 274,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          12.666389,
+          108.123056
+        ]
+      ]
+    }
+  ]
+}

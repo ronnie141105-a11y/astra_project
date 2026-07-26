@@ -1,0 +1,29 @@
+{
+  "name": "crosstraffic",
+  "aircraft": [
+    {
+      "callsign": "HVN101",
+      "aircraft_type": "A321",
+      "lat": 10.96838601422467,
+      "lon": 106.67,
+      "heading_deg": 180.0,
+      "altitude_ft": 34000.0,
+      "ground_speed_kt": 60,
+      "vertical_speed_fpm": 0.0,
+      "on_route": false,
+      "flight_type": null
+    },
+    {
+      "callsign": "VJC202",
+      "aircraft_type": "A320",
+      "lat": 10.81996999336341,
+      "lon": 106.79218368747675,
+      "heading_deg": 270.0,
+      "altitude_ft": 34000.0,
+      "ground_speed_kt": 65,
+      "vertical_speed_fpm": 0.0,
+      "on_route": false,
+      "flight_type": null
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "name": "arrivaltraffic",
+  "aircraft": [
+    {
+      "callsign": "HVN101",
+      "aircraft_type": "A321",
+      "lat": 12.735748522000058,
+      "lon": 108.1165995087138,
+      "heading_deg": 174.810465312279,
+      "altitude_ft": 35500.0,
+      "ground_speed_kt": 290.0,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          12.666389,
+          108.123056
+        ],
+        [
+          11.190833,
+          107.323889
+        ],
+        [
+          10.939167,
+          107.188333
+        ]
+      ]
+    },
+    {
+      "callsign": "VJC202",
+      "aircraft_type": "A320",
+      "lat": 13.037497122126119,
+      "lon": 108.12802078675699,
+      "heading_deg": 180.78970636043567,
+      "altitude_ft": 35000.0,
+      "ground_speed_kt": 350.0,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          12.666389,
+          108.122778
+        ],
+        [
+          11.916944,
+          108.108056
+        ],
+        [
+          10.939167,
+          107.188333
+        ]
+      ]
+    },
+    {
+      "callsign": "BAV404",
+      "aircraft_type": "B738",
+      "lat": 11.878383689874823,
+      "lon": 108.78006587622724,
+      "heading_deg": 251.93104631431476,
+      "altitude_ft": 35000.0,
+      "ground_speed_kt": 260.0,
+      "vertical_speed_fpm": 0.0,
+      "on_route": true,
+      "flight_type": "OVERFLIGHT",
+      "route_waypoints": [
+        [
+          11.833889,
+          108.640833
+        ],
+        [
+          11.754167,
+          108.355278
+        ],
+        [
+          11.233056,
+          107.6075
+        ],
+        [
+          10.939167,
+          107.188333
+        ]
+      ]
+    }
+  ]
+}

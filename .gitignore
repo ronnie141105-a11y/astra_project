@@ -51,6 +51,3 @@ Thumbs.db
 *.log
 .ipynb_checkpoints/
 
-# Scenario Builder local saves (generated at runtime, not source)
-scenarios/builder/*.json
-!scenarios/builder/merge.json
