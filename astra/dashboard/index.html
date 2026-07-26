@@ -179,6 +179,11 @@
         // the "still triggers / no longer triggers" boundary, not a
         // cosmetic buffer. See drawComplexityRegions() in dashboard.js.
         window.ASTRA_SEPARATION_NM = {{ separation_horizontal_nm }};
+        // Alert Box display filter -- a hotspot below this complexity
+        // score still exists as an open, resolvable/forecastable track
+        // (map/timeline/resolution panels are unaffected), it just
+        // isn't shown in the Alert Box table. See renderTracksTable().
+        window.ASTRA_ALERT_MIN_COMPLEXITY = {{ alert_min_complexity_score }};
         window.ASTRA_GEO_MANIFEST_URL = "{{ url_for('static', filename='geo/manifest.json') }}";
     </script>
     <script src="{{ url_for('static', filename='geo_layers.js') }}"></script>

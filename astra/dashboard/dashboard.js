@@ -2304,9 +2304,21 @@
         return `<tr class="placeholder-row">${"<td>\u2013</td>".repeat(7)}</tr>`;
     }
 
+    /** The complexity value the Alert Box (and its min-complexity filter)
+     * shows for a track: current real complexity once observed, else
+     * `peak_complexity` (already populated from provisional-horizon
+     * entries for a still-provisional track -- see FourDArhac.peak_complexity). */
+    function trackDisplayComplexity(t) {
+        return t.current_complexity_score !== null ? t.current_complexity_score : t.peak_complexity;
+    }
+
     function renderTracksTable(cycle, onSelect) {
         const tbody = document.getElementById("tracks-tbody");
-        const tracks = cycle.tracks;
+        const minComplexity = window.ASTRA_ALERT_MIN_COMPLEXITY || 0;
+        // Below-threshold tracks are still open/tracked/resolvable --
+        // this only hides them from this one table (see
+        // ASTRAConfig.dashboard_alert_min_complexity_score's docstring).
+        const tracks = cycle.tracks.filter((t) => trackDisplayComplexity(t) >= minComplexity);
         if (tracks.length === 0) {
             const filler = Array.from({ length: MIN_ALERT_ROWS - 1 }, placeholderRowHtml).join("");
             tbody.innerHTML = '<tr><td colspan="7" class="empty-row">No open tracks.</td></tr>' + filler;
@@ -2326,7 +2338,7 @@
                 const onsetInS = t.predicted_onset_s === null ? null : t.predicted_onset_s - nowS;
                 const onsetLabel = onsetInS === null ? "-" : countdownFmt(onsetInS);
                 const actByLabel = t.predicted_onset_s === null ? "-" : clockFmt(t.predicted_onset_s);
-                const complexityNow = t.current_complexity_score !== null ? t.current_complexity_score : t.peak_complexity;
+                const complexityNow = trackDisplayComplexity(t);
                 const selected = t.arhac_id === ui.selectedArhacId ? "selected" : "";
                 return `
             <tr class="${selected}" data-arhac-id="${t.arhac_id}">

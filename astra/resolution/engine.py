@@ -101,11 +101,29 @@ from astra.utils.logger import get_logger
 
 _LOG = get_logger(__name__)
 
-#: Statuses eligible for resolution -- mirrors ForecastEngine's own
-#: `_FORECASTABLE_STATUSES` (see docs/milestone_7_resolution_design_review.md
-#: §3): a track additionally needs `forecast_urgency_rank is not None`
-#: (an actual predicted onset to react to), checked separately below.
-_RESOLVABLE_STATUSES = frozenset({"CONFIRMED", "GROWING", "PEAK", "DISSIPATING"})
+#: Statuses eligible for resolution. As of
+#: docs/backend_improvements_backlog.md "Predictive resolution for
+#: provisional (not-yet-observed) hotspots", this now includes
+#: ``"PROVISIONAL"`` -- previously excluded, which meant a hotspot
+#: forecast 10-20 minutes ahead by ``ForecastEngine`` got no candidate
+#: clearances at all until the two aircraft were *already* within
+#: ``separation_horizontal_nm`` of each other right now (the real,
+#: horizon-0 DBSCAN clustering threshold ``astra.hotspot.engine``
+#: matches tracks against -- see ``ClusterEngine``), by which point a
+#: controller has very little runway left to act. A still-provisional
+#: track has no real observation to anchor on (see `FourDArhac.track`'s
+#: docstring), so `_anchor_region`/`_matched_region` below fall back to
+#: its `provisional_track` (the predicted-only history) instead --
+#: candidates are still generated from the *current, real* aircraft
+#: states in `snapshot` (so "the solution" is something ATC can issue
+#: right now), just scored against the *predicted future* complexity at
+#: the hotspot's own horizon (`before_region`/`after` come from
+#: `regions_by_horizon[h]`/the re-predicted hypothetical snapshot at
+#: horizon `h`, never the current-moment complexity) -- unchanged from
+#: how a CONFIRMED track was already scored, see `_evaluate`.
+_RESOLVABLE_STATUSES = frozenset(
+    {"PROVISIONAL", "CONFIRMED", "GROWING", "PEAK", "DISSIPATING"}
+)
 
 
 class ResolutionEngine:
@@ -248,10 +266,35 @@ class ResolutionEngine:
         # window clears the bar (still exposed via `candidates_by_horizon`
         # for visibility).
         def _has_effective_option(h: int) -> bool:
+            """Whether *any* candidate at horizon `h` genuinely reduces complexity.
+
+            Deliberately checks every candidate, not just
+            ``candidates_by_horizon[h][0]`` -- that first entry is the
+            *weighted-score* winner (``resolution_score``, which also
+            factors in deviation/fuel cost and the domino penalty), and
+            a cheap, low-deviation candidate with zero real effect can
+            legitimately out-rank an effective-but-costlier one on that
+            weighted score alone. Using only the score-sorted top entry
+            here meant a horizon with a real fix available could still
+            be skipped in favour of an earlier, still-open horizon whose
+            *only* candidates happened to be ineffective -- exactly the
+            "detected 10-20 min out but the recommended horizon was
+            useless" failure mode this whole lookahead sweep exists to
+            avoid (see docs/backend_improvements_backlog.md "Predictive
+            resolution for provisional hotspots").
+
+            Compared against `resolution_min_effective_delta_norm`, not
+            a bare ``> 0`` -- a strictly-positive-but-negligible
+            improvement (a joint candidate trimming complexity by a
+            fraction of a percent, well within the scoring model's own
+            noise) shouldn't itself justify recommending an earlier,
+            weaker horizon over a later one with a real fix.
+            """
             singles = candidates_by_horizon.get(h) or []
             joints = joint_candidates_by_horizon.get(h) or []
-            return (singles and singles[0].complexity_delta_norm > 0) or (
-                joints and joints[0].complexity_delta_norm > 0
+            threshold = self._config.resolution_min_effective_delta_norm
+            return any(c.complexity_delta_norm > threshold for c in singles) or any(
+                c.complexity_delta_norm > threshold for c in joints
             )
 
         recommended_h = next(
@@ -296,13 +339,31 @@ class ResolutionEngine:
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _anchor_region(track: FourDArhac) -> Optional[ComplexityRegion]:
+        """The region a track's own identity/timing is anchored on.
+
+        The most recent *real* (horizon-0) entry when there is one, else
+        the most recent *provisional* (predicted-only) entry -- so a
+        still-provisional track (no real observation yet, `track.track`
+        empty) can still be matched against future horizons and timed
+        against its own predicted onset, exactly as a real track already
+        was. `None` only for a track with neither (should not happen for
+        any track `TrackerEngine` has actually opened).
+        """
+        if track.track:
+            return track.track[-1]
+        if track.provisional_track:
+            return track.provisional_track[-1]
+        return None
+
+    @staticmethod
     def _eligible(track: FourDArhac) -> bool:
         """True if a track should be resolved this cycle (§3, OQ-5)."""
         return (
             track.status in _RESOLVABLE_STATUSES
             and track.forecast_urgency_rank is not None
             and track.predicted_onset_s is not None
-            and bool(track.track)
+            and (bool(track.track) or bool(track.provisional_track))
         )
 
     def _closest_horizon(self, track: FourDArhac) -> int:
@@ -317,10 +378,19 @@ class ResolutionEngine:
         the full lookahead sweep.
         """
         horizons = self._config.prediction_horizons_min
-        if track.predicted_onset_s is None or not track.track:
+        anchor = self._anchor_region(track)
+        if track.predicted_onset_s is None or anchor is None:
             return min(horizons)
-        anchor_time_s = track.track[-1].computed_at_s
-        target_lead_s = max(0.0, track.predicted_onset_s - anchor_time_s)
+        # `track.last_updated_cycle_s` -- not `anchor.computed_at_s` -- is
+        # "now" here. For a real entry the two happen to be equal, but for
+        # a still-provisional track `anchor.computed_at_s` is the FUTURE
+        # time the predicted cluster is valid at (`now + horizon*60`, see
+        # `FourDArhac.first_detected_cycle_s`'s docstring) -- using it as
+        # "now" collapsed `target_lead_s` to almost nothing and made every
+        # provisional track's lookahead window resolve to just the
+        # nearest-to-zero configured horizon (5 min), which almost never
+        # has a matched region yet for a hotspot still 10-20+ minutes out.
+        target_lead_s = max(0.0, track.predicted_onset_s - track.last_updated_cycle_s)
         return min(horizons, key=lambda h: abs(h * 60 - target_lead_s))
 
     def _lookahead_horizons(self, track: FourDArhac) -> List[int]:
@@ -349,11 +419,14 @@ class ResolutionEngine:
             single meaningful horizon.
         """
         horizons = sorted(self._config.prediction_horizons_min)
-        if track.predicted_onset_s is None or not track.track:
+        anchor = self._anchor_region(track)
+        if track.predicted_onset_s is None or anchor is None:
             return horizons
 
-        anchor_time_s = track.track[-1].computed_at_s
-        target_lead_s = max(0.0, track.predicted_onset_s - anchor_time_s)
+        # See `_closest_horizon`'s comment: `track.last_updated_cycle_s`
+        # is "now", not `anchor.computed_at_s` (a future time for a
+        # still-provisional track's anchor).
+        target_lead_s = max(0.0, track.predicted_onset_s - track.last_updated_cycle_s)
         in_window = [h for h in horizons if h * 60 <= target_lead_s]
         return in_window or [self._closest_horizon(track)]
 
@@ -368,14 +441,20 @@ class ResolutionEngine:
         Reuses ``best_cluster_match`` (the same primitive
         ``astra.forecast.horizon_series`` uses) rather than reimplementing
         matching -- this is the "before" state every candidate is scored
-        against.
+        against. Anchored on `_anchor_region(track)` (real if the track
+        has ever been observed, else its most recent provisional entry),
+        not `track.track[-1]` directly, so a still-provisional track can
+        be matched too.
         """
         regions = regions_by_horizon.get(horizon_min, [])
         if not regions:
             return None
+        anchor = self._anchor_region(track)
+        if anchor is None:
+            return None
         region_by_cluster = {region.cluster: region for region in regions}
         match = best_cluster_match(
-            track.track[-1].cluster,
+            anchor.cluster,
             list(region_by_cluster.keys()),
             self._config.tracking_jaccard_threshold,
         )

@@ -319,6 +319,17 @@ class ASTRAConfig:
     #: trajectory/cluster/complexity pipeline per candidate per track.
     resolution_max_tracks_per_cycle: int = 5
 
+    #: Minimum `complexity_delta_norm` for a candidate to count as a
+    #: "genuinely effective option" when `ResolutionEngine.resolve()`
+    #: picks which lookahead horizon to recommend (see
+    #: `_has_effective_option`). A strictly-positive-but-negligible
+    #: improvement (e.g. a joint candidate reducing complexity by 0.3%,
+    #: well within the model's own noise) should not itself justify
+    #: recommending an earlier, weaker horizon over a later one with a
+    #: real fix available -- this is the bar for "real", not just
+    #: "technically nonzero".
+    resolution_min_effective_delta_norm: float = 0.05
+
     # ------------------------------------------------------------------
     # Phase 8 - dashboard / HMI (astra.dashboard)
     # See docs/milestone_8_dashboard_design_review.md (proposed config
@@ -349,6 +360,20 @@ class ASTRAConfig:
     #: this backend cap -- keep this generous so the frontend always
     #: receives the engine's real output to paginate over.
     dashboard_max_resolution_candidates_shown: int = 20
+
+    #: Minimum `complexity_score` (0-100 scale) for a hotspot to be
+    #: shown in the Alert Box table -- a low-complexity provisional/
+    #: candidate track (e.g. two aircraft merely converging in the
+    #: distance, well before any real risk) still exists as an open
+    #: `FourDArhac` and is still resolvable/forecastable, it just isn't
+    #: worth a controller's attention yet. Filtering happens purely in
+    #: the frontend (`dashboard.js`'s `renderTracksTable`) against the
+    #: same displayed value the table itself already shows (current
+    #: real complexity if observed, else `peak_complexity`) -- the map,
+    #: timeline, and resolution panels are unaffected, so a track just
+    #: below this bar can still be selected/resolved once found another
+    #: way, and still appears the moment it crosses the bar.
+    dashboard_alert_min_complexity_score: float = 30.0
 
     # ------------------------------------------------------------------
     # Phase 9 - sector complexity (astra.complexity.sector)
@@ -487,11 +512,15 @@ class ASTRAConfig:
             )
         if self.resolution_max_tracks_per_cycle < 1:
             raise ValueError("resolution_max_tracks_per_cycle must be >= 1")
+        if not (0.0 <= self.resolution_min_effective_delta_norm <= 1.0):
+            raise ValueError("resolution_min_effective_delta_norm must be in [0, 1]")
 
         if not (0 < self.dashboard_port <= 65535):
             raise ValueError("dashboard_port must be in (0, 65535], got " f"{self.dashboard_port}")
         if self.dashboard_max_resolution_candidates_shown < 1:
             raise ValueError("dashboard_max_resolution_candidates_shown must be >= 1")
+        if not (0.0 <= self.dashboard_alert_min_complexity_score <= 100.0):
+            raise ValueError("dashboard_alert_min_complexity_score must be in [0, 100]")
 
         if self.sector_bucket_s <= 0:
             raise ValueError("sector_bucket_s must be > 0")

@@ -574,24 +574,91 @@ def test_provisional_track_goes_stale_and_closes(r: Runner) -> None:
     r.check("closed status", tracks[0].status == "CLOSED")
 
 
-def test_provisional_track_never_resolvable(r: Runner) -> None:
-    """A PROVISIONAL track never clears ResolutionEngine's eligibility bar."""
+def test_provisional_track_resolvable_with_forecast(r: Runner) -> None:
+    """A PROVISIONAL track WITH a forecast onset/urgency now IS resolvable --
+    the whole point of docs/backend_improvements_backlog.md "Predictive
+    resolution for provisional (not-yet-observed) hotspots": a hotspot
+    flagged 10-20+ minutes ahead by ForecastEngine should get real
+    candidate clearances well before the two aircraft are anywhere near
+    a real (horizon-0) DBSCAN cluster, not only once they already are.
+    Candidates are still built from the real, *current* aircraft states
+    (so ATC has something it can actually issue right now), scored
+    against the *predicted future* complexity at the hotspot's own
+    horizon -- not the (currently low/nonexistent) complexity of where
+    the aircraft are right this moment.
+    """
+    from astra.interface.traffic_state import AircraftState, TrafficSnapshot
     from astra.resolution.engine import ResolutionEngine
 
     config = ASTRAConfig(tracking_provisional_min_complexity=25.0)
-    tracker = TrackerEngine(config)
-    provisional_tracks = tracker.update(
-        {0: [], 30: [_region(["A1", "A2"], score=40.0, valid_at_s=1800.0, label=0)]}
+    # The predicted region 30 minutes out -- what TrackerEngine would have
+    # opened a provisional track from.
+    predicted_region = _region(["A1", "A2"], score=60.0, valid_at_s=1800.0, label=0)
+    track = FourDArhac(
+        arhac_id="PROV1",
+        status="PROVISIONAL",
+        track=[],
+        provisional_track=[predicted_region],
+        member_aircraft=frozenset({"A1", "A2"}),
+        first_detected_cycle_s=0.0,
+        last_updated_cycle_s=0.0,  # "now" -- real cycle time, not a future one
+        predicted_onset_s=1800.0,  # exactly the 30-min configured horizon
+        forecast_urgency_rank=1,
     )
-    track = provisional_tracks[0]
-    track.forecast_urgency_rank = 1  # even if somehow ranked urgent
-    track.predicted_onset_s = 600.0
+
+    # Real, CURRENT aircraft positions -- ~60 NM apart right now, well
+    # outside separation_horizontal_nm (no real cluster exists yet), but
+    # converging toward the predicted region above.
+    a = AircraftState(
+        callsign="A1", lat=47.0, lon=7.5, altitude_ft=35000.0,
+        ground_speed_kt=480.0, heading_deg=90.0, vertical_speed_fpm=0.0,
+        aircraft_type="A320", timestamp_s=0.0,
+    )
+    b = AircraftState(
+        callsign="A2", lat=47.0, lon=8.5, altitude_ft=35000.0,
+        ground_speed_kt=480.0, heading_deg=270.0, vertical_speed_fpm=0.0,
+        aircraft_type="A320", timestamp_s=0.0,
+    )
+    snapshot = TrafficSnapshot(timestamp_s=0.0, aircraft={"A1": a, "A2": b})
 
     engine = ResolutionEngine(config)
-    snapshot = _snapshot_stub(["A1", "A2"])
-    rs = engine.resolve(track, snapshot, {30: [track.provisional_track[0]]})
+    rs = engine.resolve(track, snapshot, {30: [predicted_region]})
 
-    r.check("no candidates generated for a PROVISIONAL track", rs.candidates == [])
+    r.check(
+        "candidates ARE generated for a still-provisional, forecast track",
+        len(rs.candidates) > 0,
+    )
+    r.check("evaluated at the predicted 30-min horizon", rs.evaluated_horizon_min == 30)
+    r.check(
+        "every candidate targets a real, current aircraft (A1 or A2)",
+        all(c.target_callsign in ("A1", "A2") for c in rs.candidates),
+    )
+
+
+def test_provisional_track_without_forecast_not_yet_resolvable(r: Runner) -> None:
+    """A PROVISIONAL track with no onset/urgency estimate yet (too new
+    for ForecastEngine to have computed one) is correctly still not
+    resolvable -- `_eligible` requires those regardless of provisional
+    vs. real, there just isn't a target time to react to yet."""
+    from astra.resolution.engine import ResolutionEngine
+
+    config = ASTRAConfig(tracking_provisional_min_complexity=25.0)
+    predicted_region = _region(["A1", "A2"], score=60.0, valid_at_s=1800.0, label=0)
+    track = FourDArhac(
+        arhac_id="PROV2",
+        status="PROVISIONAL",
+        track=[],
+        provisional_track=[predicted_region],
+        member_aircraft=frozenset({"A1", "A2"}),
+        first_detected_cycle_s=0.0,
+        last_updated_cycle_s=0.0,
+        predicted_onset_s=None,  # no estimate yet
+        forecast_urgency_rank=None,
+    )
+    engine = ResolutionEngine(config)
+    rs = engine.resolve(track, _snapshot_stub(["A1", "A2"]), {30: [predicted_region]})
+
+    r.check("no candidates without a forecast onset yet", rs.candidates == [])
     r.check("no joint candidate either", rs.joint_candidate is None)
 
 
@@ -636,7 +703,8 @@ def main() -> None:
     test_provisional_track_does_not_duplicate_within_one_cycle(r)
     test_provisional_track_promotes_on_real_observation(r)
     test_provisional_track_goes_stale_and_closes(r)
-    test_provisional_track_never_resolvable(r)
+    test_provisional_track_resolvable_with_forecast(r)
+    test_provisional_track_without_forecast_not_yet_resolvable(r)
     r.summary()
 
 

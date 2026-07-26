@@ -46,6 +46,7 @@ def build_blueprint(store: CycleStore, config: ASTRAConfig) -> Blueprint:
             dashboard_host=config.dashboard_host,
             dashboard_port=config.dashboard_port,
             separation_horizontal_nm=config.separation_horizontal_nm,
+            alert_min_complexity_score=config.dashboard_alert_min_complexity_score,
         )
 
     @blueprint.route("/state")
